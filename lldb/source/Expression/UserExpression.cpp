@@ -98,28 +98,33 @@ bool UserExpression::MatchesContext(ExecutionContext &exe_ctx) {
   return LockAndCheckContext(exe_ctx, target_sp, process_sp, frame_sp);
 }
 
-lldb::addr_t UserExpression::GetObjectPointer(lldb::StackFrameSP frame_sp,
-                                              ConstString &object_name,
-                                              Status &err) {
+lldb::ValueObjectSP UserExpression::GetObjectPointerValueObject(
+    StackFrame *frame, ConstString const &object_name, Status &err) {
   err.Clear();
 
-  if (!frame_sp) {
+  if (!frame) {
     err.SetErrorStringWithFormat(
         "Couldn't load '%s' because the context is incomplete",
         object_name.AsCString());
-    return LLDB_INVALID_ADDRESS;
+    return {};
   }
 
   lldb::VariableSP var_sp;
   lldb::ValueObjectSP valobj_sp;
 
-  valobj_sp = frame_sp->GetValueForVariableExpressionPath(
+  return frame->GetValueForVariableExpressionPath(
       object_name.GetStringRef(), lldb::eNoDynamicValues,
       StackFrame::eExpressionPathOptionCheckPtrVsMember |
           StackFrame::eExpressionPathOptionsNoFragileObjcIvar |
           StackFrame::eExpressionPathOptionsNoSyntheticChildren |
           StackFrame::eExpressionPathOptionsNoSyntheticArrayRange,
       var_sp, err);
+}
+
+lldb::addr_t UserExpression::GetObjectPointer(lldb::StackFrameSP frame_sp,
+                                              ConstString &object_name,
+                                              Status &err) {
+  auto valobj_sp = GetObjectPointerValueObject(frame_sp.get(), object_name, err);
 
   if (!err.Success() || !valobj_sp.get())
     return LLDB_INVALID_ADDRESS;

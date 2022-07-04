@@ -546,6 +546,10 @@ private:
   void AddOneVariable(NameSearchContext &context, lldb::VariableSP var,
                       lldb::ValueObjectSP valobj);
 
+  ClangExpressionVariable::ParserVars *
+  AddExpressionVariable(NameSearchContext &context, TypeFromParser const &pt,
+                        TypeFromUser const &ut, lldb::ValueObjectSP valobj);
+
   /// Use the NameSearchContext to generate a Decl for the given persistent
   /// variable, and put it in the list of found entities.
   ///
@@ -557,9 +561,16 @@ private:
   void AddOneVariable(NameSearchContext &context,
                       lldb::ExpressionVariableSP &pvar_sp);
 
+  void AddOneVariable(NameSearchContext &context, lldb::ValueObjectSP valobj);
+
   /// Use the NameSearchContext to generate a Decl for the given LLDB symbol
   /// (treated as a variable), and put it in the list of found entities.
   void AddOneGenericVariable(NameSearchContext &context, const Symbol &symbol);
+
+  bool GetVariableFromValueObject(CompilerType &comp_type,
+                                  lldb_private::Value &var_location,
+                                  TypeFromUser *user_type,
+                                  TypeFromParser *parser_type);
 
   /// Use the NameSearchContext to generate a Decl for the given function.
   /// (Functions are not placed in the Tuple list.)  Can handle both fully

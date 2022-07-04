@@ -280,6 +280,10 @@ protected:
   static lldb::addr_t GetObjectPointer(lldb::StackFrameSP frame_sp,
                                        ConstString &object_name, Status &err);
 
+  static lldb::ValueObjectSP
+  GetObjectPointerValueObject(StackFrame *frame, ConstString const &object_name,
+                       Status &err);
+
   /// Populate m_in_cplusplus_method and m_in_objectivec_method based on the
   /// environment.
 

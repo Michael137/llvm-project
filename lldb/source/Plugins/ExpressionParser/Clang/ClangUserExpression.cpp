@@ -13,6 +13,7 @@
 #include <map>
 #include <string>
 
+#include "ClangExpressionSourceCode.h"
 #include "ClangUserExpression.h"
 
 #include "ASTResultSynthesizer.h"
@@ -29,6 +30,7 @@
 #include "lldb/Core/Module.h"
 #include "lldb/Core/StreamFile.h"
 #include "lldb/Core/ValueObjectConstResult.h"
+#include "lldb/Expression/DiagnosticManager.h"
 #include "lldb/Expression/ExpressionSourceCode.h"
 #include "lldb/Expression/IRExecutionUnit.h"
 #include "lldb/Expression/IRInterpreter.h"

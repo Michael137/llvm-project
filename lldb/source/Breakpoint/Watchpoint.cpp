@@ -14,6 +14,7 @@
 #include "lldb/Core/ValueObjectMemory.h"
 #include "lldb/Expression/UserExpression.h"
 #include "lldb/Symbol/TypeSystem.h"
+#include "lldb/Target/ExecutionContext.h"
 #include "lldb/Target/Process.h"
 #include "lldb/Target/Target.h"
 #include "lldb/Target/ThreadSpec.h"
@@ -286,9 +287,11 @@ void Watchpoint::SetCondition(const char *condition) {
   } else {
     // Pass nullptr for expr_prefix (no translation-unit level definitions).
     Status error;
+    ExecutionContext exe_ctx;
     m_condition_up.reset(m_target.GetUserExpressionForLanguage(
         condition, llvm::StringRef(), lldb::eLanguageTypeUnknown,
         UserExpression::eResultTypeAny, EvaluateExpressionOptions(), nullptr,
+        exe_ctx,
         error));
     if (error.Fail()) {
       // FIXME: Log something...

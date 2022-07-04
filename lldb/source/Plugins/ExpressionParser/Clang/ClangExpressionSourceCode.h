@@ -39,7 +39,9 @@ public:
     ObjCStaticMethod,
     /// Wrapped in a non-member function.
     /// Note that this is also used for static member functions of a C++ class.
-    Function
+    Function,
+    /// Wrapped in a lambda in a non-static member function of a C++ class
+    CppMemberFunctionLambda,
   };
 
   static ClangExpressionSourceCode *CreateWrapped(llvm::StringRef filename,
@@ -64,7 +66,7 @@ public:
   /// \return true iff the source code was successfully generated.
   bool GetText(std::string &text, ExecutionContext &exe_ctx, bool add_locals,
                bool force_add_all_locals,
-               llvm::ArrayRef<std::string> modules) const;
+               llvm::ArrayRef<std::string> modules);
 
   // Given a string returned by GetText, find the beginning and end of the body
   // passed to CreateWrapped. Return true if the bounds could be found.  This
@@ -72,15 +74,22 @@ public:
   bool GetOriginalBodyBounds(std::string transformed_text,
                              size_t &start_loc, size_t &end_loc);
 
+  static llvm::Optional<std::string> WrapInLambda(std::string const& body,
+                                                  ExecutionContext const& exe_ctx);
+
 protected:
   ClangExpressionSourceCode(llvm::StringRef filename, llvm::StringRef name,
                             llvm::StringRef prefix, llvm::StringRef body,
                             Wrapping wrap, WrapKind wrap_kind);
 
 private:
-  void AddLocalVariableDecls(const lldb::VariableListSP &var_list_sp,
-                             StreamString &stream,
-                             const std::string &expr) const;
+  static void AddLocalVariableDecls(const lldb::VariableListSP &var_list_sp,
+                                    StreamString &stream,
+                                    const std::string &expr,
+                                    StackFrame* frame, WrapKind wrapKind);
+  static void AddLocals(ExecutionContext const& exe_ctx, Target* target,
+                        StackFrame* frame, std::string const& body,
+                        StreamString& local_var_decls, WrapKind wrapKind);
 
   /// String marking the start of the user expression.
   std::string m_start_marker;

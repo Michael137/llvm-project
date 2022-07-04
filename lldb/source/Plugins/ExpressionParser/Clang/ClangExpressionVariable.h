@@ -116,7 +116,7 @@ public:
   /// The following values should not live beyond parsing
   class ParserVars {
   public:
-    ParserVars() : m_lldb_value(), m_lldb_var() {}
+    ParserVars() = default;
 
     const clang::NamedDecl *m_named_decl =
         nullptr; ///< The Decl corresponding to this variable
@@ -129,6 +129,7 @@ public:
     const lldb_private::Symbol *m_lldb_sym =
         nullptr; ///< The original symbol for this
                  /// variable, if it was a symbol
+    lldb::ValueObjectSP m_lldb_value_object; ///< ValueObject for this variable
   };
 
 private:

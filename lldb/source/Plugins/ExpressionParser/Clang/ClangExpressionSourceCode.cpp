@@ -12,6 +12,7 @@
 #include "clang/Basic/FileManager.h"
 #include "clang/Basic/SourceManager.h"
 #include "clang/Lex/Lexer.h"
+#include "llvm/ADT/Optional.h"
 #include "llvm/ADT/StringRef.h"
 
 #include "Plugins/ExpressionParser/Clang/ClangModulesDeclVendor.h"
@@ -266,7 +267,8 @@ TokenVerifier::TokenVerifier(std::string body) {
 
 void ClangExpressionSourceCode::AddLocalVariableDecls(
     const lldb::VariableListSP &var_list_sp, StreamString &stream,
-    const std::string &expr) const {
+    const std::string &expr, StackFrame *frame,
+    WrapKind wrapKind) {
   TokenVerifier tokens(expr);
 
   for (size_t i = 0; i < var_list_sp->GetSize(); i++) {
@@ -274,6 +276,31 @@ void ClangExpressionSourceCode::AddLocalVariableDecls(
 
     ConstString var_name = var_sp->GetName();
 
+    if (var_name == "this") {
+      if(wrapKind == WrapKind::CppMemberFunctionLambda) {
+        if (auto thisValSP = frame->FindVariable(ConstString("this"))) {
+          if (auto thisThisValSP = thisValSP->GetChildMemberWithName(ConstString("this"), true)) {
+             // We're inside a lambda...
+             uint32_t numChildren = thisValSP->GetNumChildren();
+             for (uint32_t i = 0; i < numChildren; ++i) {
+               auto childVal = thisValSP->GetChildAtIndex(i, true);
+               ConstString childName(childVal ? childVal->GetName() : ConstString(""));
+               if (!childName.IsEmpty()
+                   && tokens.hasToken(childName.GetStringRef())
+                   && childName != "this") {
+                 stream.Printf("using $__lldb_local_vars::%s;\n",
+                               childName.GetCString());
+               }
+             }
+          }
+        }
+
+        continue;
+      }
+      
+      if (wrapKind == WrapKind::CppMemberFunction)
+        continue;
+    }
 
     // We can check for .block_descriptor w/o checking for langauge since this
     // is not a valid identifier in either C or C++.
@@ -283,21 +310,71 @@ void ClangExpressionSourceCode::AddLocalVariableDecls(
     if (!expr.empty() && !tokens.hasToken(var_name.GetStringRef()))
       continue;
 
-    const bool is_objc = m_wrap_kind == WrapKind::ObjCInstanceMethod ||
-                         m_wrap_kind == WrapKind::ObjCStaticMethod;
+    const bool is_objc = wrapKind == WrapKind::ObjCInstanceMethod ||
+                         wrapKind == WrapKind::ObjCStaticMethod;
     if ((var_name == "self" || var_name == "_cmd") && is_objc)
-      continue;
-
-    if (var_name == "this" && m_wrap_kind == WrapKind::CppMemberFunction)
       continue;
 
     stream.Printf("using $__lldb_local_vars::%s;\n", var_name.AsCString());
   }
 }
 
+llvm::Optional<std::string>
+ClangExpressionSourceCode::WrapInLambda(std::string const& body, ExecutionContext const& exe_ctx) {
+    // TODO: should probably take StackFrame instead of ExecutionContext
+    StackFrame* frame = exe_ctx.GetFramePtr();
+    if(!frame) {
+        return body; // TODO: this makes optional return value redundant
+    }
+
+    Target* target = exe_ctx.GetTargetPtr();
+    if (!target) {
+        return body;
+    }
+
+    // TODO: could just call AddLocalVariableDecls here
+    bool insideLambda = false;
+    StreamString sstr;
+    TokenVerifier tokens(body);
+    if (auto thisValSP = frame->FindVariable(ConstString("this"))) {
+      if (auto thisThisValSP = thisValSP->GetChildMemberWithName(ConstString("this"), true)) {
+        insideLambda = true;
+        uint32_t numChildren = thisValSP->GetNumChildren();
+        //sstr.Printf("auto $__lldb_lambda_var = [this");
+        sstr.Printf("[this] {\n");
+
+        AddLocals(exe_ctx, exe_ctx.GetTargetPtr(), frame, body, sstr,
+                  WrapKind::CppMemberFunctionLambda);
+      }
+    }
+
+    if(insideLambda) {
+      //sstr.Printf("return %s;\n};\n\n", body.c_str());
+      //sstr.Printf("$__lldb_lambda_var()\n");
+
+      sstr.Printf("return %s;\n}()\n\n", body.c_str());
+      sstr.Flush();
+      return std::string{sstr.GetString()};
+    }
+
+    return body;
+}
+
+void ClangExpressionSourceCode::AddLocals(ExecutionContext const& exe_ctx, Target* target,
+                                          StackFrame* frame, std::string const& body,
+                                          StreamString& local_var_decls, WrapKind wrapKind) {
+  if (target->GetInjectLocalVariables(&exe_ctx)) {
+    lldb::VariableListSP var_list_sp =
+        frame->GetInScopeVariableList(false, true);
+    AddLocalVariableDecls(var_list_sp, local_var_decls,
+                          body, frame, wrapKind);
+  }
+}
+
+// TODO: this function has to be const because we retry the expression
 bool ClangExpressionSourceCode::GetText(
     std::string &text, ExecutionContext &exe_ctx, bool add_locals,
-    bool force_add_all_locals, llvm::ArrayRef<std::string> modules) const {
+    bool force_add_all_locals, llvm::ArrayRef<std::string> modules) {
   const char *target_specific_defines = "typedef signed char BOOL;\n";
   std::string module_macros;
   llvm::raw_string_ostream module_macros_stream(module_macros);
@@ -374,13 +451,10 @@ bool ClangExpressionSourceCode::GetText(
       }
     }
 
-    if (add_locals)
-      if (target->GetInjectLocalVariables(&exe_ctx)) {
-        lldb::VariableListSP var_list_sp =
-            frame->GetInScopeVariableList(false, true);
-        AddLocalVariableDecls(var_list_sp, lldb_local_var_decls,
-                              force_add_all_locals ? "" : m_body);
-      }
+    // TODO: insideLambda should actually just check m_wrap_kind
+    //if (add_locals /*&& m_wrap_kind != WrapKind::CppMemberFunctionLambda*/)
+    //  AddLocals(exe_ctx, target, frame, force_add_all_locals ? "" : m_body,
+    //            lldb_local_var_decls, m_wrap_kind);
   }
 
   if (m_wrap) {
@@ -419,6 +493,7 @@ bool ClangExpressionSourceCode::GetText(
                          lldb_local_var_decls.GetData(), tagged_body.c_str());
       break;
     case WrapKind::CppMemberFunction:
+    case WrapKind::CppMemberFunctionLambda:
       wrap_stream.Printf("%s"
                          "void                                   \n"
                          "$__lldb_class::%s(void *$__lldb_arg)   \n"

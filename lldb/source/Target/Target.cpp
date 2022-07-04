@@ -2358,6 +2358,7 @@ UserExpression *Target::GetUserExpressionForLanguage(
     llvm::StringRef expr, llvm::StringRef prefix, lldb::LanguageType language,
     Expression::ResultType desired_type,
     const EvaluateExpressionOptions &options, ValueObject *ctx_obj,
+    ExecutionContext const &exe_ctx,
     Status &error) {
   auto type_system_or_err = GetScratchTypeSystemForLanguage(language);
   if (auto err = type_system_or_err.takeError()) {
@@ -2369,7 +2370,7 @@ UserExpression *Target::GetUserExpressionForLanguage(
   }
 
   auto *user_expr = type_system_or_err->GetUserExpression(
-      expr, prefix, language, desired_type, options, ctx_obj);
+      expr, prefix, language, desired_type, options, ctx_obj, exe_ctx);
   if (!user_expr)
     error.SetErrorStringWithFormat(
         "Could not create an expression for language %s",
@@ -4023,7 +4024,7 @@ void TargetProperties::UpdateLaunchInfoFromProperties() {
 }
 
 bool TargetProperties::GetInjectLocalVariables(
-    ExecutionContext *exe_ctx) const {
+    ExecutionContext const* exe_ctx) const {
   const Property *exp_property = m_collection_sp->GetPropertyAtIndex(
       exe_ctx, false, ePropertyExperimental);
   OptionValueProperties *exp_values =

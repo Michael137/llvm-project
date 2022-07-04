@@ -15,6 +15,7 @@
 #include "lldb/Symbol/Type.h"
 #include "lldb/Symbol/Variable.h"
 #include "lldb/Target/ExecutionContext.h"
+#include "lldb/Target/LanguageRuntime.h"
 #include "lldb/Target/RegisterContext.h"
 #include "lldb/Target/StackFrame.h"
 #include "lldb/Target/Target.h"
@@ -22,6 +23,7 @@
 #include "lldb/Utility/LLDBLog.h"
 #include "lldb/Utility/Log.h"
 #include "lldb/Utility/RegisterValue.h"
+#include "lldb/lldb-forward.h"
 
 #include <memory>
 
@@ -755,9 +757,358 @@ private:
   lldb::DataBufferSP m_original_data;
 };
 
+class EntityValueObject : public Materializer::Entity {
+public:
+  EntityValueObject(lldb::ValueObjectSP valobj_sp)
+      : Entity(), m_valobj_sp(std::move(valobj_sp)) {
+    // Hard-coding to maximum size of a pointer since all variables are
+    // materialized by reference
+    assert(m_valobj_sp);
+    m_size = 8;
+    m_alignment = 8;
+    m_is_reference =
+        m_valobj_sp->GetCompilerType().IsReferenceType();
+  }
+
+  void Materialize(lldb::StackFrameSP &frame_sp, IRMemoryMap &map,
+                   lldb::addr_t process_address, Status &err) override {
+    Log *log = GetLog(LLDBLog::Expressions);
+
+    const lldb::addr_t load_addr = process_address + m_offset;
+    if (log) {
+      LLDB_LOGF(log,
+                "EntityValueObject::Materialize [address = 0x%" PRIx64
+                ", m_valobj_sp = %s]",
+                (uint64_t)load_addr, m_valobj_sp->GetName().AsCString());
+    }
+
+    ExecutionContextScope *scope = frame_sp.get();
+
+    if (!scope)
+      scope = map.GetBestExecutionContextScope();
+
+    Status valobj_error = m_valobj_sp->GetError();
+
+    if (valobj_error.Fail()) {
+      err.SetErrorStringWithFormat("couldn't get the value of variable %s: %s",
+                                   m_valobj_sp->GetName().AsCString(),
+                                   valobj_error.AsCString());
+      return;
+    }
+
+    // In the case where the value is of Swift generic type, unbox it.
+    CompilerType valobj_type = m_valobj_sp->GetCompilerType();
+
+    if (m_is_reference) {
+      DataExtractor valobj_extractor;
+      Status extract_error;
+      m_valobj_sp->GetData(valobj_extractor, extract_error);
+
+      if (!extract_error.Success()) {
+        err.SetErrorStringWithFormat(
+            "couldn't read contents of reference value object %s: %s",
+            m_valobj_sp->GetName().AsCString(), extract_error.AsCString());
+        return;
+      }
+
+      lldb::offset_t offset = 0;
+      lldb::addr_t reference_addr = valobj_extractor.GetAddress(&offset);
+
+      Status write_error;
+      map.WritePointerToMemory(load_addr, reference_addr, write_error);
+
+      if (!write_error.Success()) {
+        err.SetErrorStringWithFormat("couldn't write the contents of reference "
+                                     "ValueObject %s to memory: %s",
+                                     m_valobj_sp->GetName().AsCString(),
+                                     write_error.AsCString());
+        return;
+      }
+    } else {
+      AddressType address_type = eAddressTypeInvalid;
+      const bool scalar_is_load_address = false;
+      lldb::addr_t addr_of_valobj =
+          m_valobj_sp->GetAddressOf(scalar_is_load_address, &address_type);
+
+      if (addr_of_valobj != LLDB_INVALID_ADDRESS) {
+        Status write_error;
+        map.WritePointerToMemory(load_addr, addr_of_valobj, write_error);
+
+        if (!write_error.Success()) {
+          err.SetErrorStringWithFormat(
+              "couldn't write the address of ValueObject %s to memory: %s",
+              m_valobj_sp->GetName().AsCString(), write_error.AsCString());
+          return;
+        }
+      } else {
+        DataExtractor data;
+        Status extract_error;
+        m_valobj_sp->GetData(data, extract_error);
+        if (!extract_error.Success()) {
+          if (valobj_type.GetMinimumLanguage() == lldb::eLanguageTypeSwift) {
+            llvm::Optional<uint64_t> size =
+                valobj_type.GetByteSize(frame_sp.get());
+            if (size && *size == 0) {
+              // We don't need to materialize empty structs in Swift.
+              return;
+            }
+          }
+          err.SetErrorStringWithFormat("couldn't get the value of %s: %s",
+                                       m_valobj_sp->GetName().AsCString(),
+                                       extract_error.AsCString());
+          return;
+        }
+
+        if (m_temporary_allocation != LLDB_INVALID_ADDRESS) {
+          err.SetErrorStringWithFormat(
+              "trying to create a temporary region for %s but one exists",
+              m_valobj_sp->GetName().AsCString());
+          return;
+        }
+
+        if (data.GetByteSize() < m_valobj_sp->GetCompilerType().GetByteSize(scope)) {
+          if (data.GetByteSize() == 0
+              /* && !m_valobj_sp->LocationExpression().IsValid()*/) {
+            err.SetErrorStringWithFormat("the variable '%s' has no location, "
+                                         "it may have been optimized out",
+                                         m_valobj_sp->GetName().AsCString());
+          } else {
+            err.SetErrorStringWithFormat(
+                "size of ValueObject %s (%" PRIu64
+                ") is larger than the ValueObject's size (%" PRIu64 ")",
+                m_valobj_sp->GetName().AsCString(),
+                m_valobj_sp->GetCompilerType().GetByteSize(scope).getValueOr(0),
+                data.GetByteSize());
+          }
+          return;
+        }
+
+        llvm::Optional<size_t> opt_bit_align =
+            m_valobj_sp->GetCompilerType().GetTypeBitAlign(scope);
+        if (!opt_bit_align) {
+          err.SetErrorStringWithFormat("can't get the type alignment for %s",
+                                       m_valobj_sp->GetName().AsCString());
+          return;
+        }
+
+        size_t byte_align = (*opt_bit_align + 7) / 8;
+
+        Status alloc_error;
+        const bool zero_memory = false;
+
+        m_temporary_allocation = map.Malloc(
+            data.GetByteSize(), byte_align,
+            lldb::ePermissionsReadable | lldb::ePermissionsWritable,
+            IRMemoryMap::eAllocationPolicyMirror, zero_memory, alloc_error);
+
+        m_temporary_allocation_size = data.GetByteSize();
+
+        m_original_data = std::make_shared<DataBufferHeap>(data.GetDataStart(),
+                                                           data.GetByteSize());
+
+        if (!alloc_error.Success()) {
+          err.SetErrorStringWithFormat(
+              "couldn't allocate a temporary region for %s: %s",
+              m_valobj_sp->GetName().AsCString(), alloc_error.AsCString());
+          return;
+        }
+
+        Status write_error;
+
+        map.WriteMemory(m_temporary_allocation, data.GetDataStart(),
+                        data.GetByteSize(), write_error);
+
+        if (!write_error.Success()) {
+          err.SetErrorStringWithFormat(
+              "couldn't write to the temporary region for %s: %s",
+              m_valobj_sp->GetName().AsCString(), write_error.AsCString());
+          return;
+        }
+
+        Status pointer_write_error;
+
+        map.WritePointerToMemory(load_addr, m_temporary_allocation,
+                                 pointer_write_error);
+
+        if (!pointer_write_error.Success()) {
+          err.SetErrorStringWithFormat(
+              "couldn't write the address of the temporary region for %s: %s",
+              m_valobj_sp->GetName().AsCString(),
+              pointer_write_error.AsCString());
+        }
+      }
+    }
+  }
+
+  void Dematerialize(lldb::StackFrameSP &frame_sp, IRMemoryMap &map,
+                     lldb::addr_t process_address, lldb::addr_t frame_top,
+                     lldb::addr_t frame_bottom, Status &err) override {
+    assert(m_valobj_sp);
+    Log *log = GetLog(LLDBLog::Expressions);
+
+    const lldb::addr_t load_addr = process_address + m_offset;
+    if (log) {
+      LLDB_LOGF(log,
+                "EntityValueObject::Dematerialize [address = 0x%" PRIx64
+                ", m_valobj_sp = %s]",
+                (uint64_t)load_addr, m_valobj_sp->GetName().AsCString());
+    }
+
+    if (m_temporary_allocation != LLDB_INVALID_ADDRESS) {
+      ExecutionContextScope *scope = frame_sp.get();
+
+      if (!scope)
+        scope = map.GetBestExecutionContextScope();
+
+      // In the case where the value is of Swift generic type, resolve its
+      // dynamic type, because we may
+      // need to unbox the target.
+
+      lldb_private::DataExtractor data;
+
+      Status extract_error;
+
+      map.GetMemoryData(data, m_temporary_allocation,
+                        m_valobj_sp->GetByteSize().getValueOr(0), extract_error);
+
+      if (!extract_error.Success()) {
+        err.SetErrorStringWithFormat("couldn't get the data for ValueObject %s",
+                                     m_valobj_sp->GetName().AsCString());
+        return;
+      }
+
+      bool actually_write = true;
+
+      if (m_original_data) {
+        if ((data.GetByteSize() == m_original_data->GetByteSize()) &&
+            !memcmp(m_original_data->GetBytes(), data.GetDataStart(),
+                    data.GetByteSize())) {
+          actually_write = false;
+        }
+      }
+
+      Status set_error;
+
+      if (actually_write) {
+        m_valobj_sp->SetData(data, set_error);
+
+        if (!set_error.Success()) {
+          err.SetErrorStringWithFormat(
+              "couldn't write the new contents of %s back into the ValueObject",
+              m_valobj_sp->GetName().AsCString());
+          return;
+        }
+      }
+
+      Status free_error;
+
+      map.Free(m_temporary_allocation, free_error);
+
+      if (!free_error.Success()) {
+        err.SetErrorStringWithFormat(
+            "couldn't free the temporary region for %s: %s",
+            m_valobj_sp->GetName().AsCString(), free_error.AsCString());
+        return;
+      }
+
+      m_original_data.reset();
+      m_temporary_allocation = LLDB_INVALID_ADDRESS;
+      m_temporary_allocation_size = 0;
+    }
+  }
+
+  void DumpToLog(IRMemoryMap &map, lldb::addr_t process_address,
+                 Log *log) override {
+    StreamString dump_stream;
+
+    const lldb::addr_t load_addr = process_address + m_offset;
+    dump_stream.Printf("0x%" PRIx64 ": EntityValueObject\n", load_addr);
+
+    Status err;
+
+    lldb::addr_t ptr = LLDB_INVALID_ADDRESS;
+
+    {
+      dump_stream.Printf("Pointer:\n");
+
+      DataBufferHeap data(m_size, 0);
+
+      map.ReadMemory(data.GetBytes(), load_addr, m_size, err);
+
+      if (!err.Success()) {
+        dump_stream.Printf("  <could not be read>\n");
+      } else {
+        DataExtractor extractor(data.GetBytes(), data.GetByteSize(),
+                                map.GetByteOrder(), map.GetAddressByteSize());
+
+        DumpHexBytes(&dump_stream, data.GetBytes(), data.GetByteSize(), 16,
+                     load_addr);
+
+        lldb::offset_t offset = 0;
+
+        ptr = extractor.GetAddress(&offset);
+
+        dump_stream.PutChar('\n');
+      }
+    }
+
+    if (m_temporary_allocation == LLDB_INVALID_ADDRESS) {
+      dump_stream.Printf("Points to process memory:\n");
+    } else {
+      dump_stream.Printf("Temporary allocation:\n");
+    }
+
+    if (ptr == LLDB_INVALID_ADDRESS) {
+      dump_stream.Printf("  <could not be be found>\n");
+    } else {
+      DataBufferHeap data(m_temporary_allocation_size, 0);
+
+      map.ReadMemory(data.GetBytes(), m_temporary_allocation,
+                     m_temporary_allocation_size, err);
+
+      if (!err.Success()) {
+        dump_stream.Printf("  <could not be read>\n");
+      } else {
+        DumpHexBytes(&dump_stream, data.GetBytes(), data.GetByteSize(), 16,
+                     load_addr);
+
+        dump_stream.PutChar('\n');
+      }
+    }
+
+    log->PutString(dump_stream.GetString());
+  }
+
+  void Wipe(IRMemoryMap &map, lldb::addr_t process_address) override {
+    if (m_temporary_allocation != LLDB_INVALID_ADDRESS) {
+      Status free_error;
+
+      map.Free(m_temporary_allocation, free_error);
+
+      m_temporary_allocation = LLDB_INVALID_ADDRESS;
+      m_temporary_allocation_size = 0;
+    }
+  }
+
+private:
+  lldb::ValueObjectSP m_valobj_sp;
+  bool m_is_reference = false;
+  lldb::addr_t m_temporary_allocation = LLDB_INVALID_ADDRESS;
+  size_t m_temporary_allocation_size = 0;
+  lldb::DataBufferSP m_original_data;
+};
+
 uint32_t Materializer::AddVariable(lldb::VariableSP &variable_sp, Status &err) {
   EntityVector::iterator iter = m_entities.insert(m_entities.end(), EntityUP());
   *iter = std::make_unique<EntityVariable>(variable_sp);
+  uint32_t ret = AddStructMember(**iter);
+  (*iter)->SetOffset(ret);
+  return ret;
+}
+
+uint32_t Materializer::AddValueObject(lldb::ValueObjectSP valobj_sp, Status &err) {
+  EntityVector::iterator iter = m_entities.insert(m_entities.end(), EntityUP());
+  *iter = std::make_unique<EntityValueObject>(std::move(valobj_sp));
   uint32_t ret = AddStructMember(**iter);
   (*iter)->SetOffset(ret);
   return ret;

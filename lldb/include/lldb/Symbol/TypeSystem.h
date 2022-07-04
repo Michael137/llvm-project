@@ -463,7 +463,8 @@ public:
                     lldb::LanguageType language,
                     Expression::ResultType desired_type,
                     const EvaluateExpressionOptions &options,
-                    ValueObject *ctx_obj) {
+                    ValueObject *ctx_obj,
+                    ExecutionContext const&) {
     return nullptr;
   }
 

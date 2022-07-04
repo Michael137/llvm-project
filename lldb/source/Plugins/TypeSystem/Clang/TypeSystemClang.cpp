@@ -9848,12 +9848,21 @@ void ScratchTypeSystemClang::Dump(llvm::raw_ostream &output) {
 UserExpression *ScratchTypeSystemClang::GetUserExpression(
     llvm::StringRef expr, llvm::StringRef prefix, lldb::LanguageType language,
     Expression::ResultType desired_type,
-    const EvaluateExpressionOptions &options, ValueObject *ctx_obj) {
+    const EvaluateExpressionOptions &options, ValueObject *ctx_obj,
+    ExecutionContext const& exe_ctx) {
   TargetSP target_sp = m_target_wp.lock();
   if (!target_sp)
     return nullptr;
 
-  return new ClangUserExpression(*target_sp.get(), expr, prefix, language,
+  // TODO: add isLambda to EvaluateExpressionOptions? Or are those for command line options?
+
+  llvm::Optional<std::string> exprOpt = ClangExpressionSourceCode::WrapInLambda(expr.str(), exe_ctx);
+  if (!exprOpt) {
+      return nullptr;
+  }
+  std::string wrappedExpr = std::move(exprOpt.getValue());
+
+  return new ClangUserExpression(*target_sp.get(), std::move(wrappedExpr), prefix, language,
                                  desired_type, options, ctx_obj);
 }
 

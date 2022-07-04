@@ -238,7 +238,7 @@ public:
 
   void SetProcessLaunchInfo(const ProcessLaunchInfo &launch_info);
 
-  bool GetInjectLocalVariables(ExecutionContext *exe_ctx) const;
+  bool GetInjectLocalVariables(ExecutionContext const *exe_ctx) const;
 
   void SetInjectLocalVariables(ExecutionContext *exe_ctx, bool b);
 
@@ -1132,7 +1132,8 @@ public:
                                lldb::LanguageType language,
                                Expression::ResultType desired_type,
                                const EvaluateExpressionOptions &options,
-                               ValueObject *ctx_obj, Status &error);
+                               ValueObject *ctx_obj, ExecutionContext const&,
+                               Status &error);
 
   // Creates a FunctionCaller for the given language, the rest of the
   // parameters have the same meaning as for the FunctionCaller constructor.

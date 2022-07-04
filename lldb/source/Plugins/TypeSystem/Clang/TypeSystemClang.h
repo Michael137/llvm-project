@@ -1178,7 +1178,8 @@ public:
                     lldb::LanguageType language,
                     Expression::ResultType desired_type,
                     const EvaluateExpressionOptions &options,
-                    ValueObject *ctx_obj) override;
+                    ValueObject *ctx_obj,
+                    ExecutionContext const& exe_ctx) override;
 
   FunctionCaller *GetFunctionCaller(const CompilerType &return_type,
                                     const Address &function_address,

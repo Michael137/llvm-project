@@ -561,6 +561,12 @@ private:
   /// (treated as a variable), and put it in the list of found entities.
   void AddOneGenericVariable(NameSearchContext &context, const Symbol &symbol);
 
+  bool AddLambdaLocals(NameSearchContext &context, StackFrame *frame,
+                       ConstString name, SymbolContext &sym_ctx);
+  
+  bool GetVariableFromValueObject(CompilerType &comp_type, lldb_private::Value &var_location,
+                                  TypeFromUser *user_type, TypeFromParser *parser_type);
+
   /// Use the NameSearchContext to generate a Decl for the given function.
   /// (Functions are not placed in the Tuple list.)  Can handle both fully
   /// typed functions and generic functions.

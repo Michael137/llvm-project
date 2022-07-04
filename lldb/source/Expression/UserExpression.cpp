@@ -121,6 +121,10 @@ lldb::addr_t UserExpression::GetObjectPointer(lldb::StackFrameSP frame_sp,
           StackFrame::eExpressionPathOptionsNoSyntheticArrayRange,
       var_sp, err);
 
+  if (auto thisChildSP = valobj_sp->GetChildMemberWithName(ConstString("this"), true)) {
+    valobj_sp = thisChildSP;
+  }
+
   if (!err.Success() || !valobj_sp.get())
     return LLDB_INVALID_ADDRESS;
 
@@ -239,7 +243,7 @@ UserExpression::Evaluate(ExecutionContext &exe_ctx,
   lldb::UserExpressionSP user_expression_sp(
       target->GetUserExpressionForLanguage(expr, full_prefix, language,
                                            desired_type, options, ctx_obj,
-                                           error));
+                                           exe_ctx, error));
   if (error.Fail()) {
     LLDB_LOG(log, "== [UserExpression::Evaluate] Getting expression: {0} ==",
              error.AsCString());
@@ -286,7 +290,7 @@ UserExpression::Evaluate(ExecutionContext &exe_ctx,
         lldb::UserExpressionSP fixed_expression_sp(
             target->GetUserExpressionForLanguage(
                 fixed_expression->c_str(), full_prefix, language, desired_type,
-                options, ctx_obj, error));
+                options, ctx_obj, exe_ctx, error));
         DiagnosticManager fixed_diagnostic_manager;
         parse_success = fixed_expression_sp->Parse(
             fixed_diagnostic_manager, exe_ctx, execution_policy,

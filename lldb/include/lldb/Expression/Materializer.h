@@ -78,6 +78,7 @@ public:
   AddPersistentVariable(lldb::ExpressionVariableSP &persistent_variable_sp,
                         PersistentVariableDelegate *delegate, Status &err);
   uint32_t AddVariable(lldb::VariableSP &variable_sp, Status &err);
+  uint32_t AddValueObject(lldb::ValueObjectSP valobj_sp, Status &err);
   uint32_t AddResultVariable(const CompilerType &type, bool is_lvalue,
                              bool keep_in_memory,
                              PersistentVariableDelegate *delegate, Status &err);

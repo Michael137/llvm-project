@@ -36,6 +36,14 @@ struct ClangUtil {
 
   static clang::TagDecl *GetAsTagDecl(const CompilerType &type);
 
+  static clang::ObjCInterfaceDecl *GetAsObjCDecl(const CompilerType &type);
+
+  static clang::Decl *GetFirstDecl(clang::Decl *d);
+
+  static const clang::Decl *GetFirstDecl(const clang::Decl *d) {
+    return GetFirstDecl(const_cast<clang::Decl *>(d));
+  }
+
   /// Returns a textual representation of the given Decl's AST. Does not
   /// deserialize any child nodes.
   static std::string DumpDecl(const clang::Decl *d);

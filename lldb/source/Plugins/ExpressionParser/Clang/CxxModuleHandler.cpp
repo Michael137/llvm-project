@@ -62,8 +62,10 @@ static void makeScopes(Sema &sema, DeclContext *ctxt,
         new Scope(result.back(), Scope::DeclScope, sema.getDiagnostics());
     scope->setEntity(ctxt);
     result.push_back(scope);
-  } else
+  } else {
+    assert(sema.TUScope != nullptr);
     result.push_back(sema.TUScope);
+  }
 }
 
 /// Uses the Sema to look up the given name in the given DeclContext.
@@ -265,6 +267,9 @@ llvm::Optional<Decl *> CxxModuleHandler::tryInstantiateStdTemplate(Decl *d) {
       new_class_template->findSpecialization(imported_args, InsertPos);
 
   if (result) {
+    // Don't substitute a definition with a declaration.
+    if (td->isThisDeclarationADefinition() && !result->getDefinition())
+      return llvm::None;
     // We found an existing specialization in the module that fits our arguments
     // so we can treat it as the result and register it with the ASTImporter.
     m_importer->RegisterImportedDecl(d, result);

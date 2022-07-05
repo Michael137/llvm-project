@@ -119,5 +119,5 @@ TEST_F(ClangExpressionDeclMapTest, TestPersistentDeclLookup) {
   EXPECT_EQ(decl_name, decls.front()->getQualifiedNameAsString());
   auto *record = llvm::cast<clang::RecordDecl>(decls.front());
   // The class was minimally imported from the scratch AST context.
-  EXPECT_TRUE(record->hasExternalLexicalStorage());
+  EXPECT_EQ(record->getDefinition(), nullptr);
 }

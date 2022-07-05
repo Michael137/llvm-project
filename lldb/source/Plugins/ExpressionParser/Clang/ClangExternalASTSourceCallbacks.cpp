@@ -17,12 +17,27 @@ using namespace lldb_private;
 char ClangExternalASTSourceCallbacks::ID;
 
 void ClangExternalASTSourceCallbacks::CompleteType(clang::TagDecl *tag_decl) {
-  m_ast.CompleteTagDecl(tag_decl);
+  //m_ast.CompleteTagDecl(tag_decl);
 }
 
 void ClangExternalASTSourceCallbacks::CompleteType(
     clang::ObjCInterfaceDecl *objc_decl) {
   m_ast.CompleteObjCInterfaceDecl(objc_decl);
+}
+
+void ClangExternalASTSourceCallbacks::CompleteRedeclChain(const clang::Decl *d) {
+  if (const clang::TagDecl *td = llvm::dyn_cast<clang::TagDecl>(d)) {
+    if (td->isBeingDefined())
+      return;
+    if (td->getDefinition())
+      return;
+    m_ast.CompleteTagDecl(td);
+  }
+  if (const auto *od = llvm::dyn_cast<clang::ObjCInterfaceDecl>(d)) {
+    if (od->getDefinition())
+      return;
+    m_ast.CompleteObjCInterfaceDecl(od);
+  }
 }
 
 bool ClangExternalASTSourceCallbacks::layoutRecordType(

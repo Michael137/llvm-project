@@ -1,5 +1,6 @@
 #include "PdbAstBuilder.h"
 
+#include "llvm/ADT/ScopeExit.h"
 #include "llvm/DebugInfo/CodeView/CVTypeVisitor.h"
 #include "llvm/DebugInfo/CodeView/LazyRandomTypeCollection.h"
 #include "llvm/DebugInfo/CodeView/RecordName.h"
@@ -726,7 +727,7 @@ bool PdbAstBuilder::CompleteType(clang::QualType qt) {
 
 bool PdbAstBuilder::CompleteTagDecl(clang::TagDecl &tag) {
   // If this is not in our map, it's an error.
-  auto status_iter = m_decl_to_status.find(&tag);
+  auto status_iter = m_decl_to_status.find(tag.getFirstDecl());
   lldbassert(status_iter != m_decl_to_status.end());
 
   // If it's already complete, just return.
@@ -737,9 +738,6 @@ bool PdbAstBuilder::CompleteTagDecl(clang::TagDecl &tag) {
   PdbTypeSymId type_id = PdbSymUid(status.uid).asTypeSym();
 
   lldbassert(IsTagRecord(type_id, m_index.tpi()));
-
-  clang::QualType tag_qt = m_clang.getASTContext().getTypeDeclType(&tag);
-  TypeSystemClang::SetHasExternalStorage(tag_qt.getAsOpaquePtr(), false);
 
   TypeIndex tag_ti = type_id.index;
   CVType cvt = m_index.tpi().getType(tag_ti);
@@ -767,7 +765,8 @@ bool PdbAstBuilder::CompleteTagDecl(clang::TagDecl &tag) {
 
   // Visit all members of this class, then perform any finalization necessary
   // to complete the class.
-  CompilerType ct = ToCompilerType(tag_qt);
+  CompilerType ct = m_clang.RedeclTagDecl(m_clang.GetTypeForDecl(&tag));
+  m_clang.StartTagDeclarationDefinition(ct);
   UdtRecordCompleter completer(best_ti, ct, tag, *this, m_index,
                                m_cxx_record_map);
   llvm::Error error =
@@ -876,15 +875,12 @@ clang::QualType PdbAstBuilder::CreateRecordType(PdbTypeSymId id,
 
   lldbassert(ct.IsValid());
 
-  TypeSystemClang::StartTagDeclarationDefinition(ct);
-
   // Even if it's possible, don't complete it at this point. Just mark it
   // forward resolved, and if/when LLDB needs the full definition, it can
   // ask us.
   clang::QualType result =
       clang::QualType::getFromOpaquePtr(ct.GetOpaqueQualType());
 
-  TypeSystemClang::SetHasExternalStorage(result.getAsOpaquePtr(), true);
   return result;
 }
 
@@ -1018,6 +1014,9 @@ clang::QualType PdbAstBuilder::CreateType(PdbTypeSymId type) {
 
   if (IsTagRecord(cvt)) {
     CVTagRecord tag = CVTagRecord::create(cvt);
+    auto indicate_delayed_definition = llvm::make_scope_exit([this](){
+      m_clang.BumpGenerationCounter();
+    });
     if (tag.kind() == CVTagRecord::Union)
       return CreateRecordType(type.index, tag.asUnion());
     if (tag.kind() == CVTagRecord::Enum)
@@ -1077,10 +1076,10 @@ clang::QualType PdbAstBuilder::GetOrCreateType(PdbTypeSymId type) {
 
   m_uid_to_type[toOpaqueUid(type)] = qt;
   if (IsTagRecord(type, m_index.tpi())) {
-    clang::TagDecl *tag = qt->getAsTagDecl();
+    clang::TagDecl *tag = ClangUtil::GetAsTagDecl(m_clang.GetType(qt));
     lldbassert(m_decl_to_status.count(tag) == 0);
 
-    DeclStatus &status = m_decl_to_status[tag];
+    DeclStatus &status = m_decl_to_status[tag->getFirstDecl()];
     status.uid = uid;
     status.resolved = false;
   }
@@ -1379,9 +1378,6 @@ clang::QualType PdbAstBuilder::CreateEnumType(PdbTypeSymId id,
   CompilerType enum_ct = m_clang.CreateEnumerationType(
       uname, decl_context, OptionalClangModuleID(), declaration,
       ToCompilerType(underlying_type), er.isScoped());
-
-  TypeSystemClang::StartTagDeclarationDefinition(enum_ct);
-  TypeSystemClang::SetHasExternalStorage(enum_ct.GetOpaqueQualType(), true);
 
   return clang::QualType::getFromOpaquePtr(enum_ct.GetOpaqueQualType());
 }

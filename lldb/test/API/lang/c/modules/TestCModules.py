@@ -63,7 +63,9 @@ class CModulesTestCase(TestBase):
         f = open(log_file)
         log_lines = f.readlines()
         f.close()
-        os.remove(log_file)
+#        os.remove(log_file)
+        print(log_file)
+        self.assertIn("struct __sFILE definition", " ".join(log_lines))
         self.assertEqual(" ".join(log_lines).count("struct __sFILE definition"),
                          1)
 

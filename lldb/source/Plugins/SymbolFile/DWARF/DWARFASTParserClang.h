@@ -76,6 +76,10 @@ protected:
 
   typedef llvm::DenseMap<const DWARFDebugInfoEntry *, clang::DeclContext *>
       DIEToDeclContextMap;
+  typedef llvm::DenseMap<const DWARFDebugInfoEntry *, clang::TagDecl *>
+      DIEToRecordMap;
+  typedef llvm::DenseMap<const DWARFDebugInfoEntry *, clang::ObjCInterfaceDecl *>
+      DIEToObjCInterfaceMap;
   typedef std::multimap<const clang::DeclContext *, const DWARFDIE>
       DeclContextToDIEMap;
   typedef llvm::DenseMap<const DWARFDebugInfoEntry *,
@@ -88,9 +92,22 @@ protected:
   DIEToDeclMap m_die_to_decl;
   DIEToDeclContextMap m_die_to_decl_ctx;
   DeclContextToDIEMap m_decl_ctx_to_die;
+  DIEToRecordMap m_die_to_record_map;
+  DIEToObjCInterfaceMap m_die_to_objc_interface_map;
   DIEToModuleMap m_die_to_module;
   std::unique_ptr<lldb_private::ClangASTImporter> m_clang_ast_importer_up;
+
+  struct TypeToComplete {
+    lldb_private::CompilerType clang_type;
+    DWARFDIE die;
+    lldb::TypeSP type;
+  };
+  std::vector<TypeToComplete> m_to_complete;
+  llvm::DenseSet<const DWARFDebugInfoEntry *> m_currently_parsed_record_dies;
+
   /// @}
+
+  void RegisterDIE(DWARFDebugInfoEntry *die, lldb_private::CompilerType type);
 
   clang::DeclContext *GetDeclContextForBlock(const DWARFDIE &die);
 
@@ -212,7 +229,7 @@ private:
                     FieldInfo &last_field_info);
 
   bool CompleteRecordType(const DWARFDIE &die, lldb_private::Type *type,
-                          lldb_private::CompilerType &clang_type);
+                          lldb_private::CompilerType clang_type);
   bool CompleteEnumType(const DWARFDIE &die, lldb_private::Type *type,
                         lldb_private::CompilerType &clang_type);
 

@@ -8,6 +8,7 @@
 // types and decls.
 //===----------------------------------------------------------------------===//
 
+#include "clang/AST/DeclObjC.h"
 #include "Plugins/ExpressionParser/Clang/ClangUtil.h"
 #include "Plugins/TypeSystem/Clang/TypeSystemClang.h"
 
@@ -62,7 +63,32 @@ clang::TagDecl *ClangUtil::GetAsTagDecl(const CompilerType &type) {
   if (qual_type.isNull())
     return nullptr;
 
+  if (const TagType *tt = llvm::dyn_cast<TagType>(qual_type.getTypePtr()))
+    return tt->getDecl();
+
   return qual_type->getAsTagDecl();
+}
+
+clang::ObjCInterfaceDecl *ClangUtil::GetAsObjCDecl(const CompilerType &type) {
+  clang::QualType qual_type = ClangUtil::GetCanonicalQualType(type);
+  if (qual_type.isNull())
+    return nullptr;
+
+  if (const auto *ot = qual_type->getAsObjCInterfaceType())
+    return ot->getInterface();
+  if (const auto *ot = qual_type->getAsObjCInterfacePointerType())
+    return ot->getInterfaceDecl();
+  return nullptr;
+}
+
+clang::Decl *ClangUtil::GetFirstDecl(clang::Decl *d) {
+  if (!d)
+    return nullptr;
+  if (auto *td = llvm::dyn_cast<clang::TagDecl>(d))
+    return td->getFirstDecl();
+  if (auto *od = llvm::dyn_cast<clang::ObjCInterfaceDecl>(d))
+    return od->getFirstDecl();
+  return d;
 }
 
 std::string ClangUtil::DumpDecl(const clang::Decl *d) {

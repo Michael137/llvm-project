@@ -26,7 +26,10 @@
 #include "lldb/Utility/LLDBAssert.h"
 #include "lldb/lldb-types.h"
 
+#include "Plugins/TypeSystem/Clang/TypeSystemClang.h" //remove me
+
 #include "Plugins/ExpressionParser/Clang/CxxModuleHandler.h"
+#include "Plugins/ExpressionParser/Clang/ClangUtil.h"
 
 #include "llvm/ADT/DenseMap.h"
 
@@ -116,7 +119,9 @@ public:
   ///
   /// \param decl The RecordDecl to set the layout for.
   /// \param layout The layout for the record.
-  void SetRecordLayout(clang::RecordDecl *decl, const LayoutInfo &layout);
+  void SetRecordLayout(const clang::RecordDecl *decl, const LayoutInfo &layout);
+
+  bool HasRecordLayout(const clang::RecordDecl *decl);
 
   bool LayoutRecordType(
       const clang::RecordDecl *record_decl, uint64_t &bit_size,
@@ -126,6 +131,8 @@ public:
           &base_offsets,
       llvm::DenseMap<const clang::CXXRecordDecl *, clang::CharUnits>
           &vbase_offsets);
+
+  bool CanImport(clang::Decl *d);
 
   /// Returns true iff the given type was copied from another TypeSystemClang
   /// and the original type in this other TypeSystemClang might contain
@@ -147,11 +154,11 @@ public:
 
   bool CompleteType(const CompilerType &compiler_type);
 
-  bool CompleteTagDecl(clang::TagDecl *decl);
+  bool CompleteTagDecl(const clang::TagDecl *decl);
 
-  bool CompleteTagDeclWithOrigin(clang::TagDecl *decl, clang::TagDecl *origin);
+  bool CompleteTagDeclWithOrigin(const clang::TagDecl *decl, clang::TagDecl *origin);
 
-  bool CompleteObjCInterfaceDecl(clang::ObjCInterfaceDecl *interface_decl);
+  bool CompleteObjCInterfaceDecl(const clang::ObjCInterfaceDecl *interface_decl);
 
   bool CompleteAndFetchChildren(clang::QualType type);
 
@@ -357,9 +364,7 @@ public:
     /// DeclOrigin.
     void setOrigin(const clang::Decl *decl, DeclOrigin origin) {
       // Setting the origin of any decl to itself (or to a different decl
-      // in the same ASTContext) doesn't make any sense. It will also cause
-      // ASTImporterDelegate::ImportImpl to infinite recurse when trying to find
-      // the 'original' Decl when importing code.
+      // in the same ASTContext) doesn't make any sense.
       assert(&decl->getASTContext() != origin.ctx &&
              "Trying to set decl origin to its own ASTContext?");
       assert(decl != origin.decl && "Trying to set decl origin to itself?");
@@ -367,7 +372,9 @@ public:
     }
 
     /// Removes any tracked DeclOrigin for the given decl.
-    void removeOrigin(const clang::Decl *decl) { m_origins.erase(decl); }
+    void removeOrigin(const clang::Decl *decl) {
+      m_origins.erase(decl);
+    }
 
     /// Remove all DeclOrigin entries that point to the given ASTContext.
     /// Useful when an ASTContext is about to be deleted and all the dangling

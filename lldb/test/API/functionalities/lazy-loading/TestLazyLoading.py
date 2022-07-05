@@ -67,6 +67,19 @@ class TestCase(TestBase):
         self.assertTrue(res.Succeeded())
         return res.GetOutput()
 
+    def get_ast_line_pairs(self):
+        ast = self.get_ast_dump()
+        lines = ast.splitlines()
+        pairs = []
+        for i in range(0, len(lines)):
+          line = lines[i].strip()
+          if i + 1 < len(lines):
+            next_line = lines[i + 1].strip()
+          else:
+            next_line = ""
+          pairs.append([line, next_line])
+        return pairs
+
     def decl_in_line(self, line, decl):
         """
         Returns true iff the given line declares the given Clang decl.
@@ -82,13 +95,12 @@ class TestCase(TestBase):
           return False
         return decl_name in line or decl_name_eol in line
 
-    def decl_completed_in_line(self, line, decl):
+    def decl_completed_in_line(self, line):
         """
         Returns true iff the given line declares the given Clang decl and
-        the decl was completed (i.e., it has no undeserialized declarations
-        in it).
+        the decl was completed (i.e., it has definition data).
         """
-        return self.decl_in_line(line, decl) and not "<undeserialized declarations>" in line
+        return "|-DefinitionData" in line
 
     # The following asserts are used for checking if certain Clang declarations
     # were loaded or not since the target was created.
@@ -101,27 +113,40 @@ class TestCase(TestBase):
         assert_decl_not_loaded or assert_decl_not_completed assuming LLDB's
         functionality has not suffered by not loading this declaration.
         """
-        ast = self.get_ast_dump()
+
+        pairs = self.get_ast_line_pairs()
         found = False
-        for line in ast.splitlines():
+        for line, next_line in pairs:
           if self.decl_in_line(line, decl):
             found = True
-            self.assertTrue(self.decl_completed_in_line(line, decl),
-                            "Should have called assert_decl_not_completed")
-        self.assertTrue(found, "Declaration no longer loaded " + str(decl) +
-            ".\nAST:\n" + ast)
+        self.assertTrue(found, "Declaration not loaded " + str(decl) +
+            ".\nAST:\n" + self.get_ast_dump())
+
+    def assert_decl_completed(self, decl):
+        """
+        Asserts that the given decl is currently completed in the module's
+        AST.
+        """
+        pairs = self.get_ast_line_pairs()
+        found = False
+        for line, next_line in pairs:
+          if self.decl_in_line(line, decl) and self.decl_completed_in_line(next_line):
+            found = True
+        self.assertTrue(found, "Declaration not completed " + str(decl) +
+            ".\nAST:\n" + self.get_ast_dump())
 
     def assert_decl_not_completed(self, decl):
         """
         Asserts that the given decl is currently not completed in the module's
-        AST. It may be loaded but then can can only contain undeserialized
-        declarations.
+        AST.
         """
-        ast = self.get_ast_dump()
+        pairs = self.get_ast_line_pairs()
         found = False
-        for line in ast.splitlines():
-          error_msg = "Unexpected completed decl: '" + line + "'.\nAST:\n" + ast
-          self.assertFalse(self.decl_completed_in_line(line, decl), error_msg)
+        for line, next_line in pairs:
+          if self.decl_in_line(line, decl) and self.decl_completed_in_line(next_line):
+            found = True
+        self.assertFalse(found, "Declaration not loaded or completed " + str(decl) +
+            ".\nAST:\n" + self.get_ast_dump())
 
     def assert_decl_not_loaded(self, decl):
         """
@@ -131,8 +156,8 @@ class TestCase(TestBase):
         ast = self.get_ast_dump()
         found = False
         for line in ast.splitlines():
-          error_msg = "Unexpected loaded decl: '" + line + "'\nAST:\n" + ast
-          self.assertFalse(self.decl_in_line(line, decl), error_msg)
+          self.assertFalse(self.decl_in_line(line, decl),
+                           "Unexpected loaded decl: '" + line + "'\nAST:\n" + ast)
 
 
     def clean_setup(self, location):
@@ -200,11 +225,11 @@ class TestCase(TestBase):
         self.expect("expr &struct_var", substrs=['(SomeStruct *) $0'])
 
         # We loaded SomeStruct.
-        self.assert_decl_loaded(self.some_struct_decl)
+        self.assert_decl_completed(self.some_struct_decl)
 
         # The member declarations should not be completed.
-        self.assert_decl_not_completed(self.struct_behind_ptr_decl)
-        self.assert_decl_not_completed(self.struct_behind_ref_decl)
+        self.assert_decl_completed(self.struct_behind_ptr_decl)
+        self.assert_decl_completed(self.struct_behind_ref_decl)
 
         # FIXME: The first member was behind a pointer so it shouldn't be
         # completed. Somehow LLDB really wants to load the first member, so
@@ -226,7 +251,7 @@ class TestCase(TestBase):
         self.assert_decl_loaded(self.class_we_enter_decl)
         # We loaded the unused members of this class.
         self.assert_decl_loaded(self.unused_class_member_decl)
-        self.assert_decl_not_completed(self.unused_class_member_ptr_decl)
+        self.assert_decl_completed(self.unused_class_member_ptr_decl)
         # We loaded the member we used.
         self.assert_decl_loaded(self.class_member_decl)
         # We didn't load the type of the unused static member.

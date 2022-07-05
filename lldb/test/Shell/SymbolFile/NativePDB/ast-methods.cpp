@@ -33,16 +33,16 @@ int main(int argc, char **argv) {
 }
 
 // AST: TranslationUnitDecl
-// AST: |-CXXRecordDecl {{.*}} struct Struct definition
-// AST: | |-CXXMethodDecl {{.*}} simple_method 'void (){{.*}}'
-// AST: | |-CXXMethodDecl {{.*}} virtual_method 'void (){{.*}}' virtual
-// AST: | |-CXXMethodDecl {{.*}} static_method 'void ()' static
-// AST: | |-CXXMethodDecl {{.*}} overloaded_method 'int (){{.*}}'
-// AST: | |-CXXMethodDecl {{.*}} overloaded_method 'int (char){{.*}}'
-// AST: | | `-ParmVarDecl {{.*}} 'char'
-// AST: | `-CXXMethodDecl {{.*}} overloaded_method 'int (char, int, ...)'
-// AST: |   |-ParmVarDecl {{.*}} 'char'
-// AST: |   `-ParmVarDecl {{.*}} 'int'
+// AST: `-CXXRecordDecl {{.*}} struct Struct definition
+// AST:   |-CXXMethodDecl {{.*}} simple_method 'void (){{.*}}'
+// AST:   |-CXXMethodDecl {{.*}} virtual_method 'void (){{.*}}' virtual
+// AST:   |-CXXMethodDecl {{.*}} static_method 'void ()' static
+// AST:   |-CXXMethodDecl {{.*}} overloaded_method 'int (){{.*}}'
+// AST:   |-CXXMethodDecl {{.*}} overloaded_method 'int (char){{.*}}'
+// AST:   | `-ParmVarDecl {{.*}} 'char'
+// AST:   `-CXXMethodDecl {{.*}} overloaded_method 'int (char, int, ...)'
+// AST:     |-ParmVarDecl {{.*}} 'char'
+// AST:     `-ParmVarDecl {{.*}} 'int'
 
 // SYMBOL:      int main(int argc, char **argv);
 // SYMBOL-NEXT: struct Struct {

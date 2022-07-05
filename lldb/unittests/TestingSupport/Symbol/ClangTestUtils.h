@@ -39,14 +39,15 @@ inline CompilerType createRecordWithField(TypeSystemClang &ast,
                                           llvm::StringRef record_name,
                                           CompilerType field_type,
                                           llvm::StringRef field_name) {
-  CompilerType t = createRecord(ast, record_name);
+  CompilerType fwd_decl = createRecord(ast, record_name);
+  CompilerType t = ast.RedeclTagDecl(fwd_decl);
 
   TypeSystemClang::StartTagDeclarationDefinition(t);
   ast.AddFieldToRecordType(t, field_name, field_type,
                            lldb::AccessType::eAccessPublic, 7);
   TypeSystemClang::CompleteTagDeclarationDefinition(t);
 
-  return t;
+  return fwd_decl;
 }
 
 /// Constructs a TypeSystemClang that contains a single RecordDecl that contains
@@ -56,14 +57,15 @@ struct SourceASTWithRecord {
   std::unique_ptr<TypeSystemClang> ast;
   CompilerType record_type;
   clang::RecordDecl *record_decl = nullptr;
+  clang::RecordDecl *fwd_decl = nullptr;
   clang::FieldDecl *field_decl = nullptr;
   SourceASTWithRecord() {
     ast = createAST();
     record_type = createRecordWithField(
         *ast, "Source", ast->GetBasicType(lldb::BasicType::eBasicTypeChar),
         "a_field");
-    record_decl =
-        llvm::cast<clang::RecordDecl>(ClangUtil::GetAsTagDecl(record_type));
+    record_decl = llvm::cast<clang::RecordDecl>(ClangUtil::GetAsTagDecl(record_type)->getDefinition());
+    fwd_decl = record_decl->getPreviousDecl();
     field_decl = *record_decl->fields().begin();
     assert(field_decl);
   }

@@ -273,6 +273,8 @@ constexpr References ReferencesInstance;
 
 // CHECK: Dumping clang ast for 1 modules.
 // CHECK: TranslationUnitDecl {{.*}}
+// CHECK: |-CXXRecordDecl {{.*}} class ClassWithPadding
+// CHECK: |-VarDecl {{.*}} ClassWithPaddingInstance 'const ClassWithPadding'
 // CHECK: |-CXXRecordDecl {{.*}} class ClassWithPadding definition
 // CHECK: | |-FieldDecl {{.*}} a 'char'
 // CHECK: | |-FieldDecl {{.*}} b 'short'
@@ -287,7 +289,8 @@ constexpr References ReferencesInstance;
 // CHECK: | |-FieldDecl {{.*}} k 'long long'
 // CHECK: | |-FieldDecl {{.*}} l 'char'
 // CHECK: | `-FieldDecl {{.*}} m 'long long'
-// CHECK: |-VarDecl {{.*}} ClassWithPaddingInstance 'const ClassWithPadding'
+// CHECK: |-CXXRecordDecl {{.*}} class ClassNoPadding
+// CHECK: |-VarDecl {{.*}} ClassNoPaddingInstance 'const ClassNoPadding'
 // CHECK: |-CXXRecordDecl {{.*}} class ClassNoPadding definition
 // CHECK: | |-FieldDecl {{.*}} a 'unsigned char'
 // CHECK: | |-FieldDecl {{.*}} b 'char'
@@ -305,28 +308,31 @@ constexpr References ReferencesInstance;
 // CHECK: | |-FieldDecl {{.*}} n 'unsigned long long'
 // CHECK: | |-FieldDecl {{.*}} o 'long long'
 // CHECK: | `-FieldDecl {{.*}} p 'int[5]'
-// CHECK: |-VarDecl {{.*}} ClassNoPaddingInstance 'const ClassNoPadding'
 // CHECK: |-EnumDecl {{.*}} EnumType
 // CHECK: | |-EnumConstantDecl {{.*}} A 'EnumType'
 // CHECK: | `-EnumConstantDecl {{.*}} B 'EnumType'
+// CHECK: |-CXXRecordDecl {{.*}} struct DerivedClass
+// CHECK: |-VarDecl {{.*}} DC 'const DerivedClass'
 // CHECK: |-CXXRecordDecl {{.*}} struct DerivedClass definition
 // CHECK: | |-public 'BaseClass<int>'
 // CHECK: | |-FieldDecl {{.*}} DerivedMember 'int'
 // CHECK: | `-CXXConstructorDecl {{.*}} DerivedClass 'void (int, int)'
 // CHECK: |   |-ParmVarDecl {{.*}} 'int'
 // CHECK: |   `-ParmVarDecl {{.*}} 'int'
-// CHECK: |-VarDecl {{.*}} DC 'const DerivedClass'
 // CHECK: |-CXXRecordDecl {{.*}} struct BaseClass<int> definition
 // CHECK: | |-FieldDecl {{.*}} BaseMember 'int'
 // CHECK: | `-CXXMethodDecl {{.*}} BaseClass 'void (int)'
 // CHECK: |   `-ParmVarDecl {{.*}} 'int'
+// CHECK: |-CXXRecordDecl {{.*}} struct EBO
+// CHECK: |-VarDecl {{.*}} EBOC 'const EBO'
 // CHECK: |-CXXRecordDecl {{.*}} struct EBO definition
 // CHECK: | |-public 'EmptyBase'
 // CHECK: | |-FieldDecl {{.*}} Member 'int'
 // CHECK: | `-CXXConstructorDecl {{.*}} EBO 'void (int)'
 // CHECK: |   `-ParmVarDecl {{.*}} 'int'
-// CHECK: |-VarDecl {{.*}} EBOC 'const EBO'
 // CHECK: |-CXXRecordDecl {{.*}} struct EmptyBase definition
+// CHECK: |-CXXRecordDecl {{.*}} struct PaddedBases
+// CHECK: |-VarDecl {{.*}} PBC 'const PaddedBases'
 // CHECK: |-CXXRecordDecl {{.*}} struct PaddedBases definition
 // CHECK: | |-public 'BaseClass<char>'
 // CHECK: | |-public 'BaseClass<short>'
@@ -337,7 +343,6 @@ constexpr References ReferencesInstance;
 // CHECK: |   |-ParmVarDecl {{.*}} 'short'
 // CHECK: |   |-ParmVarDecl {{.*}} 'int'
 // CHECK: |   `-ParmVarDecl {{.*}} 'long long'
-// CHECK: |-VarDecl {{.*}} PBC 'const PaddedBases'
 // CHECK: |-CXXRecordDecl {{.*}} struct BaseClass<char> definition
 // CHECK: | |-FieldDecl {{.*}} BaseMember 'int'
 // CHECK: | `-CXXMethodDecl {{.*}} BaseClass 'void (int)'
@@ -346,10 +351,13 @@ constexpr References ReferencesInstance;
 // CHECK: | |-FieldDecl {{.*}} BaseMember 'int'
 // CHECK: | `-CXXMethodDecl {{.*}} BaseClass 'void (int)'
 // CHECK: |   `-ParmVarDecl {{.*}} 'int'
+// CHECK: |-CXXRecordDecl {{.*}} struct <unnamed-type-UnnamedClassInstance>
+// CHECK: |-VarDecl {{.*}} UnnamedClassInstance 'const <unnamed-type-UnnamedClassInstance>'
 // CHECK: |-CXXRecordDecl {{.*}} struct <unnamed-type-UnnamedClassInstance> definition
 // CHECK: | |-FieldDecl {{.*}} x 'int'
 // CHECK: | `-FieldDecl {{.*}} EBOC 'EBO'
-// CHECK: |-VarDecl {{.*}} UnnamedClassInstance 'const <unnamed-type-UnnamedClassInstance>'
+// CHECK: |-CXXRecordDecl {{.*}} struct Pointers
+// CHECK: |-VarDecl {{.*}} PointersInstance 'const Pointers'
 // CHECK: |-CXXRecordDecl {{.*}} struct Pointers definition
 // CHECK: | |-FieldDecl {{.*}} a 'void *'
 // CHECK: | |-FieldDecl {{.*}} b 'char *'
@@ -365,22 +373,22 @@ constexpr References ReferencesInstance;
 // CHECK: | |-FieldDecl {{.*}} m 'double *'
 // CHECK: | |-FieldDecl {{.*}} n 'unsigned long long *'
 // CHECK: | `-FieldDecl {{.*}} o 'long long *'
-// CHECK: |-VarDecl {{.*}} PointersInstance 'const Pointers'
-// CHECK: |-CXXRecordDecl {{.*}} struct References definition
-// CHECK: | |-FieldDecl {{.*}} a 'char &'
-// CHECK: | |-FieldDecl {{.*}} b 'bool &'
-// CHECK: | |-FieldDecl {{.*}} c 'short &'
-// CHECK: | |-FieldDecl {{.*}} d 'unsigned short &'
-// CHECK: | |-FieldDecl {{.*}} e 'unsigned int &'
-// CHECK: | |-FieldDecl {{.*}} f 'int &'
-// CHECK: | |-FieldDecl {{.*}} g 'unsigned long &'
-// CHECK: | |-FieldDecl {{.*}} h 'long &'
-// CHECK: | |-FieldDecl {{.*}} i 'float &'
-// CHECK: | |-FieldDecl {{.*}} j 'EnumType &'
-// CHECK: | |-FieldDecl {{.*}} k 'double &'
-// CHECK: | |-FieldDecl {{.*}} l 'unsigned long long &'
-// CHECK: | `-FieldDecl {{.*}} m 'long long &'
-// CHECK: `-VarDecl {{.*}} ReferencesInstance 'const References'
+// CHECK: |-CXXRecordDecl {{.*}} struct References
+// CHECK: |-VarDecl {{.*}} ReferencesInstance 'const References'
+// CHECK: `-CXXRecordDecl {{.*}} struct References definition
+// CHECK:  |-FieldDecl {{.*}} a 'char &'
+// CHECK:   |-FieldDecl {{.*}} b 'bool &'
+// CHECK:   |-FieldDecl {{.*}} c 'short &'
+// CHECK:   |-FieldDecl {{.*}} d 'unsigned short &'
+// CHECK:   |-FieldDecl {{.*}} e 'unsigned int &'
+// CHECK:   |-FieldDecl {{.*}} f 'int &'
+// CHECK:   |-FieldDecl {{.*}} g 'unsigned long &'
+// CHECK:   |-FieldDecl {{.*}} h 'long &'
+// CHECK:   |-FieldDecl {{.*}} i 'float &'
+// CHECK:   |-FieldDecl {{.*}} j 'EnumType &'
+// CHECK:   |-FieldDecl {{.*}} k 'double &'
+// CHECK:   |-FieldDecl {{.*}} l 'unsigned long long &'
+// CHECK:   `-FieldDecl {{.*}} m 'long long &'
 
 int main(int argc, char **argv) {
   return 0;

@@ -1,0 +1,3165 @@
+diff --git a/clang/include/clang/AST/ExternalASTSource.h b/clang/include/clang/AST/ExternalASTSource.h
+index b1851afcda37..100823222f8d 100644
+--- a/clang/include/clang/AST/ExternalASTSource.h
++++ b/clang/include/clang/AST/ExternalASTSource.h
+@@ -299,6 +299,9 @@ public:
+   static bool classof(const ExternalASTSource *S) { return S->isA(&ID); }
+   /// \}
+ 
++  /// Increment the current generation.
++  uint32_t incrementGeneration(ASTContext &C);
++
+ protected:
+   static DeclContextLookupResult
+   SetExternalVisibleDeclsForName(const DeclContext *DC,
+@@ -308,9 +311,6 @@ protected:
+   static DeclContextLookupResult
+   SetNoExternalVisibleDeclsForName(const DeclContext *DC,
+                                    DeclarationName Name);
+-
+-  /// Increment the current generation.
+-  uint32_t incrementGeneration(ASTContext &C);
+ };
+ 
+ /// A lazy pointer to an AST node (of base type T) that resides
+diff --git a/clang/lib/AST/ASTImporter.cpp b/clang/lib/AST/ASTImporter.cpp
+index e9730112eaa3..441c9e0044b2 100644
+--- a/clang/lib/AST/ASTImporter.cpp
++++ b/clang/lib/AST/ASTImporter.cpp
+@@ -307,7 +307,7 @@ namespace clang {
+     }
+ 
+     void addDeclToContexts(Decl *FromD, Decl *ToD) {
+-      if (Importer.isMinimalImport()) {
++      if (Importer.isMinimalImport() || Importer.getToContext().getLangOpts().DebuggerSupport || Importer.getFromContext().getLangOpts().DebuggerSupport) {
+         // In minimal import case the decl must be added even if it is not
+         // contained in original context, for LLDB compatibility.
+         // FIXME: Check if a better solution is possible.
+@@ -1046,8 +1046,8 @@ bool ASTNodeImporter::hasSameVisibilityContextAndLinkage(T *Found, T *From) {
+ template <>
+ bool ASTNodeImporter::hasSameVisibilityContextAndLinkage(TypedefNameDecl *Found,
+                                                TypedefNameDecl *From) {
+-  if (Found->getLinkageInternal() != From->getLinkageInternal())
+-    return false;
++  //if (Found->getLinkageInternal() != From->getLinkageInternal())
++  //  return false;
+ 
+   if (From->isInAnonymousNamespace() && Found->isInAnonymousNamespace())
+     return Importer.GetFromTU(Found) == From->getTranslationUnitDecl();
+@@ -1770,9 +1770,8 @@ Error ASTNodeImporter::ImportDefinitionIfNeeded(Decl *FromD, Decl *ToD) {
+ 
+   if (RecordDecl *FromRecord = dyn_cast<RecordDecl>(FromD)) {
+     if (RecordDecl *ToRecord = cast<RecordDecl>(ToD)) {
+-      if (FromRecord->getDefinition() && FromRecord->isCompleteDefinition() &&
+-          !ToRecord->getDefinition()) {
+-        if (Error Err = ImportDefinition(FromRecord, ToRecord))
++      if (FromRecord->getDefinition() && !ToRecord->getDefinition()) {
++        if (Error Err = ImportDefinition(FromRecord->getDefinition(), ToRecord))
+           return Err;
+       }
+     }
+@@ -1835,7 +1834,7 @@ ASTNodeImporter::ImportDeclarationNameLoc(
+ 
+ Error
+ ASTNodeImporter::ImportDeclContext(DeclContext *FromDC, bool ForceImport) {
+-  if (Importer.isMinimalImport() && !ForceImport) {
++  if (Importer.isMinimalImport() && !ForceImport && isa<NamespaceDecl>(FromDC)) {
+     auto ToDCOrErr = Importer.ImportContext(FromDC);
+     return ToDCOrErr.takeError();
+   }
+@@ -2014,7 +2013,7 @@ Error ASTNodeImporter::ImportDefinition(
+     To->completeDefinition();
+   };
+ 
+-  if (To->getDefinition() || To->isBeingDefined()) {
++  if (To->isThisDeclarationADefinition() || To->isBeingDefined()) {
+     if (Kind == IDK_Everything ||
+         // In case of lambdas, the class already has a definition ptr set, but
+         // the contained decls are not imported yet. Also, isBeingDefined was
+@@ -2517,6 +2516,8 @@ ASTNodeImporter::VisitTypedefNameDecl(TypedefNameDecl *D, bool IsAlias) {
+         QualType FromUT = D->getUnderlyingType();
+         QualType FoundUT = FoundTypedef->getUnderlyingType();
+         if (Importer.IsStructurallyEquivalent(FromUT, FoundUT)) {
++          if (Importer.isMinimalImport())
++            return Importer.MapImported(D, FoundTypedef);
+           // If the "From" context has a complete underlying type but we
+           // already have a complete underlying type then return with that.
+           if (!FromUT->isIncompleteType() && !FoundUT->isIncompleteType())
+@@ -2783,7 +2784,7 @@ ExpectedDecl ASTNodeImporter::VisitEnumDecl(EnumDecl *D) {
+ 
+   // Import the definition
+   if (D->isCompleteDefinition())
+-    if (Error Err = ImportDefinition(D, D2))
++    if (Error Err = ImportDefinition(D, D2, IDK_Everything))
+       return std::move(Err);
+ 
+   return D2;
+@@ -2860,8 +2861,8 @@ ExpectedDecl ASTNodeImporter::VisitRecordDecl(RecordDecl *D) {
+           continue;
+ 
+         if (IsStructuralMatch(D, FoundRecord)) {
+-          RecordDecl *FoundDef = FoundRecord->getDefinition();
+-          if (D->isThisDeclarationADefinition() && FoundDef) {
++          RecordDecl *FoundDef = nullptr; //FoundRecord->getDefinition();
++          if (false && D->isThisDeclarationADefinition() && FoundDef) {
+             // FIXME: Structural equivalence check should check for same
+             // user-defined methods.
+             Importer.MapImported(D, FoundDef);
+@@ -3022,7 +3023,7 @@ ExpectedDecl ASTNodeImporter::VisitRecordDecl(RecordDecl *D) {
+     D2->setAnonymousStructOrUnion(true);
+ 
+   if (D->isCompleteDefinition())
+-    if (Error Err = ImportDefinition(D, D2, IDK_Default))
++    if (Error Err = ImportDefinition(D, D2, IDK_Everything))
+       return std::move(Err);
+ 
+   return D2;
+@@ -4985,9 +4986,8 @@ Error ASTNodeImporter::ImportDefinition(
+                           diag::note_odr_objc_missing_superclass);
+     }
+ 
+-    if (shouldForceImportDeclContext(Kind))
+-      if (Error Err = ImportDeclContext(From))
+-        return Err;
++    if (Error Err = ImportDeclContext(From))
++      return Err;
+     return Error::success();
+   }
+ 
+@@ -5848,7 +5848,7 @@ ExpectedDecl ASTNodeImporter::VisitClassTemplateSpecializationDecl(
+   D2->setTemplateSpecializationKind(D->getTemplateSpecializationKind());
+ 
+   if (D->isCompleteDefinition())
+-    if (Error Err = ImportDefinition(D, D2))
++    if (Error Err = ImportDefinition(D, D2, IDK_Everything))
+       return std::move(Err);
+ 
+   return D2;
+@@ -9834,6 +9834,11 @@ void ASTImporter::CompleteDecl (Decl *D) {
+ 
+ Decl *ASTImporter::MapImported(Decl *From, Decl *To) {
+   llvm::DenseMap<Decl *, Decl *>::iterator Pos = ImportedDecls.find(From);
++  if (!(Pos == ImportedDecls.end() || Pos->second == To)) {
++    From->dumpColor();
++    To->dumpColor();
++    Pos->second->dumpColor();
++  }
+   assert((Pos == ImportedDecls.end() || Pos->second == To) &&
+       "Try to import an already imported Decl");
+   if (Pos != ImportedDecls.end())
+diff --git a/clang/lib/AST/ASTStructuralEquivalence.cpp b/clang/lib/AST/ASTStructuralEquivalence.cpp
+index d80fc3ce7292..b61a7fb916c8 100644
+--- a/clang/lib/AST/ASTStructuralEquivalence.cpp
++++ b/clang/lib/AST/ASTStructuralEquivalence.cpp
+@@ -1478,9 +1478,7 @@ static bool IsStructurallyEquivalent(StructuralEquivalenceContext &Context,
+   // Compare the definitions of these two records. If either or both are
+   // incomplete (i.e. it is a forward decl), we assume that they are
+   // equivalent.
+-  D1 = D1->getDefinition();
+-  D2 = D2->getDefinition();
+-  if (!D1 || !D2)
++  if (!D1->isThisDeclarationADefinition() || !D2->isThisDeclarationADefinition())
+     return true;
+ 
+   // If any of the records has external storage and we do a minimal check (or
+diff --git a/clang/lib/AST/DeclObjC.cpp b/clang/lib/AST/DeclObjC.cpp
+index 15c545b59c81..e25e532324b2 100644
+--- a/clang/lib/AST/DeclObjC.cpp
++++ b/clang/lib/AST/DeclObjC.cpp
+@@ -1515,7 +1515,7 @@ ObjCInterfaceDecl *ObjCInterfaceDecl::Create(const ASTContext &C,
+   auto *Result = new (C, DC)
+       ObjCInterfaceDecl(C, DC, atLoc, Id, typeParamList, ClassLoc, PrevDecl,
+                         isInternal);
+-  Result->Data.setInt(!C.getLangOpts().Modules);
++  Result->Data.setInt(!C.getLangOpts().Modules && !C.getLangOpts().DebuggerSupport);
+   C.getObjCInterfaceType(Result, PrevDecl);
+   return Result;
+ }
+@@ -1525,7 +1525,7 @@ ObjCInterfaceDecl *ObjCInterfaceDecl::CreateDeserialized(const ASTContext &C,
+   auto *Result = new (C, ID)
+       ObjCInterfaceDecl(C, nullptr, SourceLocation(), nullptr, nullptr,
+                         SourceLocation(), nullptr, false);
+-  Result->Data.setInt(!C.getLangOpts().Modules);
++  Result->Data.setInt(false);
+   return Result;
+ }
+ 
+diff --git a/clang/lib/AST/TextNodeDumper.cpp b/clang/lib/AST/TextNodeDumper.cpp
+index 79e9fa6ab86f..f61e178a831a 100644
+--- a/clang/lib/AST/TextNodeDumper.cpp
++++ b/clang/lib/AST/TextNodeDumper.cpp
+@@ -271,7 +271,7 @@ void TextNodeDumper::Visit(const Decl *D) {
+   if (D->isImplicit())
+     OS << " implicit";
+ 
+-  if (D->isUsed())
++  if (/*REMOVE ME after D80878 */ false && D->isUsed())
+     OS << " used";
+   else if (D->isThisDeclarationReferenced())
+     OS << " referenced";
+diff --git a/lldb/source/Plugins/ExpressionParser/Clang/ASTUtils.h b/lldb/source/Plugins/ExpressionParser/Clang/ASTUtils.h
+index b70ec223df4d..229b3fdeb681 100644
+--- a/lldb/source/Plugins/ExpressionParser/Clang/ASTUtils.h
++++ b/lldb/source/Plugins/ExpressionParser/Clang/ASTUtils.h
+@@ -273,8 +273,12 @@ public:
+   }
+ 
+   void CompleteRedeclChain(const clang::Decl *D) override {
+-    for (size_t i = 0; i < Sources.size(); ++i)
++    for (size_t i = 0; i < Sources.size(); ++i) {
+       Sources[i]->CompleteRedeclChain(D);
++      if (auto *td = llvm::dyn_cast<clang::TagDecl>(D))
++        if (td->getDefinition())
++          return;
++    }
+   }
+ 
+   clang::Selector GetExternalSelector(uint32_t ID) override {
+diff --git a/lldb/source/Plugins/ExpressionParser/Clang/ClangASTImporter.cpp b/lldb/source/Plugins/ExpressionParser/Clang/ClangASTImporter.cpp
+index 9ef3c3671abf..69074abc6a19 100644
+--- a/lldb/source/Plugins/ExpressionParser/Clang/ClangASTImporter.cpp
++++ b/lldb/source/Plugins/ExpressionParser/Clang/ClangASTImporter.cpp
+@@ -249,31 +249,6 @@ public:
+       NamedDecl *decl = m_decls_to_complete.pop_back_val();
+       m_decls_already_completed.insert(decl);
+ 
+-      // The decl that should be completed has to be imported into the target
+-      // context from some other context.
+-      assert(to_context_md->hasOrigin(decl));
+-      // We should only complete decls coming from the source context.
+-      assert(to_context_md->getOrigin(decl).ctx == m_src_ctx);
+-
+-      Decl *original_decl = to_context_md->getOrigin(decl).decl;
+-
+-      // Complete the decl now.
+-      TypeSystemClang::GetCompleteDecl(m_src_ctx, original_decl);
+-      if (auto *tag_decl = dyn_cast<TagDecl>(decl)) {
+-        if (auto *original_tag_decl = dyn_cast<TagDecl>(original_decl)) {
+-          if (original_tag_decl->isCompleteDefinition()) {
+-            m_delegate->ImportDefinitionTo(tag_decl, original_tag_decl);
+-            tag_decl->setCompleteDefinition(true);
+-          }
+-        }
+-
+-        tag_decl->setHasExternalLexicalStorage(false);
+-        tag_decl->setHasExternalVisibleStorage(false);
+-      } else if (auto *container_decl = dyn_cast<ObjCContainerDecl>(decl)) {
+-        container_decl->setHasExternalLexicalStorage(false);
+-        container_decl->setHasExternalVisibleStorage(false);
+-      }
+-
+       to_context_md->removeOrigin(decl);
+     }
+ 
+@@ -286,6 +261,9 @@ public:
+     // Filter out decls that we can't complete later.
+     if (!isa<TagDecl>(to) && !isa<ObjCInterfaceDecl>(to))
+       return;
++
++    to = ClangUtil::GetFirstDecl(to);
++
+     RecordDecl *from_record_decl = dyn_cast<RecordDecl>(from);
+     // We don't need to complete injected class name decls.
+     if (from_record_decl && from_record_decl->isInjectedClassName())
+@@ -301,6 +279,16 @@ public:
+ };
+ } // namespace
+ 
++bool ClangASTImporter::CanImport(Decl *d) {
++  if (!d)
++    return false;
++  if (isa<TagDecl>(d))
++    return GetDeclOrigin(d).Valid();
++  if (isa<ObjCInterfaceDecl>(d))
++    return GetDeclOrigin(d).Valid();
++  return false;
++}
++
+ CompilerType ClangASTImporter::DeportType(TypeSystemClang &dst,
+                                           const CompilerType &src_type) {
+   Log *log = GetLog(LLDBLog::Expressions);
+@@ -364,24 +352,10 @@ bool ClangASTImporter::CanImport(const CompilerType &type) {
+ 
+   const clang::Type::TypeClass type_class = qual_type->getTypeClass();
+   switch (type_class) {
+-  case clang::Type::Record: {
+-    const clang::CXXRecordDecl *cxx_record_decl =
+-        qual_type->getAsCXXRecordDecl();
+-    if (cxx_record_decl) {
+-      if (GetDeclOrigin(cxx_record_decl).Valid())
+-        return true;
+-    }
+-  } break;
+-
+-  case clang::Type::Enum: {
+-    clang::EnumDecl *enum_decl =
+-        llvm::cast<clang::EnumType>(qual_type)->getDecl();
+-    if (enum_decl) {
+-      if (GetDeclOrigin(enum_decl).Valid())
+-        return true;
+-    }
+-  } break;
+-
++  case clang::Type::Record:
++    return CanImport(qual_type->getAsRecordDecl());
++  case clang::Type::Enum:
++    return CanImport(llvm::cast<clang::EnumType>(qual_type)->getDecl());
+   case clang::Type::ObjCObject:
+   case clang::Type::ObjCInterface: {
+     const clang::ObjCObjectType *objc_class_type =
+@@ -391,10 +365,7 @@ bool ClangASTImporter::CanImport(const CompilerType &type) {
+           objc_class_type->getInterface();
+       // We currently can't complete objective C types through the newly added
+       // ASTContext because it only supports TagDecl objects right now...
+-      if (class_interface_decl) {
+-        if (GetDeclOrigin(class_interface_decl).Valid())
+-          return true;
+-      }
++      return CanImport(class_interface_decl);
+     }
+   } break;
+ 
+@@ -506,14 +477,7 @@ bool ClangASTImporter::CompleteType(const CompilerType &compiler_type) {
+   if (!CanImport(compiler_type))
+     return false;
+ 
+-  if (Import(compiler_type)) {
+-    TypeSystemClang::CompleteTagDeclarationDefinition(compiler_type);
+-    return true;
+-  }
+-
+-  TypeSystemClang::SetHasExternalStorage(compiler_type.GetOpaqueQualType(),
+-                                         false);
+-  return false;
++  return Import(compiler_type);
+ }
+ 
+ bool ClangASTImporter::LayoutRecordType(
+@@ -524,6 +488,7 @@ bool ClangASTImporter::LayoutRecordType(
+         &base_offsets,
+     llvm::DenseMap<const clang::CXXRecordDecl *, clang::CharUnits>
+         &vbase_offsets) {
++  record_decl = static_cast<const RecordDecl*>(record_decl->getFirstDecl());
+   RecordDeclToLayoutMap::iterator pos =
+       m_record_decl_to_layout_map.find(record_decl);
+   bool success = false;
+@@ -535,7 +500,6 @@ bool ClangASTImporter::LayoutRecordType(
+     field_offsets.swap(pos->second.field_offsets);
+     base_offsets.swap(pos->second.base_offsets);
+     vbase_offsets.swap(pos->second.vbase_offsets);
+-    m_record_decl_to_layout_map.erase(pos);
+     success = true;
+   } else {
+     bit_size = 0;
+@@ -545,140 +509,95 @@ bool ClangASTImporter::LayoutRecordType(
+   return success;
+ }
+ 
+-void ClangASTImporter::SetRecordLayout(clang::RecordDecl *decl,
+-                                        const LayoutInfo &layout) {
++void ClangASTImporter::SetRecordLayout(const clang::RecordDecl *decl,
++                                       const LayoutInfo &layout) {
++  decl = static_cast<const RecordDecl*>(decl->getFirstDecl());
++
++  assert(m_record_decl_to_layout_map.count(decl) == 0 && "Trying to overwrite layout?");
+   m_record_decl_to_layout_map.insert(std::make_pair(decl, layout));
+ }
+ 
+-bool ClangASTImporter::CompleteTagDecl(clang::TagDecl *decl) {
++bool ClangASTImporter::HasRecordLayout(const RecordDecl *decl) {
++  decl = static_cast<const RecordDecl*>(decl->getFirstDecl());
++  return m_record_decl_to_layout_map.count(decl);
++}
++
++bool ClangASTImporter::CompleteTagDecl(const TagDecl *decl) {
+   DeclOrigin decl_origin = GetDeclOrigin(decl);
+ 
+   if (!decl_origin.Valid())
+     return false;
+ 
+-  if (!TypeSystemClang::GetCompleteDecl(decl_origin.ctx, decl_origin.decl))
+-    return false;
++  clang::TagDecl *origin_decl = llvm::cast<TagDecl>(decl_origin.decl);
+ 
+-  ImporterDelegateSP delegate_sp(
+-      GetDelegate(&decl->getASTContext(), decl_origin.ctx));
++  origin_decl = origin_decl->getDefinition();
++  if (!origin_decl)
++
++  ImporterDelegateSP delegate_sp =
++      GetDelegate(&decl->getASTContext(), decl_origin.ctx);
+ 
+-  ASTImporterDelegate::CxxModuleScope std_scope(*delegate_sp,
+-                                                &decl->getASTContext());
+-  if (delegate_sp)
+-    delegate_sp->ImportDefinitionTo(decl, decl_origin.decl);
++  // ASTImporterDelegate::CxxModuleScope std_scope(*delegate_sp,
++  //                                               &decl->getASTContext());
++
++  // llvm::Expected<Decl *> result = delegate_sp->Import(origin_decl);
++  // if (!result) {
++  //   llvm::handleAllErrors(result.takeError(), [](const clang::ASTImportError &e) {
++  //       llvm::errs() << "ERR: " << e.toString() << "\n";
++  //   });
++  //   return false;
++  // }
++
++  //TagDecl *result_decl = llvm::cast<TagDecl>(*result);
++  //if (!decl->isThisDeclarationADefinition() && result_decl != decl) {
++  //  if (result_decl->getPreviousDecl() == nullptr) {
++  //    result_decl->setPreviousDecl(const_cast<TagDecl *>(decl));
++  //  }
++  //}
+ 
+   return true;
+ }
+ 
+-bool ClangASTImporter::CompleteTagDeclWithOrigin(clang::TagDecl *decl,
++bool ClangASTImporter::CompleteTagDeclWithOrigin(const clang::TagDecl *decl,
+                                                  clang::TagDecl *origin_decl) {
+-  clang::ASTContext *origin_ast_ctx = &origin_decl->getASTContext();
+ 
+-  if (!TypeSystemClang::GetCompleteDecl(origin_ast_ctx, origin_decl))
+-    return false;
+-
+-  ImporterDelegateSP delegate_sp(
+-      GetDelegate(&decl->getASTContext(), origin_ast_ctx));
+-
+-  if (delegate_sp)
+-    delegate_sp->ImportDefinitionTo(decl, origin_decl);
++  if (!origin_decl->getDefinition())
++     return false;
++  origin_decl = origin_decl->getFirstDecl();
+ 
++  clang::ASTContext *origin_ast_ctx = &origin_decl->getASTContext();
+   ASTContextMetadataSP context_md = GetContextMetadata(&decl->getASTContext());
+ 
+   context_md->setOrigin(decl, DeclOrigin(origin_ast_ctx, origin_decl));
+-  return true;
++  return CompleteTagDecl(decl);
+ }
+ 
+-bool ClangASTImporter::CompleteObjCInterfaceDecl(
+-    clang::ObjCInterfaceDecl *interface_decl) {
++bool ClangASTImporter::CompleteObjCInterfaceDecl(const ObjCInterfaceDecl *interface_decl) {
+   DeclOrigin decl_origin = GetDeclOrigin(interface_decl);
+ 
+   if (!decl_origin.Valid())
+     return false;
+ 
+-  if (!TypeSystemClang::GetCompleteDecl(decl_origin.ctx, decl_origin.decl))
++  ObjCInterfaceDecl *origin_decl = llvm::cast<ObjCInterfaceDecl>(decl_origin.decl);
++
++  origin_decl = origin_decl->getDefinition();
++  if (!origin_decl)
+     return false;
+ 
+   ImporterDelegateSP delegate_sp(
+       GetDelegate(&interface_decl->getASTContext(), decl_origin.ctx));
+ 
+-  if (delegate_sp)
+-    delegate_sp->ImportDefinitionTo(interface_decl, decl_origin.decl);
+-
+-  if (ObjCInterfaceDecl *super_class = interface_decl->getSuperClass())
+-    RequireCompleteType(clang::QualType(super_class->getTypeForDecl(), 0));
++  llvm::Expected<Decl *> result = delegate_sp->Import(origin_decl);
++  if (result)
++    return true;
++  llvm::handleAllErrors(result.takeError(), [](clang::ASTImportError &e){
++      abort();
++  });
+ 
+-  return true;
++  return false;
+ }
+ 
+ bool ClangASTImporter::CompleteAndFetchChildren(clang::QualType type) {
+-  if (!RequireCompleteType(type))
+-    return false;
+-
+-  Log *log = GetLog(LLDBLog::Expressions);
+-
+-  if (const TagType *tag_type = type->getAs<TagType>()) {
+-    TagDecl *tag_decl = tag_type->getDecl();
+-
+-    DeclOrigin decl_origin = GetDeclOrigin(tag_decl);
+-
+-    if (!decl_origin.Valid())
+-      return false;
+-
+-    ImporterDelegateSP delegate_sp(
+-        GetDelegate(&tag_decl->getASTContext(), decl_origin.ctx));
+-
+-    ASTImporterDelegate::CxxModuleScope std_scope(*delegate_sp,
+-                                                  &tag_decl->getASTContext());
+-
+-    TagDecl *origin_tag_decl = llvm::dyn_cast<TagDecl>(decl_origin.decl);
+-
+-    for (Decl *origin_child_decl : origin_tag_decl->decls()) {
+-      llvm::Expected<Decl *> imported_or_err =
+-          delegate_sp->Import(origin_child_decl);
+-      if (!imported_or_err) {
+-        LLDB_LOG_ERROR(log, imported_or_err.takeError(),
+-                       "Couldn't import decl: {0}");
+-        return false;
+-      }
+-    }
+-
+-    if (RecordDecl *record_decl = dyn_cast<RecordDecl>(origin_tag_decl))
+-      record_decl->setHasLoadedFieldsFromExternalStorage(true);
+-
+-    return true;
+-  }
+-
+-  if (const ObjCObjectType *objc_object_type = type->getAs<ObjCObjectType>()) {
+-    if (ObjCInterfaceDecl *objc_interface_decl =
+-            objc_object_type->getInterface()) {
+-      DeclOrigin decl_origin = GetDeclOrigin(objc_interface_decl);
+-
+-      if (!decl_origin.Valid())
+-        return false;
+-
+-      ImporterDelegateSP delegate_sp(
+-          GetDelegate(&objc_interface_decl->getASTContext(), decl_origin.ctx));
+-
+-      ObjCInterfaceDecl *origin_interface_decl =
+-          llvm::dyn_cast<ObjCInterfaceDecl>(decl_origin.decl);
+-
+-      for (Decl *origin_child_decl : origin_interface_decl->decls()) {
+-        llvm::Expected<Decl *> imported_or_err =
+-            delegate_sp->Import(origin_child_decl);
+-        if (!imported_or_err) {
+-          LLDB_LOG_ERROR(log, imported_or_err.takeError(),
+-                         "Couldn't import decl: {0}");
+-          return false;
+-        }
+-      }
+-
+-      return true;
+-    }
+-    return false;
+-  }
+-
+-  return true;
++  return RequireCompleteType(type);
+ }
+ 
+ bool ClangASTImporter::RequireCompleteType(clang::QualType type) {
+@@ -722,7 +641,10 @@ ClangASTImporter::DeclOrigin
+ ClangASTImporter::GetDeclOrigin(const clang::Decl *decl) {
+   ASTContextMetadataSP context_md = GetContextMetadata(&decl->getASTContext());
+ 
+-  return context_md->getOrigin(decl);
++  DeclOrigin o = context_md->getOrigin(decl);
++  if (o.Valid())
++    return o;
++  return o;
+ }
+ 
+ void ClangASTImporter::SetDeclOrigin(const clang::Decl *decl,
+@@ -843,23 +765,25 @@ ClangASTImporter::ASTImporterDelegate::ImportImpl(Decl *From) {
+     return origin.decl;
+   }
+ 
+-  // This declaration came originally from another ASTContext. Instead of
+-  // copying our potentially incomplete 'From' Decl we instead go to the
+-  // original ASTContext and copy the original to the target. This is not
+-  // only faster than first completing our current decl and then copying it
+-  // to the target, but it also prevents that indirectly copying the same
+-  // declaration to the same target requires the ASTImporter to merge all
+-  // the different decls that appear to come from different ASTContexts (even
+-  // though all these different source ASTContexts just got a copy from
+-  // one source AST).
+-  if (origin.Valid()) {
+-    auto R = m_main.CopyDecl(&getToContext(), origin.decl);
+-    if (R) {
+-      RegisterImportedDecl(From, R);
+-      return R;
++  while(origin.Valid()) {
++    ImporterDelegateSP delegate = m_main.GetDelegate(&this->getToContext(), origin.ctx);
++    if (clang::Decl *imported = delegate->GetAlreadyImportedOrNull(origin.decl)) {
++      RegisterImportedDecl(From, imported);
++      return imported;
+     }
++    origin = m_main.GetDeclOrigin(origin.decl);
+   }
+ 
++  if (clang::TagDecl *td = dyn_cast<TagDecl>(From))
++    if (clang::ExternalASTSource *s = getToContext().getExternalSource())
++      if (!td->isThisDeclarationADefinition())
++        s->incrementGeneration(getToContext());
++
++  if (clang::ObjCInterfaceDecl *td = dyn_cast<ObjCInterfaceDecl>(From))
++    if (clang::ExternalASTSource *s = getToContext().getExternalSource())
++      if (!td->isThisDeclarationADefinition())
++        s->incrementGeneration(getToContext());
++
+   // If we have a forcefully completed type, try to find an actual definition
+   // for it in other modules.
+   const ClangASTMetadata *md = m_main.GetDeclMetadata(From);
+@@ -879,11 +803,14 @@ ClangASTImporter::ASTImporterDelegate::ImportImpl(Decl *From) {
+     DeclContext *dc = *dc_or_err;
+     DeclContext::lookup_result lr = dc->lookup(*dn_or_err);
+     for (clang::Decl *candidate : lr) {
+-      if (candidate->getKind() == From->getKind()) {
+-        RegisterImportedDecl(From, candidate);
+-        m_decls_to_ignore.insert(candidate);
+-        return candidate;
+-      }
++      clang::TagDecl *to_td = dyn_cast<TagDecl>(candidate);
++      if (!to_td)
++        continue;
++      if (!to_td->getDefinition())
++        continue;
++      RegisterImportedDecl(From, candidate);
++      m_decls_to_ignore.insert(candidate);
++      return candidate;
+     }
+     LLDB_LOG(log, "[ClangASTImporter] Complete definition not found");
+   }
+@@ -893,50 +820,6 @@ ClangASTImporter::ASTImporterDelegate::ImportImpl(Decl *From) {
+ 
+ void ClangASTImporter::ASTImporterDelegate::ImportDefinitionTo(
+     clang::Decl *to, clang::Decl *from) {
+-  // We might have a forward declaration from a shared library that we
+-  // gave external lexical storage so that Clang asks us about the full
+-  // definition when it needs it. In this case the ASTImporter isn't aware
+-  // that the forward decl from the shared library is the actual import
+-  // target but would create a second declaration that would then be defined.
+-  // We want that 'to' is actually complete after this function so let's
+-  // tell the ASTImporter that 'to' was imported from 'from'.
+-  MapImported(from, to);
+-  ASTImporter::Imported(from, to);
+-
+-  Log *log = GetLog(LLDBLog::Expressions);
+-
+-  if (llvm::Error err = ImportDefinition(from)) {
+-    LLDB_LOG_ERROR(log, std::move(err),
+-                   "[ClangASTImporter] Error during importing definition: {0}");
+-    return;
+-  }
+-
+-  if (clang::TagDecl *to_tag = dyn_cast<clang::TagDecl>(to)) {
+-    if (clang::TagDecl *from_tag = dyn_cast<clang::TagDecl>(from)) {
+-      to_tag->setCompleteDefinition(from_tag->isCompleteDefinition());
+-
+-      if (Log *log_ast = GetLog(LLDBLog::AST)) {
+-        std::string name_string;
+-        if (NamedDecl *from_named_decl = dyn_cast<clang::NamedDecl>(from)) {
+-          llvm::raw_string_ostream name_stream(name_string);
+-          from_named_decl->printName(name_stream);
+-          name_stream.flush();
+-        }
+-        LLDB_LOG(log_ast, "==== [ClangASTImporter][TUDecl: {0}] Imported "
+-                          "({1}Decl*){2}, named {3} (from "
+-                          "(Decl*){4})",
+-                 static_cast<void *>(to->getTranslationUnitDecl()),
+-                 from->getDeclKindName(), static_cast<void *>(to), name_string,
+-                 static_cast<void *>(from));
+-
+-        // Log the AST of the TU.
+-        std::string ast_string;
+-        llvm::raw_string_ostream ast_stream(ast_string);
+-        to->getTranslationUnitDecl()->dump(ast_stream);
+-        LLDB_LOG(log_ast, "{0}", ast_string);
+-      }
+-    }
+-  }
+ 
+   // If we're dealing with an Objective-C class, ensure that the inheritance
+   // has been set up correctly.  The ASTImporter may not do this correctly if
+@@ -964,8 +847,6 @@ void ClangASTImporter::ASTImporterDelegate::ImportDefinitionTo(
+           Import(from_superclass);
+ 
+       if (!imported_from_superclass_decl) {
+-        LLDB_LOG_ERROR(log, imported_from_superclass_decl.takeError(),
+-                       "Couldn't import decl: {0}");
+         break;
+       }
+ 
+@@ -984,27 +865,6 @@ void ClangASTImporter::ASTImporterDelegate::ImportDefinitionTo(
+   }
+ }
+ 
+-/// Takes a CXXMethodDecl and completes the return type if necessary. This
+-/// is currently only necessary for virtual functions with covariant return
+-/// types where Clang's CodeGen expects that the underlying records are already
+-/// completed.
+-static void MaybeCompleteReturnType(ClangASTImporter &importer,
+-                                        CXXMethodDecl *to_method) {
+-  if (!to_method->isVirtual())
+-    return;
+-  QualType return_type = to_method->getReturnType();
+-  if (!return_type->isPointerType() && !return_type->isReferenceType())
+-    return;
+-
+-  clang::RecordDecl *rd = return_type->getPointeeType()->getAsRecordDecl();
+-  if (!rd)
+-    return;
+-  if (rd->getDefinition())
+-    return;
+-
+-  importer.CompleteTagDecl(rd);
+-}
+-
+ /// Recreate a module with its parents in \p to_source and return its id.
+ static OptionalClangModuleID
+ RemapModule(OptionalClangModuleID from_id,
+@@ -1083,8 +943,11 @@ void ClangASTImporter::ASTImporterDelegate::Imported(clang::Decl *from,
+         ImporterDelegateSP direct_completer =
+             m_main.GetDelegate(&to->getASTContext(), origin.ctx);
+ 
+-        if (direct_completer.get() != this)
+-          direct_completer->ASTImporter::Imported(origin.decl, to);
++        if (direct_completer.get() != this
++             && !direct_completer->GetAlreadyImportedOrNull(origin.decl)
++             && !direct_completer->getImportedFromDecl(to)) {
++          direct_completer->MapImported(origin.decl, to);
++        }
+ 
+         LLDB_LOG(log,
+                  "    [ClangASTImporter] Propagated origin "
+@@ -1127,51 +990,34 @@ void ClangASTImporter::ASTImporterDelegate::Imported(clang::Decl *from,
+              from, m_source_ctx, &to->getASTContext());
+   }
+ 
+-  if (auto *to_tag_decl = dyn_cast<TagDecl>(to)) {
+-    to_tag_decl->setHasExternalLexicalStorage();
+-    to_tag_decl->getPrimaryContext()->setMustBuildLookupTable();
+-    auto from_tag_decl = cast<TagDecl>(from);
+-
+-    LLDB_LOG(
+-        log,
+-        "    [ClangASTImporter] To is a TagDecl - attributes {0}{1} [{2}->{3}]",
+-        (to_tag_decl->hasExternalLexicalStorage() ? " Lexical" : ""),
+-        (to_tag_decl->hasExternalVisibleStorage() ? " Visible" : ""),
+-        (from_tag_decl->isCompleteDefinition() ? "complete" : "incomplete"),
+-        (to_tag_decl->isCompleteDefinition() ? "complete" : "incomplete"));
+-  }
+-
+   if (auto *to_namespace_decl = dyn_cast<NamespaceDecl>(to)) {
+     m_main.BuildNamespaceMap(to_namespace_decl);
+     to_namespace_decl->setHasExternalVisibleStorage();
+   }
+ 
+   if (auto *to_container_decl = dyn_cast<ObjCContainerDecl>(to)) {
+-    to_container_decl->setHasExternalLexicalStorage();
+-    to_container_decl->setHasExternalVisibleStorage();
+-
+     if (log) {
+       if (ObjCInterfaceDecl *to_interface_decl =
+               llvm::dyn_cast<ObjCInterfaceDecl>(to_container_decl)) {
+         LLDB_LOG(
+             log,
+             "    [ClangASTImporter] To is an ObjCInterfaceDecl - attributes "
+-            "{0}{1}{2}",
+-            (to_interface_decl->hasExternalLexicalStorage() ? " Lexical" : ""),
+-            (to_interface_decl->hasExternalVisibleStorage() ? " Visible" : ""),
++            "{0}",
+             (to_interface_decl->hasDefinition() ? " HasDefinition" : ""));
+       } else {
+         LLDB_LOG(
+-            log, "    [ClangASTImporter] To is an {0}Decl - attributes {1}{2}",
+-            ((Decl *)to_container_decl)->getDeclKindName(),
+-            (to_container_decl->hasExternalLexicalStorage() ? " Lexical" : ""),
+-            (to_container_decl->hasExternalVisibleStorage() ? " Visible" : ""));
++            log, "    [ClangASTImporter] To is an {0}Decl",
++            ((Decl *)to_container_decl)->getDeclKindName());
+       }
+     }
+   }
+ 
+-  if (clang::CXXMethodDecl *to_method = dyn_cast<CXXMethodDecl>(to))
+-    MaybeCompleteReturnType(m_main, to_method);
++  if (clang::ObjCInterfaceDecl *td = dyn_cast<ObjCInterfaceDecl>(to)) {
++    if (clang::ExternalASTSource *s = getToContext().getExternalSource())
++      if (td->isThisDeclarationADefinition())
++        s->CompleteRedeclChain(td);
++    td->setHasExternalVisibleStorage();
++  }
+ }
+ 
+ clang::Decl *
+diff --git a/lldb/source/Plugins/ExpressionParser/Clang/ClangASTImporter.h b/lldb/source/Plugins/ExpressionParser/Clang/ClangASTImporter.h
+index e565a96b217f..3de41d3ca294 100644
+--- a/lldb/source/Plugins/ExpressionParser/Clang/ClangASTImporter.h
++++ b/lldb/source/Plugins/ExpressionParser/Clang/ClangASTImporter.h
+@@ -26,7 +26,10 @@
+ #include "lldb/Utility/LLDBAssert.h"
+ #include "lldb/lldb-types.h"
+ 
++#include "Plugins/TypeSystem/Clang/TypeSystemClang.h" //remove me
++
+ #include "Plugins/ExpressionParser/Clang/CxxModuleHandler.h"
++#include "Plugins/ExpressionParser/Clang/ClangUtil.h"
+ 
+ #include "llvm/ADT/DenseMap.h"
+ 
+@@ -116,7 +119,9 @@ public:
+   ///
+   /// \param decl The RecordDecl to set the layout for.
+   /// \param layout The layout for the record.
+-  void SetRecordLayout(clang::RecordDecl *decl, const LayoutInfo &layout);
++  void SetRecordLayout(const clang::RecordDecl *decl, const LayoutInfo &layout);
++
++  bool HasRecordLayout(const clang::RecordDecl *decl);
+ 
+   bool LayoutRecordType(
+       const clang::RecordDecl *record_decl, uint64_t &bit_size,
+@@ -127,6 +132,8 @@ public:
+       llvm::DenseMap<const clang::CXXRecordDecl *, clang::CharUnits>
+           &vbase_offsets);
+ 
++  bool CanImport(clang::Decl *d);
++
+   /// Returns true iff the given type was copied from another TypeSystemClang
+   /// and the original type in this other TypeSystemClang might contain
+   /// additional information (e.g., the definition of a 'class' type) that could
+@@ -147,11 +154,11 @@ public:
+ 
+   bool CompleteType(const CompilerType &compiler_type);
+ 
+-  bool CompleteTagDecl(clang::TagDecl *decl);
++  bool CompleteTagDecl(const clang::TagDecl *decl);
+ 
+-  bool CompleteTagDeclWithOrigin(clang::TagDecl *decl, clang::TagDecl *origin);
++  bool CompleteTagDeclWithOrigin(const clang::TagDecl *decl, clang::TagDecl *origin);
+ 
+-  bool CompleteObjCInterfaceDecl(clang::ObjCInterfaceDecl *interface_decl);
++  bool CompleteObjCInterfaceDecl(const clang::ObjCInterfaceDecl *interface_decl);
+ 
+   bool CompleteAndFetchChildren(clang::QualType type);
+ 
+@@ -357,9 +364,7 @@ public:
+     /// DeclOrigin.
+     void setOrigin(const clang::Decl *decl, DeclOrigin origin) {
+       // Setting the origin of any decl to itself (or to a different decl
+-      // in the same ASTContext) doesn't make any sense. It will also cause
+-      // ASTImporterDelegate::ImportImpl to infinite recurse when trying to find
+-      // the 'original' Decl when importing code.
++      // in the same ASTContext) doesn't make any sense.
+       assert(&decl->getASTContext() != origin.ctx &&
+              "Trying to set decl origin to its own ASTContext?");
+       assert(decl != origin.decl && "Trying to set decl origin to itself?");
+@@ -367,7 +372,9 @@ public:
+     }
+ 
+     /// Removes any tracked DeclOrigin for the given decl.
+-    void removeOrigin(const clang::Decl *decl) { m_origins.erase(decl); }
++    void removeOrigin(const clang::Decl *decl) {
++      m_origins.erase(decl);
++    }
+ 
+     /// Remove all DeclOrigin entries that point to the given ASTContext.
+     /// Useful when an ASTContext is about to be deleted and all the dangling
+diff --git a/lldb/source/Plugins/ExpressionParser/Clang/ClangASTSource.cpp b/lldb/source/Plugins/ExpressionParser/Clang/ClangASTSource.cpp
+index 1bf29efb0bee..8e68be969e4c 100644
+--- a/lldb/source/Plugins/ExpressionParser/Clang/ClangASTSource.cpp
++++ b/lldb/source/Plugins/ExpressionParser/Clang/ClangASTSource.cpp
+@@ -342,6 +342,35 @@ void ClangASTSource::CompleteType(clang::ObjCInterfaceDecl *interface_decl) {
+   LLDB_LOG(log, "      [COID] {0}", ClangUtil::DumpDecl(interface_decl));
+ }
+ 
++void ClangASTSource::CompleteRedeclChain(const Decl *d) {
++  if (const clang::TagDecl *td = llvm::dyn_cast<TagDecl>(d)) {
++    if (td->isBeingDefined())
++      return;
++    if (td->getDefinition())
++      return;
++    m_ast_importer_sp->CompleteTagDecl(td);
++    if (!td->getDefinition() && m_ast_importer_sp->GetDeclOrigin(td).Valid()) {
++      if (TagDecl *alternate = FindCompleteType(td))
++        m_ast_importer_sp->CompleteTagDeclWithOrigin(td, alternate);
++    }
++  }
++  if (const auto *od = llvm::dyn_cast<ObjCInterfaceDecl>(d)) {
++    ClangASTImporter::DeclOrigin original = m_ast_importer_sp->GetDeclOrigin(od);
++    if (ObjCInterfaceDecl *orig = dyn_cast_or_null<ObjCInterfaceDecl>(original.decl)) {
++      if (ObjCInterfaceDecl *i = GetCompleteObjCInterface(orig)) {
++        if (i != orig) {
++          m_ast_importer_sp->SetDeclOrigin(d, i);
++          m_ast_importer_sp->CompleteObjCInterfaceDecl(od);
++          return;
++        }
++      }
++    }
++    if (od->getDefinition())
++      return;
++    m_ast_importer_sp->CompleteObjCInterfaceDecl(od);
++  }
++}
++
+ clang::ObjCInterfaceDecl *ClangASTSource::GetCompleteObjCInterface(
+     const clang::ObjCInterfaceDecl *interface_decl) {
+   lldb::ProcessSP process(m_target->GetProcessSP());
+@@ -380,7 +409,8 @@ clang::ObjCInterfaceDecl *ClangASTSource::GetCompleteObjCInterface(
+ 
+   ObjCInterfaceDecl *complete_iface_decl(complete_interface_type->getDecl());
+ 
+-  return complete_iface_decl;
++  ObjCInterfaceDecl *def = complete_iface_decl->getDefinition();
++  return def;
+ }
+ 
+ void ClangASTSource::FindExternalLexicalDecls(
+@@ -1531,8 +1561,8 @@ bool ClangASTSource::layoutRecordType(const RecordDecl *record, uint64_t &size,
+ 
+   int field_idx = 0, field_count = record_layout.getFieldCount();
+ 
+-  for (RecordDecl::field_iterator fi = origin_record->field_begin(),
+-                                  fe = origin_record->field_end();
++  for (RecordDecl::field_iterator fi = definition->field_begin(),
++                                  fe = definition->field_end();
+        fi != fe; ++fi) {
+     if (field_idx >= field_count)
+       return false; // Layout didn't go well.  Bail out.
+diff --git a/lldb/source/Plugins/ExpressionParser/Clang/ClangASTSource.h b/lldb/source/Plugins/ExpressionParser/Clang/ClangASTSource.h
+index f3fec3f944a1..df9ba01c134b 100644
+--- a/lldb/source/Plugins/ExpressionParser/Clang/ClangASTSource.h
++++ b/lldb/source/Plugins/ExpressionParser/Clang/ClangASTSource.h
+@@ -153,6 +153,8 @@ public:
+   ///     The Decl to be completed in place.
+   void CompleteType(clang::ObjCInterfaceDecl *Class) override;
+ 
++  void CompleteRedeclChain(const clang::Decl *D) override;
++
+   /// Called on entering a translation unit.  Tells Clang by calling
+   /// setHasExternalVisibleStorage() and setHasExternalLexicalStorage() that
+   /// this object has something to say about undefined names.
+@@ -231,6 +233,11 @@ public:
+       return m_original.CompleteType(Class);
+     }
+ 
++    void CompleteRedeclChain(const clang::Decl *D) override {
++      return m_original.CompleteRedeclChain(D);
++    }
++
++
+     bool layoutRecordType(
+         const clang::RecordDecl *Record, uint64_t &Size, uint64_t &Alignment,
+         llvm::DenseMap<const clang::FieldDecl *, uint64_t> &FieldOffsets,
+diff --git a/lldb/source/Plugins/ExpressionParser/Clang/ClangExpressionParser.cpp b/lldb/source/Plugins/ExpressionParser/Clang/ClangExpressionParser.cpp
+index fad0f724e4c8..196789696173 100644
+--- a/lldb/source/Plugins/ExpressionParser/Clang/ClangExpressionParser.cpp
++++ b/lldb/source/Plugins/ExpressionParser/Clang/ClangExpressionParser.cpp
+@@ -1175,13 +1175,6 @@ ClangExpressionParser::ParseInternal(DiagnosticManager &diagnostic_manager,
+     ParseAST(m_compiler->getSema(), false, false);
+   }
+ 
+-  // Make sure we have no pointer to the Sema we are about to destroy.
+-  if (ast_context.getLangOpts().Modules)
+-    m_ast_context->setSema(nullptr);
+-  // Destroy the Sema. This is necessary because we want to emulate the
+-  // original behavior of ParseAST (which also destroys the Sema after parsing).
+-  m_compiler->setSema(nullptr);
+-
+   adapter->EndSourceFile();
+ 
+   unsigned num_errors = adapter->getNumErrors();
+@@ -1496,6 +1489,13 @@ lldb_private::Status ClangExpressionParser::PrepareForExecution(
+     execution_unit_sp->GetRunnableInfo(err, func_addr, func_end);
+   }
+ 
++  // Make sure we have no pointer to the Sema we are about to destroy.
++  if (m_ast_context->getASTContext().getLangOpts().Modules)
++    m_ast_context->setSema(nullptr);
++  // Destroy the Sema. This is necessary because we want to emulate the
++  // original behavior of ParseAST (which also destroys the Sema after parsing).
++  m_compiler->setSema(nullptr);
++
+   return err;
+ }
+ 
+diff --git a/lldb/source/Plugins/ExpressionParser/Clang/ClangExternalASTSourceCallbacks.cpp b/lldb/source/Plugins/ExpressionParser/Clang/ClangExternalASTSourceCallbacks.cpp
+index 390afb458b5a..400f727dc9c0 100644
+--- a/lldb/source/Plugins/ExpressionParser/Clang/ClangExternalASTSourceCallbacks.cpp
++++ b/lldb/source/Plugins/ExpressionParser/Clang/ClangExternalASTSourceCallbacks.cpp
+@@ -17,7 +17,7 @@ using namespace lldb_private;
+ char ClangExternalASTSourceCallbacks::ID;
+ 
+ void ClangExternalASTSourceCallbacks::CompleteType(clang::TagDecl *tag_decl) {
+-  m_ast.CompleteTagDecl(tag_decl);
++  //m_ast.CompleteTagDecl(tag_decl);
+ }
+ 
+ void ClangExternalASTSourceCallbacks::CompleteType(
+@@ -25,6 +25,21 @@ void ClangExternalASTSourceCallbacks::CompleteType(
+   m_ast.CompleteObjCInterfaceDecl(objc_decl);
+ }
+ 
++void ClangExternalASTSourceCallbacks::CompleteRedeclChain(const clang::Decl *d) {
++  if (const clang::TagDecl *td = llvm::dyn_cast<clang::TagDecl>(d)) {
++    if (td->isBeingDefined())
++      return;
++    if (td->getDefinition())
++      return;
++    m_ast.CompleteTagDecl(td);
++  }
++  if (const auto *od = llvm::dyn_cast<clang::ObjCInterfaceDecl>(d)) {
++    if (od->getDefinition())
++      return;
++    m_ast.CompleteObjCInterfaceDecl(od);
++  }
++}
++
+ bool ClangExternalASTSourceCallbacks::layoutRecordType(
+     const clang::RecordDecl *Record, uint64_t &Size, uint64_t &Alignment,
+     llvm::DenseMap<const clang::FieldDecl *, uint64_t> &FieldOffsets,
+diff --git a/lldb/source/Plugins/ExpressionParser/Clang/ClangExternalASTSourceCallbacks.h b/lldb/source/Plugins/ExpressionParser/Clang/ClangExternalASTSourceCallbacks.h
+index 69088d9c82a5..887a80d6c759 100644
+--- a/lldb/source/Plugins/ExpressionParser/Clang/ClangExternalASTSourceCallbacks.h
++++ b/lldb/source/Plugins/ExpressionParser/Clang/ClangExternalASTSourceCallbacks.h
+@@ -37,6 +37,8 @@ public:
+ 
+   void CompleteType(clang::ObjCInterfaceDecl *objc_decl) override;
+ 
++  void CompleteRedeclChain(const clang::Decl *D) override;
++
+   bool layoutRecordType(
+       const clang::RecordDecl *Record, uint64_t &Size, uint64_t &Alignment,
+       llvm::DenseMap<const clang::FieldDecl *, uint64_t> &FieldOffsets,
+@@ -47,6 +49,10 @@ public:
+ 
+   TypeSystemClang &GetTypeSystem() const { return m_ast; }
+ 
++  void bumpGeneration() {
++    incrementGeneration(m_ast.getASTContext());
++  }
++
+   /// Module-related methods.
+   /// \{
+   llvm::Optional<clang::ASTSourceDescriptor>
+diff --git a/lldb/source/Plugins/ExpressionParser/Clang/ClangUtil.cpp b/lldb/source/Plugins/ExpressionParser/Clang/ClangUtil.cpp
+index a7f5dce8558f..710ae2a00356 100644
+--- a/lldb/source/Plugins/ExpressionParser/Clang/ClangUtil.cpp
++++ b/lldb/source/Plugins/ExpressionParser/Clang/ClangUtil.cpp
+@@ -8,6 +8,7 @@
+ // types and decls.
+ //===----------------------------------------------------------------------===//
+ 
++#include "clang/AST/DeclObjC.h"
+ #include "Plugins/ExpressionParser/Clang/ClangUtil.h"
+ #include "Plugins/TypeSystem/Clang/TypeSystemClang.h"
+ 
+@@ -62,9 +63,34 @@ clang::TagDecl *ClangUtil::GetAsTagDecl(const CompilerType &type) {
+   if (qual_type.isNull())
+     return nullptr;
+ 
++  if (const TagType *tt = llvm::dyn_cast<TagType>(qual_type.getTypePtr()))
++    return tt->getDecl();
++
+   return qual_type->getAsTagDecl();
+ }
+ 
++clang::ObjCInterfaceDecl *ClangUtil::GetAsObjCDecl(const CompilerType &type) {
++  clang::QualType qual_type = ClangUtil::GetCanonicalQualType(type);
++  if (qual_type.isNull())
++    return nullptr;
++
++  if (const auto *ot = qual_type->getAsObjCInterfaceType())
++    return ot->getInterface();
++  if (const auto *ot = qual_type->getAsObjCInterfacePointerType())
++    return ot->getInterfaceDecl();
++  return nullptr;
++}
++
++clang::Decl *ClangUtil::GetFirstDecl(clang::Decl *d) {
++  if (!d)
++    return nullptr;
++  if (auto *td = llvm::dyn_cast<clang::TagDecl>(d))
++    return td->getFirstDecl();
++  if (auto *od = llvm::dyn_cast<clang::ObjCInterfaceDecl>(d))
++    return od->getFirstDecl();
++  return d;
++}
++
+ std::string ClangUtil::DumpDecl(const clang::Decl *d) {
+   if (!d)
+     return "nullptr";
+diff --git a/lldb/source/Plugins/ExpressionParser/Clang/ClangUtil.h b/lldb/source/Plugins/ExpressionParser/Clang/ClangUtil.h
+index 50cae42bc7c2..dd27e58ebc99 100644
+--- a/lldb/source/Plugins/ExpressionParser/Clang/ClangUtil.h
++++ b/lldb/source/Plugins/ExpressionParser/Clang/ClangUtil.h
+@@ -36,6 +36,14 @@ struct ClangUtil {
+ 
+   static clang::TagDecl *GetAsTagDecl(const CompilerType &type);
+ 
++  static clang::ObjCInterfaceDecl *GetAsObjCDecl(const CompilerType &type);
++
++  static clang::Decl *GetFirstDecl(clang::Decl *d);
++
++  static const clang::Decl *GetFirstDecl(const clang::Decl *d) {
++    return GetFirstDecl(const_cast<clang::Decl *>(d));
++  }
++
+   /// Returns a textual representation of the given Decl's AST. Does not
+   /// deserialize any child nodes.
+   static std::string DumpDecl(const clang::Decl *d);
+diff --git a/lldb/source/Plugins/ExpressionParser/Clang/CxxModuleHandler.cpp b/lldb/source/Plugins/ExpressionParser/Clang/CxxModuleHandler.cpp
+index 9453cdc3a451..d3aab62a2684 100644
+--- a/lldb/source/Plugins/ExpressionParser/Clang/CxxModuleHandler.cpp
++++ b/lldb/source/Plugins/ExpressionParser/Clang/CxxModuleHandler.cpp
+@@ -62,8 +62,10 @@ static void makeScopes(Sema &sema, DeclContext *ctxt,
+         new Scope(result.back(), Scope::DeclScope, sema.getDiagnostics());
+     scope->setEntity(ctxt);
+     result.push_back(scope);
+-  } else
++  } else {
++    assert(sema.TUScope != nullptr);
+     result.push_back(sema.TUScope);
++  }
+ }
+ 
+ /// Uses the Sema to look up the given name in the given DeclContext.
+@@ -265,6 +267,9 @@ llvm::Optional<Decl *> CxxModuleHandler::tryInstantiateStdTemplate(Decl *d) {
+       new_class_template->findSpecialization(imported_args, InsertPos);
+ 
+   if (result) {
++    // Don't substitute a definition with a declaration.
++    if (td->isThisDeclarationADefinition() && !result->getDefinition())
++      return llvm::None;
+     // We found an existing specialization in the module that fits our arguments
+     // so we can treat it as the result and register it with the ASTImporter.
+     m_importer->RegisterImportedDecl(d, result);
+diff --git a/lldb/source/Plugins/ExpressionParser/Clang/IRForTarget.cpp b/lldb/source/Plugins/ExpressionParser/Clang/IRForTarget.cpp
+index 047aa1e7c084..fa86079c83bc 100644
+--- a/lldb/source/Plugins/ExpressionParser/Clang/IRForTarget.cpp
++++ b/lldb/source/Plugins/ExpressionParser/Clang/IRForTarget.cpp
+@@ -24,6 +24,8 @@
+ #include "llvm/IR/ValueSymbolTable.h"
+ #include "llvm/Support/raw_ostream.h"
+ #include "llvm/Transforms/IPO.h"
++#include "llvm/Transforms/IPO/PassManagerBuilder.h"
++#include "llvm/IR/LegacyPassManager.h"
+ 
+ #include "clang/AST/ASTContext.h"
+ 
+diff --git a/lldb/source/Plugins/LanguageRuntime/ObjC/AppleObjCRuntime/AppleObjCDeclVendor.cpp b/lldb/source/Plugins/LanguageRuntime/ObjC/AppleObjCRuntime/AppleObjCDeclVendor.cpp
+index 5f3ae3b12975..27ed1b73f80b 100644
+--- a/lldb/source/Plugins/LanguageRuntime/ObjC/AppleObjCRuntime/AppleObjCDeclVendor.cpp
++++ b/lldb/source/Plugins/LanguageRuntime/ObjC/AppleObjCRuntime/AppleObjCDeclVendor.cpp
+@@ -29,84 +29,14 @@ public:
+   AppleObjCExternalASTSource(AppleObjCDeclVendor &decl_vendor)
+       : m_decl_vendor(decl_vendor) {}
+ 
+-  bool FindExternalVisibleDeclsByName(const clang::DeclContext *decl_ctx,
+-                                      clang::DeclarationName name) override {
+-
+-    Log *log(GetLog(
+-        LLDBLog::Expressions)); // FIXME - a more appropriate log channel?
+-
+-    if (log) {
+-      LLDB_LOGF(log,
+-                "AppleObjCExternalASTSource::FindExternalVisibleDeclsByName"
+-                " on (ASTContext*)%p Looking for %s in (%sDecl*)%p",
+-                static_cast<void *>(&decl_ctx->getParentASTContext()),
+-                name.getAsString().c_str(), decl_ctx->getDeclKindName(),
+-                static_cast<const void *>(decl_ctx));
+-    }
+-
+-    do {
+-      const clang::ObjCInterfaceDecl *interface_decl =
+-          llvm::dyn_cast<clang::ObjCInterfaceDecl>(decl_ctx);
+-
+-      if (!interface_decl)
+-        break;
+-
+-      clang::ObjCInterfaceDecl *non_const_interface_decl =
+-          const_cast<clang::ObjCInterfaceDecl *>(interface_decl);
+-
+-      if (!m_decl_vendor.FinishDecl(non_const_interface_decl))
+-        break;
+-
+-      clang::DeclContext::lookup_result result =
+-          non_const_interface_decl->lookup(name);
+-
+-      return (!result.empty());
+-    } while (false);
+-
+-    SetNoExternalVisibleDeclsForName(decl_ctx, name);
+-    return false;
+-  }
+-
+-  void CompleteType(clang::TagDecl *tag_decl) override {
+-
+-    Log *log(GetLog(
+-        LLDBLog::Expressions)); // FIXME - a more appropriate log channel?
+-
+-    LLDB_LOGF(log,
+-              "AppleObjCExternalASTSource::CompleteType on "
+-              "(ASTContext*)%p Completing (TagDecl*)%p named %s",
+-              static_cast<void *>(&tag_decl->getASTContext()),
+-              static_cast<void *>(tag_decl), tag_decl->getName().str().c_str());
+-
+-    LLDB_LOG(log, "  AOEAS::CT Before:\n{1}", ClangUtil::DumpDecl(tag_decl));
+-
+-    LLDB_LOG(log, "  AOEAS::CT After:{1}", ClangUtil::DumpDecl(tag_decl));
+-  }
+-
+-  void CompleteType(clang::ObjCInterfaceDecl *interface_decl) override {
+-
+-    Log *log(GetLog(
+-        LLDBLog::Expressions)); // FIXME - a more appropriate log channel?
+-
+-    if (log) {
+-      LLDB_LOGF(log,
+-                "AppleObjCExternalASTSource::CompleteType on "
+-                "(ASTContext*)%p Completing (ObjCInterfaceDecl*)%p named %s",
+-                static_cast<void *>(&interface_decl->getASTContext()),
+-                static_cast<void *>(interface_decl),
+-                interface_decl->getName().str().c_str());
+-
+-      LLDB_LOGF(log, "  AOEAS::CT Before:");
+-      LLDB_LOG(log, "    [CT] {0}", ClangUtil::DumpDecl(interface_decl));
+-    }
+-
+-    m_decl_vendor.FinishDecl(interface_decl);
+-
+-    if (log) {
+-      LLDB_LOGF(log, "  [CT] After:");
+-      LLDB_LOG(log, "    [CT] {0}", ClangUtil::DumpDecl(interface_decl));
+-    }
+-  }
++   void CompleteRedeclChain(const clang::Decl *d) override {
++     using namespace clang;
++     auto *const_interface = llvm::dyn_cast<ObjCInterfaceDecl>(d);
++     if (!const_interface)
++       return;
++     auto *interface = const_cast<ObjCInterfaceDecl *>(const_interface);
++     m_decl_vendor.FinishDecl(interface);
++   }
+ 
+   bool layoutRecordType(
+       const clang::RecordDecl *Record, uint64_t &Size, uint64_t &Alignment,
+@@ -169,12 +99,11 @@ AppleObjCDeclVendor::GetDeclForISA(ObjCLanguageRuntime::ObjCISA isa) {
+   meta_data.SetISAPtr(isa);
+   m_ast_ctx.SetMetadata(new_iface_decl, meta_data);
+ 
+-  new_iface_decl->setHasExternalVisibleStorage();
+-  new_iface_decl->setHasExternalLexicalStorage();
+-
+   ast_ctx.getTranslationUnitDecl()->addDecl(new_iface_decl);
+ 
+   m_isa_to_interface[isa] = new_iface_decl;
++  m_interface_to_isa[new_iface_decl] = isa;
++  m_ast_ctx.BumpGenerationCounter();
+ 
+   return new_iface_decl;
+ }
+@@ -394,26 +323,30 @@ private:
+   bool m_is_valid = false;
+ };
+ 
+-bool AppleObjCDeclVendor::FinishDecl(clang::ObjCInterfaceDecl *interface_decl) {
+-  Log *log(
+-      GetLog(LLDBLog::Expressions)); // FIXME - a more appropriate log channel?
++bool AppleObjCDeclVendor::FinishDecl(clang::ObjCInterfaceDecl *fwd_decl) {
++  if (fwd_decl->hasDefinition())
++    return true;
++  Log *log(GetLog(LLDBLog::Expressions)); // FIXME - a more appropriate log channel?
++  using namespace clang;
+ 
+-  ClangASTMetadata *metadata = m_ast_ctx.GetMetadata(interface_decl);
++  QualType qt(fwd_decl->getTypeForDecl(), 0U);
++  CompilerType type(&m_ast_ctx, qt.getAsOpaquePtr());
++  CompilerType definition_type = m_ast_ctx.RedeclTagDecl(type);
++  ObjCInterfaceDecl *interface_decl = ClangUtil::GetAsObjCDecl(definition_type);
++
++  ObjCLanguageRuntime::ObjCISA isa = m_interface_to_isa[fwd_decl];
++  m_isa_to_interface[isa] = interface_decl;
++
++  ClangASTMetadata *metadata = m_ast_ctx.GetMetadata(fwd_decl);
+   ObjCLanguageRuntime::ObjCISA objc_isa = 0;
+   if (metadata)
+-    objc_isa = metadata->GetISAPtr();
++      objc_isa = metadata->GetISAPtr();
+ 
+   if (!objc_isa)
+     return false;
+ 
+-  if (!interface_decl->hasExternalVisibleStorage())
+-    return true;
+-
+   interface_decl->startDefinition();
+ 
+-  interface_decl->setHasExternalVisibleStorage(false);
+-  interface_decl->setHasExternalLexicalStorage(false);
+-
+   ObjCLanguageRuntime::ClassDescriptorSP descriptor =
+       m_runtime.GetClassDescriptorFromISA(objc_isa);
+ 
+diff --git a/lldb/source/Plugins/LanguageRuntime/ObjC/AppleObjCRuntime/AppleObjCDeclVendor.h b/lldb/source/Plugins/LanguageRuntime/ObjC/AppleObjCRuntime/AppleObjCDeclVendor.h
+index c1201b985814..d677ee81859d 100644
+--- a/lldb/source/Plugins/LanguageRuntime/ObjC/AppleObjCRuntime/AppleObjCDeclVendor.h
++++ b/lldb/source/Plugins/LanguageRuntime/ObjC/AppleObjCRuntime/AppleObjCDeclVendor.h
+@@ -46,6 +46,11 @@ private:
+       ISAToInterfaceMap;
+ 
+   ISAToInterfaceMap m_isa_to_interface;
++
++  typedef llvm::DenseMap<clang::ObjCInterfaceDecl *,
++                         ObjCLanguageRuntime::ObjCISA>
++      InterfaceToISAMap;
++  InterfaceToISAMap m_interface_to_isa;
+ };
+ 
+ } // namespace lldb_private
+diff --git a/lldb/source/Plugins/SymbolFile/DWARF/DWARFASTParserClang.cpp b/lldb/source/Plugins/SymbolFile/DWARF/DWARFASTParserClang.cpp
+index 2aacac3692be..5e792fe2075a 100644
+--- a/lldb/source/Plugins/SymbolFile/DWARF/DWARFASTParserClang.cpp
++++ b/lldb/source/Plugins/SymbolFile/DWARF/DWARFASTParserClang.cpp
+@@ -59,6 +59,30 @@
+ using namespace lldb;
+ using namespace lldb_private;
+ using namespace lldb_private::dwarf;
++
++namespace {
++struct GenerationBumper {
++  TypeSystemClang &m_ts;
++  bool engaged = true;
++  explicit GenerationBumper(TypeSystemClang &ts) : m_ts(ts) {
++  }
++  ~GenerationBumper() {
++    if (engaged)
++      m_ts.BumpGenerationCounter();
++  }
++  void engage() {
++    engaged = true;
++  }
++};
++
++bool DirectlyCompleteType(clang::DeclContext *decl_ctx, const ParsedDWARFTypeAttributes &attrs) {
++  assert(decl_ctx);
++  if (decl_ctx->isFunctionOrMethod())
++    return true;
++  return attrs.name.IsEmpty() && !attrs.is_forward_declaration;
++}
++}
++
+ DWARFASTParserClang::DWARFASTParserClang(TypeSystemClang &ast)
+     : m_ast(ast), m_die_to_decl_ctx(), m_decl_ctx_to_die() {}
+ 
+@@ -83,6 +107,17 @@ ClangASTImporter &DWARFASTParserClang::GetClangASTImporter() {
+   return *m_clang_ast_importer_up;
+ }
+ 
++void DWARFASTParserClang::RegisterDIE(DWARFDebugInfoEntry *die,
++                                      CompilerType type) {
++  if (clang::TagDecl *td = ClangUtil::GetAsTagDecl(type)) {
++    m_die_to_record_map[die] = td;
++  } else if (auto *od = ClangUtil::GetAsObjCDecl(type))
++    m_die_to_objc_interface_map[die] = od;
++  else {
++    assert(false && "Unknown Decl kind?");
++  }
++}
++
+ /// Detect a forward declaration that is nested in a DW_TAG_module.
+ static bool IsClangModuleFwdDecl(const DWARFDIE &Die) {
+   if (!Die.GetAttributeValueAsUnsigned(DW_AT_declaration, 0))
+@@ -252,6 +287,7 @@ static void RequireCompleteType(CompilerType type) {
+ /// This function serves a similar purpose as RequireCompleteType above, but it
+ /// avoids completing the type if it is not immediately necessary. It only
+ /// ensures we _can_ complete the type later.
++/// FIXME: Not true anymore, will now pull in definition.
+ static void PrepareContextToReceiveMembers(TypeSystemClang &ast,
+                                            ClangASTImporter &ast_importer,
+                                            clang::DeclContext *decl_ctx,
+@@ -263,7 +299,7 @@ static void PrepareContextToReceiveMembers(TypeSystemClang &ast,
+ 
+   // We have already completed the type, or we have found its definition and are
+   // ready to complete it later (cf. ParseStructureLikeDIE).
+-  if (tag_decl_ctx->isCompleteDefinition() || tag_decl_ctx->isBeingDefined())
++  if (tag_decl_ctx->getDefinition() || tag_decl_ctx->isBeingDefined())
+     return;
+ 
+   // We reach this point of the tag was present in the debug info as a
+@@ -271,8 +307,8 @@ static void PrepareContextToReceiveMembers(TypeSystemClang &ast,
+   // gmodules case), we can complete the type by doing a full import.
+ 
+   // If this type was not imported from an external AST, there's nothing to do.
+-  CompilerType type = ast.GetTypeForDecl(tag_decl_ctx);
+-  if (type && ast_importer.CanImport(type)) {
++  if (ast_importer.CanImport(tag_decl_ctx)) {
++    CompilerType type = ast.GetTypeForDecl(tag_decl_ctx);
+     auto qual_type = ClangUtil::GetQualType(type);
+     if (ast_importer.RequireCompleteType(qual_type))
+       return;
+@@ -284,7 +320,7 @@ static void PrepareContextToReceiveMembers(TypeSystemClang &ast,
+ 
+   // We don't have a type definition and/or the import failed. We must
+   // forcefully complete the type to avoid crashes.
+-  ForcefullyCompleteType(type);
++  ForcefullyCompleteType(ast.GetTypeForDecl(tag_decl_ctx));
+ }
+ 
+ ParsedDWARFTypeAttributes::ParsedDWARFTypeAttributes(const DWARFDIE &die) {
+@@ -448,12 +484,8 @@ TypeSP DWARFASTParserClang::ParseTypeFromDWARF(const SymbolContext &sc,
+   }
+ 
+   Type *type_ptr = dwarf->GetDIEToType().lookup(die.GetDIE());
+-  if (type_ptr == DIE_IS_BEING_PARSED)
+-    return nullptr;
+   if (type_ptr)
+     return type_ptr->shared_from_this();
+-  // Set a bit that lets us know that we are currently parsing this
+-  dwarf->GetDIEToType()[die.GetDIE()] = DIE_IS_BEING_PARSED;
+ 
+   ParsedDWARFTypeAttributes attrs(die);
+ 
+@@ -528,7 +560,15 @@ TypeSP DWARFASTParserClang::ParseTypeFromDWARF(const SymbolContext &sc,
+   // TODO: We should consider making the switch above exhaustive to simplify
+   // control flow in ParseTypeFromDWARF. Then, we could simply replace this
+   // return statement with a call to llvm_unreachable.
+-  return UpdateSymbolContextScopeForType(sc, die, type_sp);
++  lldb::TypeSP t = UpdateSymbolContextScopeForType(sc, die, type_sp);
++
++  while (!m_to_complete.empty()) {
++    TypeToComplete to_complete = m_to_complete.back();
++    m_to_complete.pop_back();
++    CompleteRecordType(to_complete.die, to_complete.type.get(), to_complete.clang_type);
++  }
++
++  return t;
+ }
+ 
+ lldb::TypeSP
+@@ -808,6 +848,7 @@ TypeSP DWARFASTParserClang::ParseEnum(const SymbolContext &sc,
+ 
+   CompilerType enumerator_clang_type;
+   CompilerType clang_type;
++
+   clang_type.SetCompilerType(
+       &m_ast, dwarf->GetForwardDeclDieToClangType().lookup(die.GetDIE()));
+   if (!clang_type) {
+@@ -937,6 +978,9 @@ TypeSP DWARFASTParserClang::ParseSubroutine(const DWARFDIE &die,
+   const clang::Decl::Kind containing_decl_kind =
+       containing_decl_ctx->getDeclKind();
+ 
++  PrepareContextToReceiveMembers(m_ast, GetClangASTImporter(), containing_decl_ctx, die,
++                                 attrs.name.GetCString());
++
+   bool is_cxx_method = DeclKindIsCXXClass(containing_decl_kind);
+   // Start off static. This will be set to false in
+   // ParseChildParameters(...) if we find a "this" parameters as the
+@@ -1151,37 +1195,6 @@ TypeSP DWARFASTParserClang::ParseSubroutine(const DWARFDIE &die,
+                     ignore_containing_context = true;
+                   }
+                 }
+-              } else {
+-                // We were asked to parse the type for a method in a
+-                // class, yet the class hasn't been asked to complete
+-                // itself through the clang::ExternalASTSource protocol,
+-                // so we need to just have the class complete itself and
+-                // do things the right way, then our
+-                // DIE should then have an entry in the
+-                // dwarf->GetDIEToType() map. First
+-                // we need to modify the dwarf->GetDIEToType() so it
+-                // doesn't think we are trying to parse this DIE
+-                // anymore...
+-                dwarf->GetDIEToType()[die.GetDIE()] = NULL;
+-
+-                // Now we get the full type to force our class type to
+-                // complete itself using the clang::ExternalASTSource
+-                // protocol which will parse all base classes and all
+-                // methods (including the method for this DIE).
+-                class_type->GetFullCompilerType();
+-
+-                // The type for this DIE should have been filled in the
+-                // function call above
+-                Type *type_ptr = dwarf->GetDIEToType()[die.GetDIE()];
+-                if (type_ptr && type_ptr != DIE_IS_BEING_PARSED) {
+-                  return type_ptr->shared_from_this();
+-                }
+-
+-                // FIXME This is fixing some even uglier behavior but we
+-                // really need to
+-                // uniq the methods of each class as well as the class
+-                // itself. <rdar://problem/11240464>
+-                type_handled = true;
+               }
+             }
+           }
+@@ -1511,6 +1524,12 @@ DWARFASTParserClang::ParseStructureLikeDIE(const SymbolContext &sc,
+   LanguageType cu_language = SymbolFileDWARF::GetLanguage(*die.GetCU());
+   Log *log = GetLog(DWARFLog::TypeCompletion | DWARFLog::Lookups);
+ 
++  GenerationBumper bumper(m_ast);
++
++  clang::DeclContext *decl_ctx =
++      GetClangDeclContextContainingDIE(die, nullptr);
++
++  const bool should_directly_complete = DirectlyCompleteType(decl_ctx, attrs);
+   // UniqueDWARFASTType is large, so don't create a local variables on the
+   // stack, put it on the heap. This function is often called recursively and
+   // clang isn't good at sharing the stack space for variables in different
+@@ -1682,9 +1701,6 @@ DWARFASTParserClang::ParseStructureLikeDIE(const SymbolContext &sc,
+   clang_type.SetCompilerType(
+       &m_ast, dwarf->GetForwardDeclDieToClangType().lookup(die.GetDIE()));
+   if (!clang_type) {
+-    clang::DeclContext *decl_ctx =
+-        GetClangDeclContextContainingDIE(die, nullptr);
+-
+     PrepareContextToReceiveMembers(m_ast, GetClangASTImporter(), decl_ctx, die,
+                                    attrs.name.GetCString());
+ 
+@@ -1729,6 +1745,8 @@ DWARFASTParserClang::ParseStructureLikeDIE(const SymbolContext &sc,
+ 
+         m_ast.SetMetadata(class_template_decl, metadata);
+         m_ast.SetMetadata(class_specialization_decl, metadata);
++        RegisterDIE(die.GetDIE(), clang_type);
++        bumper.engage();
+       }
+     }
+ 
+@@ -1738,13 +1756,16 @@ DWARFASTParserClang::ParseStructureLikeDIE(const SymbolContext &sc,
+           decl_ctx, GetOwningClangModule(die), attrs.accessibility,
+           attrs.name.GetCString(), tag_decl_kind, attrs.class_language,
+           &metadata, attrs.exports_symbols);
++      RegisterDIE(die.GetDIE(), clang_type);
++      if (!should_directly_complete)
++        bumper.engage();
+     }
+   }
+ 
+   // Store a forward declaration to this class type in case any
+   // parameters in any class methods need it for the clang types for
+   // function prototypes.
+-  LinkDeclContextToDIE(m_ast.GetDeclContextForType(clang_type), die);
++  LinkDeclContextToDIE(GetClangDeclContextContainingDIE(die, nullptr), die);
+   type_sp = std::make_shared<Type>(
+       die.GetID(), dwarf, attrs.name, attrs.byte_size, nullptr,
+       LLDB_INVALID_UID, Type::eEncodingIsUID, &attrs.decl, clang_type,
+@@ -1762,10 +1783,6 @@ DWARFASTParserClang::ParseStructureLikeDIE(const SymbolContext &sc,
+                                            *unique_ast_entry_up);
+ 
+   if (!attrs.is_forward_declaration) {
+-    // Always start the definition for a class type so that if the class
+-    // has child classes or types that require the class to be created
+-    // for use as their decl contexts the class will be ready to accept
+-    // these child definitions.
+     if (!die.HasChildren()) {
+       // No children for this struct/union/class, lets finish it
+       if (TypeSystemClang::StartTagDeclarationDefinition(clang_type)) {
+@@ -1792,19 +1809,7 @@ DWARFASTParserClang::ParseStructureLikeDIE(const SymbolContext &sc,
+           GetClangASTImporter().SetRecordLayout(record_decl, layout);
+         }
+       }
+-    } else if (clang_type_was_created) {
+-      // Start the definition if the class is not objective C since the
+-      // underlying decls respond to isCompleteDefinition(). Objective
+-      // C decls don't respond to isCompleteDefinition() so we can't
+-      // start the declaration definition right away. For C++
+-      // class/union/structs we want to start the definition in case the
+-      // class is needed as the declaration context for a contained class
+-      // or type without the need to complete that type..
+-
+-      if (attrs.class_language != eLanguageTypeObjC &&
+-          attrs.class_language != eLanguageTypeObjC_plus_plus)
+-        TypeSystemClang::StartTagDeclarationDefinition(clang_type);
+-
++    } else if (clang_type_was_created && !should_directly_complete) {
+       // Leave this as a forward declaration until we need to know the
+       // details of the type. lldb_private::Type will automatically call
+       // the SymbolFile virtual function
+@@ -1822,29 +1827,12 @@ DWARFASTParserClang::ParseStructureLikeDIE(const SymbolContext &sc,
+       dwarf->GetForwardDeclClangTypeToDie().try_emplace(
+           ClangUtil::RemoveFastQualifiers(clang_type).GetOpaqueQualType(),
+           *die.GetDIERef());
+-      m_ast.SetHasExternalStorage(clang_type.GetOpaqueQualType(), true);
+     }
+   }
+ 
+-  // If we made a clang type, set the trivial abi if applicable: We only
+-  // do this for pass by value - which implies the Trivial ABI. There
+-  // isn't a way to assert that something that would normally be pass by
+-  // value is pass by reference, so we ignore that attribute if set.
+-  if (attrs.calling_convention == llvm::dwarf::DW_CC_pass_by_value) {
+-    clang::CXXRecordDecl *record_decl =
+-        m_ast.GetAsCXXRecordDecl(clang_type.GetOpaqueQualType());
+-    if (record_decl && record_decl->getDefinition()) {
+-      record_decl->setHasTrivialSpecialMemberForCall();
+-    }
+-  }
++  if (should_directly_complete)
++    m_to_complete.push_back({clang_type, die, type_sp});
+ 
+-  if (attrs.calling_convention == llvm::dwarf::DW_CC_pass_by_reference) {
+-    clang::CXXRecordDecl *record_decl =
+-        m_ast.GetAsCXXRecordDecl(clang_type.GetOpaqueQualType());
+-    if (record_decl)
+-      record_decl->setArgPassingRestrictions(
+-          clang::RecordDecl::APK_CannotPassInRegs);
+-  }
+   return type_sp;
+ }
+ 
+@@ -1922,7 +1910,7 @@ bool DWARFASTParserClang::ParseTemplateDIE(
+         return false;
+     }
+     if (const char *name = die.GetName()) {
+-      template_param_infos.pack_name = name;
++      template_param_infos.pack_name = std::string(name);
+     }
+     return true;
+   }
+@@ -2042,87 +2030,115 @@ bool DWARFASTParserClang::ParseTemplateParameterInfos(
+ 
+ bool DWARFASTParserClang::CompleteRecordType(const DWARFDIE &die,
+                                              lldb_private::Type *type,
+-                                             CompilerType &clang_type) {
++                                             CompilerType clang_type) {
++  if (!m_currently_parsed_record_dies.insert(die.GetDIE()).second) {
++    return true;
++  }
++
+   const dw_tag_t tag = die.Tag();
+   SymbolFileDWARF *dwarf = die.GetDWARF();
+ 
+   ClangASTImporter::LayoutInfo layout_info;
+ 
+-  if (die.HasChildren()) {
+-    const bool type_is_objc_object_or_interface =
+-        TypeSystemClang::IsObjCObjectOrInterfaceType(clang_type);
+-    if (type_is_objc_object_or_interface) {
+-      // For objective C we don't start the definition when the class is
+-      // created.
+-      TypeSystemClang::StartTagDeclarationDefinition(clang_type);
+-    }
+-
+-    AccessType default_accessibility = eAccessNone;
+-    if (tag == DW_TAG_structure_type) {
+-      default_accessibility = eAccessPublic;
+-    } else if (tag == DW_TAG_union_type) {
+-      default_accessibility = eAccessPublic;
+-    } else if (tag == DW_TAG_class_type) {
+-      default_accessibility = eAccessPrivate;
+-    }
+-
+-    std::vector<std::unique_ptr<clang::CXXBaseSpecifier>> bases;
+-    // Parse members and base classes first
+-    std::vector<DWARFDIE> member_function_dies;
+-
+-    DelayedPropertyList delayed_properties;
+-    ParseChildMembers(die, clang_type, bases, member_function_dies,
+-                      delayed_properties, default_accessibility, layout_info);
+-
+-    // Now parse any methods if there were any...
+-    for (const DWARFDIE &die : member_function_dies)
+-      dwarf->ResolveType(die);
+-
+-    if (type_is_objc_object_or_interface) {
+-      ConstString class_name(clang_type.GetTypeName());
+-      if (class_name) {
+-        dwarf->GetObjCMethods(class_name, [&](DWARFDIE method_die) {
+-          method_die.ResolveType();
+-          return true;
+-        });
++  ParsedDWARFTypeAttributes attrs(die);
++
++  if (attrs.is_forward_declaration)
++    return true;
++
++  clang::DeclContext *decl_ctx =
++      GetClangDeclContextContainingDIE(die, nullptr);
++
++  if (!DirectlyCompleteType(decl_ctx, attrs)) {
++    clang_type = m_ast.RedeclTagDecl(clang_type);
++    RegisterDIE(die.GetDIE(), clang_type);
++  }
++  TypeSystemClang::StartTagDeclarationDefinition(clang_type);
++  AccessType default_accessibility = eAccessNone;
++  if (tag == DW_TAG_structure_type) {
++    default_accessibility = eAccessPublic;
++  } else if (tag == DW_TAG_union_type) {
++    default_accessibility = eAccessPublic;
++  } else if (tag == DW_TAG_class_type) {
++    default_accessibility = eAccessPrivate;
++  }
++
++  std::vector<std::unique_ptr<clang::CXXBaseSpecifier>> bases;
++  std::vector<int> member_accessibilities;
++  // Parse members and base classes first
++  std::vector<DWARFDIE> member_function_dies;
++
++  DelayedPropertyList delayed_properties;
++  ParseChildMembers(die, clang_type, bases,
++                    member_function_dies, delayed_properties,
++                    default_accessibility, layout_info);
++
++  // Now parse any methods if there were any...
++  for (const DWARFDIE &die : member_function_dies)
++    dwarf->ResolveType(die);
++
++  const bool type_is_objc_object_or_interface =
++      TypeSystemClang::IsObjCObjectOrInterfaceType(clang_type);
++  if (type_is_objc_object_or_interface) {
++    ConstString class_name(clang_type.GetTypeName());
++    if (class_name) {
++      dwarf->GetObjCMethods(class_name, [&](DWARFDIE method_die) {
++        method_die.ResolveType();
++        return true;
++      });
++      for (DelayedAddObjCClassProperty &property : delayed_properties)
++        property.Finalize();
+ 
+-        for (DelayedAddObjCClassProperty &property : delayed_properties)
+-          property.Finalize();
+-      }
+     }
++  }
+ 
+-    if (!bases.empty()) {
+-      // Make sure all base classes refer to complete types and not forward
+-      // declarations. If we don't do this, clang will crash with an
+-      // assertion in the call to clang_type.TransferBaseClasses()
+-      for (const auto &base_class : bases) {
+-        clang::TypeSourceInfo *type_source_info =
+-            base_class->getTypeSourceInfo();
+-        if (type_source_info)
+-          RequireCompleteType(m_ast.GetType(type_source_info->getType()));
+-      }
++  if (!bases.empty()) {
++    // Make sure all base classes refer to complete types and not forward
++    // declarations. If we don't do this, clang will crash with an
++    // assertion in the call to clang_type.TransferBaseClasses()
++    for (const auto &base_class : bases) {
++      clang::TypeSourceInfo *type_source_info =
++          base_class->getTypeSourceInfo();
++      if (type_source_info)
++        RequireCompleteType(m_ast.GetType(type_source_info->getType()));
++    }
+ 
+-      m_ast.TransferBaseClasses(clang_type.GetOpaqueQualType(),
+-                                std::move(bases));
++    m_ast.TransferBaseClasses(clang_type.GetOpaqueQualType(),
++                              std::move(bases));
++  }
++
++  // If we made a clang type, set the trivial abi if applicable: We only
++  // do this for pass by value - which implies the Trivial ABI. There
++  // isn't a way to assert that something that would normally be pass by
++  // value is pass by reference, so we ignore that attribute if set.
++  if (attrs.calling_convention == llvm::dwarf::DW_CC_pass_by_value) {
++    clang::CXXRecordDecl *record_decl =
++        m_ast.GetAsCXXRecordDecl(clang_type.GetOpaqueQualType());
++    if (record_decl && record_decl->getDefinition()) {
++      record_decl->setHasTrivialSpecialMemberForCall();
+     }
+   }
+ 
++  if (attrs.calling_convention == llvm::dwarf::DW_CC_pass_by_reference) {
++    clang::CXXRecordDecl *record_decl =
++        m_ast.GetAsCXXRecordDecl(clang_type.GetOpaqueQualType());
++    if (record_decl)
++      record_decl->setArgPassingRestrictions(
++          clang::RecordDecl::APK_CannotPassInRegs);
++  }
++
+   m_ast.AddMethodOverridesForCXXRecordType(clang_type.GetOpaqueQualType());
+   TypeSystemClang::BuildIndirectFields(clang_type);
+   TypeSystemClang::CompleteTagDeclarationDefinition(clang_type);
+ 
+-  if (!layout_info.field_offsets.empty() || !layout_info.base_offsets.empty() ||
+-      !layout_info.vbase_offsets.empty()) {
++  clang::CXXRecordDecl *record_decl = m_ast.GetAsCXXRecordDecl(clang_type.GetOpaqueQualType());
++  if (record_decl && !GetClangASTImporter().HasRecordLayout(record_decl)) {
+     if (type)
+       layout_info.bit_size = type->GetByteSize(nullptr).value_or(0) * 8;
+     if (layout_info.bit_size == 0)
+       layout_info.bit_size =
+           die.GetAttributeValueAsUnsigned(DW_AT_byte_size, 0) * 8;
+ 
+-    clang::CXXRecordDecl *record_decl =
+-        m_ast.GetAsCXXRecordDecl(clang_type.GetOpaqueQualType());
+-    if (record_decl)
+-      GetClangASTImporter().SetRecordLayout(record_decl, layout_info);
++    GetClangASTImporter().SetRecordLayout(record_decl, layout_info);
+   }
+ 
+   return (bool)clang_type;
+@@ -2140,6 +2156,7 @@ bool DWARFASTParserClang::CompleteEnumType(const DWARFDIE &die,
+     }
+     TypeSystemClang::CompleteTagDeclarationDefinition(clang_type);
+   }
++
+   return (bool)clang_type;
+ }
+ 
+@@ -2151,10 +2168,6 @@ bool DWARFASTParserClang::CompleteTypeFromDWARF(const DWARFDIE &die,
+   std::lock_guard<std::recursive_mutex> guard(
+       dwarf->GetObjectFile()->GetModule()->GetMutex());
+ 
+-  // Disable external storage for this type so we don't get anymore
+-  // clang::ExternalASTSource queries for this type.
+-  m_ast.SetHasExternalStorage(clang_type.GetOpaqueQualType(), false);
+-
+   if (!die)
+     return false;
+ 
+@@ -3326,6 +3339,12 @@ clang::DeclContext *DWARFASTParserClang::GetClangDeclContextContainingDIE(
+ clang::DeclContext *
+ DWARFASTParserClang::GetCachedClangDeclContextForDIE(const DWARFDIE &die) {
+   if (die) {
++    DIEToRecordMap::iterator pos2 = m_die_to_record_map.find(die.GetDIE());
++    if (pos2 != m_die_to_record_map.end())
++      return pos2->second;
++    DIEToObjCInterfaceMap::iterator pos3 = m_die_to_objc_interface_map.find(die.GetDIE());
++    if (pos3 != m_die_to_objc_interface_map.end())
++      return pos3->second;
+     DIEToDeclContextMap::iterator pos = m_die_to_decl_ctx.find(die.GetDIE());
+     if (pos != m_die_to_decl_ctx.end())
+       return pos->second;
+diff --git a/lldb/source/Plugins/SymbolFile/DWARF/DWARFASTParserClang.h b/lldb/source/Plugins/SymbolFile/DWARF/DWARFASTParserClang.h
+index f97c0c470ab0..ca859800a3b4 100644
+--- a/lldb/source/Plugins/SymbolFile/DWARF/DWARFASTParserClang.h
++++ b/lldb/source/Plugins/SymbolFile/DWARF/DWARFASTParserClang.h
+@@ -76,6 +76,10 @@ protected:
+ 
+   typedef llvm::DenseMap<const DWARFDebugInfoEntry *, clang::DeclContext *>
+       DIEToDeclContextMap;
++  typedef llvm::DenseMap<const DWARFDebugInfoEntry *, clang::TagDecl *>
++      DIEToRecordMap;
++  typedef llvm::DenseMap<const DWARFDebugInfoEntry *, clang::ObjCInterfaceDecl *>
++      DIEToObjCInterfaceMap;
+   typedef std::multimap<const clang::DeclContext *, const DWARFDIE>
+       DeclContextToDIEMap;
+   typedef llvm::DenseMap<const DWARFDebugInfoEntry *,
+@@ -88,10 +92,23 @@ protected:
+   DIEToDeclMap m_die_to_decl;
+   DIEToDeclContextMap m_die_to_decl_ctx;
+   DeclContextToDIEMap m_decl_ctx_to_die;
++  DIEToRecordMap m_die_to_record_map;
++  DIEToObjCInterfaceMap m_die_to_objc_interface_map;
+   DIEToModuleMap m_die_to_module;
+   std::unique_ptr<lldb_private::ClangASTImporter> m_clang_ast_importer_up;
++
++  struct TypeToComplete {
++    lldb_private::CompilerType clang_type;
++    DWARFDIE die;
++    lldb::TypeSP type;
++  };
++  std::vector<TypeToComplete> m_to_complete;
++  llvm::DenseSet<const DWARFDebugInfoEntry *> m_currently_parsed_record_dies;
++
+   /// @}
+ 
++  void RegisterDIE(DWARFDebugInfoEntry *die, lldb_private::CompilerType type);
++
+   clang::DeclContext *GetDeclContextForBlock(const DWARFDIE &die);
+ 
+   clang::BlockDecl *ResolveBlockDIE(const DWARFDIE &die);
+@@ -212,7 +229,7 @@ private:
+                     FieldInfo &last_field_info);
+ 
+   bool CompleteRecordType(const DWARFDIE &die, lldb_private::Type *type,
+-                          lldb_private::CompilerType &clang_type);
++                          lldb_private::CompilerType clang_type);
+   bool CompleteEnumType(const DWARFDIE &die, lldb_private::Type *type,
+                         lldb_private::CompilerType &clang_type);
+ 
+diff --git a/lldb/source/Plugins/SymbolFile/NativePDB/PdbAstBuilder.cpp b/lldb/source/Plugins/SymbolFile/NativePDB/PdbAstBuilder.cpp
+index 6dcce738b79f..5dfa194109d4 100644
+--- a/lldb/source/Plugins/SymbolFile/NativePDB/PdbAstBuilder.cpp
++++ b/lldb/source/Plugins/SymbolFile/NativePDB/PdbAstBuilder.cpp
+@@ -1,5 +1,6 @@
+ #include "PdbAstBuilder.h"
+ 
++#include "llvm/ADT/ScopeExit.h"
+ #include "llvm/DebugInfo/CodeView/CVTypeVisitor.h"
+ #include "llvm/DebugInfo/CodeView/LazyRandomTypeCollection.h"
+ #include "llvm/DebugInfo/CodeView/RecordName.h"
+@@ -726,7 +727,7 @@ bool PdbAstBuilder::CompleteType(clang::QualType qt) {
+ 
+ bool PdbAstBuilder::CompleteTagDecl(clang::TagDecl &tag) {
+   // If this is not in our map, it's an error.
+-  auto status_iter = m_decl_to_status.find(&tag);
++  auto status_iter = m_decl_to_status.find(tag.getFirstDecl());
+   lldbassert(status_iter != m_decl_to_status.end());
+ 
+   // If it's already complete, just return.
+@@ -738,9 +739,6 @@ bool PdbAstBuilder::CompleteTagDecl(clang::TagDecl &tag) {
+ 
+   lldbassert(IsTagRecord(type_id, m_index.tpi()));
+ 
+-  clang::QualType tag_qt = m_clang.getASTContext().getTypeDeclType(&tag);
+-  TypeSystemClang::SetHasExternalStorage(tag_qt.getAsOpaquePtr(), false);
+-
+   TypeIndex tag_ti = type_id.index;
+   CVType cvt = m_index.tpi().getType(tag_ti);
+   if (cvt.kind() == LF_MODIFIER)
+@@ -767,7 +765,8 @@ bool PdbAstBuilder::CompleteTagDecl(clang::TagDecl &tag) {
+ 
+   // Visit all members of this class, then perform any finalization necessary
+   // to complete the class.
+-  CompilerType ct = ToCompilerType(tag_qt);
++  CompilerType ct = m_clang.RedeclTagDecl(m_clang.GetTypeForDecl(&tag));
++  m_clang.StartTagDeclarationDefinition(ct);
+   UdtRecordCompleter completer(best_ti, ct, tag, *this, m_index,
+                                m_cxx_record_map);
+   llvm::Error error =
+@@ -876,15 +875,12 @@ clang::QualType PdbAstBuilder::CreateRecordType(PdbTypeSymId id,
+ 
+   lldbassert(ct.IsValid());
+ 
+-  TypeSystemClang::StartTagDeclarationDefinition(ct);
+-
+   // Even if it's possible, don't complete it at this point. Just mark it
+   // forward resolved, and if/when LLDB needs the full definition, it can
+   // ask us.
+   clang::QualType result =
+       clang::QualType::getFromOpaquePtr(ct.GetOpaqueQualType());
+ 
+-  TypeSystemClang::SetHasExternalStorage(result.getAsOpaquePtr(), true);
+   return result;
+ }
+ 
+@@ -1018,6 +1014,9 @@ clang::QualType PdbAstBuilder::CreateType(PdbTypeSymId type) {
+ 
+   if (IsTagRecord(cvt)) {
+     CVTagRecord tag = CVTagRecord::create(cvt);
++    auto indicate_delayed_definition = llvm::make_scope_exit([this](){
++      m_clang.BumpGenerationCounter();
++    });
+     if (tag.kind() == CVTagRecord::Union)
+       return CreateRecordType(type.index, tag.asUnion());
+     if (tag.kind() == CVTagRecord::Enum)
+@@ -1077,10 +1076,10 @@ clang::QualType PdbAstBuilder::GetOrCreateType(PdbTypeSymId type) {
+ 
+   m_uid_to_type[toOpaqueUid(type)] = qt;
+   if (IsTagRecord(type, m_index.tpi())) {
+-    clang::TagDecl *tag = qt->getAsTagDecl();
++    clang::TagDecl *tag = ClangUtil::GetAsTagDecl(m_clang.GetType(qt));
+     lldbassert(m_decl_to_status.count(tag) == 0);
+ 
+-    DeclStatus &status = m_decl_to_status[tag];
++    DeclStatus &status = m_decl_to_status[tag->getFirstDecl()];
+     status.uid = uid;
+     status.resolved = false;
+   }
+@@ -1380,9 +1379,6 @@ clang::QualType PdbAstBuilder::CreateEnumType(PdbTypeSymId id,
+       uname, decl_context, OptionalClangModuleID(), declaration,
+       ToCompilerType(underlying_type), er.isScoped());
+ 
+-  TypeSystemClang::StartTagDeclarationDefinition(enum_ct);
+-  TypeSystemClang::SetHasExternalStorage(enum_ct.GetOpaqueQualType(), true);
+-
+   return clang::QualType::getFromOpaquePtr(enum_ct.GetOpaqueQualType());
+ }
+ 
+diff --git a/lldb/source/Plugins/TypeSystem/Clang/TypeSystemClang.cpp b/lldb/source/Plugins/TypeSystem/Clang/TypeSystemClang.cpp
+index e0f646b15641..d4a82c962f76 100644
+--- a/lldb/source/Plugins/TypeSystem/Clang/TypeSystemClang.cpp
++++ b/lldb/source/Plugins/TypeSystem/Clang/TypeSystemClang.cpp
+@@ -10,6 +10,7 @@
+ 
+ #include "llvm/Support/FormatAdapters.h"
+ #include "llvm/Support/FormatVariadic.h"
++#include "llvm/ADT/ScopeExit.h"
+ 
+ #include <mutex>
+ #include <string>
+@@ -547,6 +548,7 @@ static void ParseLangArgs(LangOptions &Opts, InputKind IK, const char *triple) {
+ 
+   // This is needed to allocate the extra space for the owning module
+   // on each decl.
++  Opts.Modules = true;
+   Opts.ModulesLocalVisibility = 1;
+ }
+ 
+@@ -751,7 +753,7 @@ void TypeSystemClang::CreateASTContext() {
+   GetASTMap().Insert(m_ast_up.get(), this);
+ 
+   llvm::IntrusiveRefCntPtr<clang::ExternalASTSource> ast_source_up(
+-      new ClangExternalASTSourceCallbacks(*this));
++      m_ast_callbacks = new ClangExternalASTSourceCallbacks(*this));
+   SetExternalSource(ast_source_up);
+ }
+ 
+@@ -1213,11 +1215,12 @@ CompilerType TypeSystemClang::GetTypeForDecl(clang::NamedDecl *decl) {
+ }
+ 
+ CompilerType TypeSystemClang::GetTypeForDecl(TagDecl *decl) {
+-  return GetType(getASTContext().getTagDeclType(decl));
++  return GetType(getASTContext().getTypeDeclType(decl, decl->getPreviousDecl()));
+ }
+ 
+-CompilerType TypeSystemClang::GetTypeForDecl(ObjCInterfaceDecl *decl) {
+-  return GetType(getASTContext().getObjCInterfaceType(decl));
++CompilerType TypeSystemClang::GetTypeForDecl(const ObjCInterfaceDecl *decl) {
++  // FIXME: The Objective-C interface variant probably also doesn't need const.
++  return GetType(getASTContext().getObjCInterfaceType(decl, const_cast<ObjCInterfaceDecl *>(decl->getPreviousDecl())));
+ }
+ 
+ #pragma mark Structure, Unions, Classes
+@@ -1267,20 +1270,20 @@ TypeSystemClang::GetOrCreateClangModule(llvm::StringRef name,
+   return ast_source->RegisterModule(module);
+ }
+ 
+-CompilerType TypeSystemClang::CreateRecordType(
+-    clang::DeclContext *decl_ctx, OptionalClangModuleID owning_module,
++clang::NamedDecl *TypeSystemClang::CreateRecordDecl(clang::DeclContext *decl_ctx, OptionalClangModuleID owning_module,
+     AccessType access_type, llvm::StringRef name, int kind,
+     LanguageType language, ClangASTMetadata *metadata, bool exports_symbols) {
+   ASTContext &ast = getASTContext();
+ 
+   if (decl_ctx == nullptr)
+     decl_ctx = ast.getTranslationUnitDecl();
++  decl_ctx = decl_ctx->getPrimaryContext();
+ 
+   if (language == eLanguageTypeObjC ||
+       language == eLanguageTypeObjC_plus_plus) {
+     bool isForwardDecl = true;
+     bool isInternal = false;
+-    return CreateObjCClass(name, decl_ctx, owning_module, isForwardDecl,
++    return CreateObjCDecl(name, decl_ctx, owning_module, isForwardDecl,
+                            isInternal, metadata);
+   }
+ 
+@@ -1336,7 +1339,7 @@ CompilerType TypeSystemClang::CreateRecordType(
+   if (decl_ctx)
+     decl_ctx->addDecl(decl);
+ 
+-  return GetType(ast.getTagDeclType(decl));
++  return decl;
+ }
+ 
+ namespace {
+@@ -1402,8 +1405,8 @@ static TemplateParameterList *CreateTemplateParameterList(
+ 
+   if (template_param_infos.packed_args) {
+     IdentifierInfo *identifier_info = nullptr;
+-    if (template_param_infos.pack_name && template_param_infos.pack_name[0])
+-      identifier_info = &ast.Idents.get(template_param_infos.pack_name);
++    if (template_param_infos.pack_name && !template_param_infos.pack_name->empty())
++      identifier_info = &ast.Idents.get(template_param_infos.pack_name->c_str());
+     const bool parameter_pack_true = true;
+ 
+     if (!template_param_infos.packed_args->args.empty() &&
+@@ -1573,6 +1576,7 @@ ClassTemplateDecl *TypeSystemClang::CreateClassTemplateDecl(
+   ClassTemplateDecl *class_template_decl = nullptr;
+   if (decl_ctx == nullptr)
+     decl_ctx = ast.getTranslationUnitDecl();
++  decl_ctx = decl_ctx->getPrimaryContext();
+ 
+   IdentifierInfo &identifier_info = ast.Idents.get(class_name);
+   DeclarationName decl_name(&identifier_info);
+@@ -1624,6 +1628,8 @@ ClassTemplateDecl *TypeSystemClang::CreateClassTemplateDecl(
+   class_template_decl->init(template_cxx_decl, template_param_list);
+   template_cxx_decl->setDescribedClassTemplate(class_template_decl);
+   SetOwningModule(class_template_decl, owning_module);
++  ast.getInjectedClassNameType(template_cxx_decl,
++                               class_template_decl->getInjectedClassNameSpecialization());
+ 
+   if (access_type != eAccessNone)
+     class_template_decl->setAccess(
+@@ -1664,6 +1670,8 @@ TypeSystemClang::CreateClassTemplateSpecializationDecl(
+     DeclContext *decl_ctx, OptionalClangModuleID owning_module,
+     ClassTemplateDecl *class_template_decl, int kind,
+     const TemplateParameterInfos &template_param_infos) {
++  decl_ctx = decl_ctx->getPrimaryContext();
++
+   ASTContext &ast = getASTContext();
+   llvm::SmallVector<clang::TemplateArgument, 2> args(
+       template_param_infos.args.size() +
+@@ -1691,6 +1699,10 @@ TypeSystemClang::CreateClassTemplateSpecializationDecl(
+   class_template_specialization_decl->setSpecializationKind(
+       TSK_ExplicitSpecialization);
+ 
++  ClassTemplateRedeclInfo redecl_info;
++  redecl_info.m_template_args = template_param_infos;
++  m_class_template_redecl_infos[class_template_specialization_decl] = redecl_info;
++
+   return class_template_specialization_decl;
+ }
+ 
+@@ -1805,7 +1817,7 @@ bool TypeSystemClang::RecordHasFields(const RecordDecl *record_decl) {
+ 
+ #pragma mark Objective-C Classes
+ 
+-CompilerType TypeSystemClang::CreateObjCClass(
++clang::ObjCInterfaceDecl *TypeSystemClang::CreateObjCDecl(
+     llvm::StringRef name, clang::DeclContext *decl_ctx,
+     OptionalClangModuleID owning_module, bool isForwardDecl, bool isInternal,
+     ClangASTMetadata *metadata) {
+@@ -1824,7 +1836,7 @@ CompilerType TypeSystemClang::CreateObjCClass(
+   if (metadata)
+     SetMetadata(decl, *metadata);
+ 
+-  return GetType(ast.getObjCInterfaceType(decl));
++  return decl;
+ }
+ 
+ static inline bool BaseSpecifierIsEmpty(const CXXBaseSpecifier *b) {
+@@ -2335,6 +2347,11 @@ CompilerType TypeSystemClang::CreateEnumerationType(
+   return GetType(ast.getTagDeclType(enum_decl));
+ }
+ 
++void TypeSystemClang::BumpGenerationCounter() {
++  if (m_ast_up)
++    m_ast_up->getExternalSource()->incrementGeneration(*m_ast_up);
++}
++
+ CompilerType TypeSystemClang::GetIntTypeFromBitSize(size_t bit_size,
+                                                     bool is_signed) {
+   clang::ASTContext &ast = getASTContext();
+@@ -2517,28 +2534,30 @@ bool TypeSystemClang::GetCompleteDecl(clang::ASTContext *ast,
+     if (tag_decl->isCompleteDefinition())
+       return true;
+ 
+-    if (!tag_decl->hasExternalLexicalStorage())
+-      return false;
+-
+     ast_source->CompleteType(tag_decl);
+ 
+-    return !tag_decl->getTypeForDecl()->isIncompleteType();
++    tag_decl = tag_decl->getDefinition();
++
++    return tag_decl && !tag_decl->getTypeForDecl()->isIncompleteType();
+   } else if (clang::ObjCInterfaceDecl *objc_interface_decl =
+                  llvm::dyn_cast<clang::ObjCInterfaceDecl>(decl)) {
+     if (objc_interface_decl->getDefinition())
+       return true;
+ 
+-    if (!objc_interface_decl->hasExternalLexicalStorage())
+-      return false;
+-
+     ast_source->CompleteType(objc_interface_decl);
+ 
+-    return !objc_interface_decl->getTypeForDecl()->isIncompleteType();
++    objc_interface_decl = objc_interface_decl->getDefinition();
++
++    return objc_interface_decl && !objc_interface_decl->getTypeForDecl()->isIncompleteType();
+   } else {
+     return false;
+   }
+ }
+ 
++static const clang::Decl *GetDeclForMetadataStorage(const clang::Decl *d) {
++  return ClangUtil::GetFirstDecl(d);
++}
++
+ void TypeSystemClang::SetMetadataAsUserID(const clang::Decl *decl,
+                                           user_id_t user_id) {
+   ClangASTMetadata meta_data;
+@@ -2555,7 +2574,7 @@ void TypeSystemClang::SetMetadataAsUserID(const clang::Type *type,
+ 
+ void TypeSystemClang::SetMetadata(const clang::Decl *object,
+                                   ClangASTMetadata &metadata) {
+-  m_decl_metadata[object] = metadata;
++  m_decl_metadata[GetDeclForMetadataStorage(object)] = metadata;
+ }
+ 
+ void TypeSystemClang::SetMetadata(const clang::Type *object,
+@@ -2564,7 +2583,7 @@ void TypeSystemClang::SetMetadata(const clang::Type *object,
+ }
+ 
+ ClangASTMetadata *TypeSystemClang::GetMetadata(const clang::Decl *object) {
+-  auto It = m_decl_metadata.find(object);
++  auto It = m_decl_metadata.find(GetDeclForMetadataStorage(object));
+   if (It != m_decl_metadata.end())
+     return &It->second;
+   return nullptr;
+@@ -2657,7 +2676,7 @@ TypeSystemClang::GetDeclContextForType(clang::QualType type) {
+   return nullptr;
+ }
+ 
+-static bool GetCompleteQualType(clang::ASTContext *ast,
++static QualType GetCompleteQualType(clang::ASTContext *ast,
+                                 clang::QualType qual_type,
+                                 bool allow_completion = true) {
+   qual_type = RemoveWrappingTypes(qual_type);
+@@ -2675,33 +2694,10 @@ static bool GetCompleteQualType(clang::ASTContext *ast,
+   } break;
+   case clang::Type::Record: {
+     clang::CXXRecordDecl *cxx_record_decl = qual_type->getAsCXXRecordDecl();
+-    if (cxx_record_decl) {
+-      if (cxx_record_decl->hasExternalLexicalStorage()) {
+-        const bool is_complete = cxx_record_decl->isCompleteDefinition();
+-        const bool fields_loaded =
+-            cxx_record_decl->hasLoadedFieldsFromExternalStorage();
+-        if (is_complete && fields_loaded)
+-          return true;
+-
+-        if (!allow_completion)
+-          return false;
+-
+-        // Call the field_begin() accessor to for it to use the external source
+-        // to load the fields...
+-        clang::ExternalASTSource *external_ast_source =
+-            ast->getExternalSource();
+-        if (external_ast_source) {
+-          external_ast_source->CompleteType(cxx_record_decl);
+-          if (cxx_record_decl->isCompleteDefinition()) {
+-            cxx_record_decl->field_begin();
+-            cxx_record_decl->setHasLoadedFieldsFromExternalStorage(true);
+-          }
+-        }
+-      }
+-    }
+-    const clang::TagType *tag_type =
+-        llvm::cast<clang::TagType>(qual_type.getTypePtr());
+-    return !tag_type->isIncompleteType();
++    clang::CXXRecordDecl *def = cxx_record_decl->getDefinition();
++    if (!def)
++      return QualType();
++    return QualType(def->getTypeForDecl(), 0);
+   } break;
+ 
+   case clang::Type::Enum: {
+@@ -2710,23 +2706,9 @@ static bool GetCompleteQualType(clang::ASTContext *ast,
+     if (tag_type) {
+       clang::TagDecl *tag_decl = tag_type->getDecl();
+       if (tag_decl) {
+-        if (tag_decl->getDefinition())
+-          return true;
+-
+-        if (!allow_completion)
+-          return false;
+-
+-        if (tag_decl->hasExternalLexicalStorage()) {
+-          if (ast) {
+-            clang::ExternalASTSource *external_ast_source =
+-                ast->getExternalSource();
+-            if (external_ast_source) {
+-              external_ast_source->CompleteType(tag_decl);
+-              return !tag_type->isIncompleteType();
+-            }
+-          }
+-        }
+-        return false;
++        if (clang::TagDecl *def = tag_decl->getDefinition())
++          return QualType(def->getTypeForDecl(), 0);
++        return QualType(tag_decl->getTypeForDecl(), 0);
+       }
+     }
+ 
+@@ -2738,27 +2720,10 @@ static bool GetCompleteQualType(clang::ASTContext *ast,
+     if (objc_class_type) {
+       clang::ObjCInterfaceDecl *class_interface_decl =
+           objc_class_type->getInterface();
+-      // We currently can't complete objective C types through the newly added
+-      // ASTContext because it only supports TagDecl objects right now...
+-      if (class_interface_decl) {
+-        if (class_interface_decl->getDefinition())
+-          return true;
+-
+-        if (!allow_completion)
+-          return false;
+-
+-        if (class_interface_decl->hasExternalLexicalStorage()) {
+-          if (ast) {
+-            clang::ExternalASTSource *external_ast_source =
+-                ast->getExternalSource();
+-            if (external_ast_source) {
+-              external_ast_source->CompleteType(class_interface_decl);
+-              return !objc_class_type->isIncompleteType();
+-            }
+-          }
+-        }
+-        return false;
+-      }
++      if (!class_interface_decl)
++        return qual_type;
++      if (clang::ObjCInterfaceDecl *def = class_interface_decl->getDefinition())
++       return QualType(def->getTypeForDecl(), 0);
+     }
+   } break;
+ 
+@@ -2771,7 +2736,7 @@ static bool GetCompleteQualType(clang::ASTContext *ast,
+     break;
+   }
+ 
+-  return true;
++  return qual_type;
+ }
+ 
+ static clang::ObjCIvarDecl::AccessControl
+@@ -2975,8 +2940,8 @@ bool TypeSystemClang::IsCompleteType(lldb::opaque_compiler_type_t type) {
+   // the current (internal) completeness state of the type and most users don't
+   // care (or even know) about this behavior.
+   const bool allow_completion = true;
+-  return GetCompleteQualType(&getASTContext(), GetQualType(type),
+-                             allow_completion);
++  return !GetCompleteQualType(&getASTContext(), GetQualType(type),
++                             allow_completion).isNull();
+ }
+ 
+ bool TypeSystemClang::IsConst(lldb::opaque_compiler_type_t type) {
+@@ -3455,7 +3420,7 @@ bool TypeSystemClang::IsDefined(lldb::opaque_compiler_type_t type) {
+   if (tag_type) {
+     clang::TagDecl *tag_decl = tag_type->getDecl();
+     if (tag_decl)
+-      return tag_decl->isCompleteDefinition();
++      return tag_decl->getDefinition();
+     return false;
+   } else {
+     const clang::ObjCObjectType *objc_class_type =
+@@ -3761,8 +3726,8 @@ bool TypeSystemClang::GetCompleteType(lldb::opaque_compiler_type_t type) {
+   if (!type)
+     return false;
+   const bool allow_completion = true;
+-  return GetCompleteQualType(&getASTContext(), GetQualType(type),
+-                             allow_completion);
++  return !GetCompleteQualType(&getASTContext(), GetQualType(type),
++                             allow_completion).isNull();
+ }
+ 
+ ConstString TypeSystemClang::GetTypeName(lldb::opaque_compiler_type_t type) {
+@@ -4347,7 +4312,8 @@ TypeSystemClang::GetNumMemberFunctions(lldb::opaque_compiler_type_t type) {
+     clang::QualType qual_type = RemoveWrappingTypes(GetCanonicalQualType(type));
+     switch (qual_type->getTypeClass()) {
+     case clang::Type::Record:
+-      if (GetCompleteQualType(&getASTContext(), qual_type)) {
++      qual_type = GetCompleteQualType(&getASTContext(), qual_type);
++      if (!qual_type.isNull()) {
+         const clang::RecordType *record_type =
+             llvm::cast<clang::RecordType>(qual_type.getTypePtr());
+         const clang::RecordDecl *record_decl = record_type->getDecl();
+@@ -4411,7 +4377,8 @@ TypeSystemClang::GetMemberFunctionAtIndex(lldb::opaque_compiler_type_t type,
+     clang::QualType qual_type = RemoveWrappingTypes(GetCanonicalQualType(type));
+     switch (qual_type->getTypeClass()) {
+     case clang::Type::Record:
+-      if (GetCompleteQualType(&getASTContext(), qual_type)) {
++      qual_type = GetCompleteQualType(&getASTContext(), qual_type);
++      if (!qual_type.isNull()) {
+         const clang::RecordType *record_type =
+             llvm::cast<clang::RecordType>(qual_type.getTypePtr());
+         const clang::RecordDecl *record_decl = record_type->getDecl();
+@@ -4613,6 +4580,7 @@ CompilerType TypeSystemClang::CreateTypedef(
+         TypeSystemClang::DeclContextGetAsDeclContext(compiler_decl_ctx);
+     if (!decl_ctx)
+       decl_ctx = getASTContext().getTranslationUnitDecl();
++    decl_ctx = decl_ctx->getPrimaryContext();
+ 
+     clang::TypedefDecl *decl =
+         clang::TypedefDecl::CreateDeserialized(clang_ast, 0);
+@@ -5340,7 +5308,8 @@ uint32_t TypeSystemClang::GetNumChildren(lldb::opaque_compiler_type_t type,
+   case clang::Type::Complex:
+     return 0;
+   case clang::Type::Record:
+-    if (GetCompleteQualType(&getASTContext(), qual_type)) {
++    qual_type = GetCompleteQualType(&getASTContext(), qual_type);
++    if (!qual_type.isNull()) {
+       const clang::RecordType *record_type =
+           llvm::cast<clang::RecordType>(qual_type.getTypePtr());
+       const clang::RecordDecl *record_decl = record_type->getDecl();
+@@ -5384,7 +5353,8 @@ uint32_t TypeSystemClang::GetNumChildren(lldb::opaque_compiler_type_t type,
+ 
+   case clang::Type::ObjCObject:
+   case clang::Type::ObjCInterface:
+-    if (GetCompleteQualType(&getASTContext(), qual_type)) {
++    qual_type = GetCompleteQualType(&getASTContext(), qual_type);
++    if (!qual_type.isNull()) {
+       const clang::ObjCObjectType *objc_class_type =
+           llvm::dyn_cast<clang::ObjCObjectType>(qual_type.getTypePtr());
+       assert(objc_class_type);
+@@ -5393,18 +5363,22 @@ uint32_t TypeSystemClang::GetNumChildren(lldb::opaque_compiler_type_t type,
+             objc_class_type->getInterface();
+ 
+         if (class_interface_decl) {
++          auto *def = class_interface_decl->getDefinition();
++          class_interface_decl = def;
++          if (class_interface_decl) {
+ 
+-          clang::ObjCInterfaceDecl *superclass_interface_decl =
+-              class_interface_decl->getSuperClass();
+-          if (superclass_interface_decl) {
+-            if (omit_empty_base_classes) {
+-              if (ObjCDeclHasIVars(superclass_interface_decl, true))
++            clang::ObjCInterfaceDecl *superclass_interface_decl =
++                class_interface_decl->getSuperClass();
++            if (superclass_interface_decl) {
++              if (omit_empty_base_classes) {
++                if (ObjCDeclHasIVars(superclass_interface_decl, true))
++                  ++num_children;
++              } else
+                 ++num_children;
+-            } else
+-              ++num_children;
+-          }
++            }
+ 
+-          num_children += class_interface_decl->ivar_size();
++            num_children += class_interface_decl->ivar_size();
++          }
+         }
+       }
+     }
+@@ -5558,6 +5532,9 @@ void TypeSystemClang::ForEachEnumerator(
+   if (enum_type) {
+     const clang::EnumDecl *enum_decl = enum_type->getDecl();
+     if (enum_decl) {
++      enum_decl = enum_decl->getDefinition();
++      if (!enum_decl)
++        return;
+       CompilerType integer_type = GetType(enum_decl->getIntegerType());
+ 
+       clang::EnumDecl::enumerator_iterator enum_pos, enum_end_pos;
+@@ -7570,6 +7547,9 @@ clang::CXXMethodDecl *TypeSystemClang::AddMethodToCXXRecordType(
+   clang::CXXRecordDecl *cxx_record_decl =
+       record_qual_type->getAsCXXRecordDecl();
+ 
++  if (cxx_record_decl)
++    cxx_record_decl = cxx_record_decl->getDefinition();
++
+   if (cxx_record_decl == nullptr)
+     return nullptr;
+ 
+@@ -8045,6 +8025,11 @@ clang::ObjCMethodDecl *TypeSystemClang::AddMethodToObjCObjectType(
+ 
+   if (class_interface_decl == nullptr)
+     return nullptr;
++
++  class_interface_decl = class_interface_decl->getDefinition();
++  if (class_interface_decl == nullptr)
++    return nullptr;
++
+   TypeSystemClang *lldb_ast =
+       llvm::dyn_cast<TypeSystemClang>(type.GetTypeSystem());
+   if (lldb_ast == nullptr)
+@@ -8114,6 +8099,7 @@ clang::ObjCMethodDecl *TypeSystemClang::AddMethodToObjCObjectType(
+   auto *objc_method_decl = clang::ObjCMethodDecl::CreateDeserialized(ast, 0);
+   objc_method_decl->setDeclName(method_selector);
+   objc_method_decl->setReturnType(method_function_prototype->getReturnType());
++  objc_method_decl->setDeclContext(class_interface_decl);
+   objc_method_decl->setDeclContext(
+       lldb_ast->GetDeclContextForType(ClangUtil::GetQualType(type)));
+   objc_method_decl->setInstanceMethod(isInstance);
+@@ -8225,7 +8211,8 @@ bool TypeSystemClang::StartTagDeclarationDefinition(const CompilerType &type) {
+     if (tag_type) {
+       clang::TagDecl *tag_decl = tag_type->getDecl();
+       if (tag_decl) {
+-        tag_decl->startDefinition();
++        clang::TagDecl *def = tag_decl->getMostRecentDecl();
++        def->startDefinition();
+         return true;
+       }
+     }
+@@ -8235,7 +8222,8 @@ bool TypeSystemClang::StartTagDeclarationDefinition(const CompilerType &type) {
+     if (object_type) {
+       clang::ObjCInterfaceDecl *interface_decl = object_type->getInterface();
+       if (interface_decl) {
+-        interface_decl->startDefinition();
++        clang::ObjCInterfaceDecl *def = interface_decl->getMostRecentDecl();
++        def->startDefinition();
+         return true;
+       }
+     }
+@@ -8281,9 +8269,6 @@ bool TypeSystemClang::CompleteTagDeclarationDefinition(
+ 
+       if (!cxx_record_decl->isCompleteDefinition())
+         cxx_record_decl->completeDefinition();
+-      cxx_record_decl->setHasLoadedFieldsFromExternalStorage(true);
+-      cxx_record_decl->setHasExternalLexicalStorage(false);
+-      cxx_record_decl->setHasExternalVisibleStorage(false);
+       lldb_ast->SetCXXRecordDeclAccess(cxx_record_decl,
+                                        clang::AccessSpecifier::AS_none);
+       return true;
+@@ -8635,6 +8620,7 @@ void TypeSystemClang::DumpValue(
+       const clang::EnumType *enutype =
+           llvm::cast<clang::EnumType>(qual_type.getTypePtr());
+       const clang::EnumDecl *enum_decl = enutype->getDecl();
++      enum_decl = enum_decl->getDefinition();
+       assert(enum_decl);
+       clang::EnumDecl::enumerator_iterator enum_pos, enum_end_pos;
+       lldb::offset_t offset = data_byte_offset;
+@@ -8850,7 +8836,7 @@ static bool DumpEnumValue(const clang::QualType &qual_type, Stream *s,
+                           uint32_t bitfield_bit_size) {
+   const clang::EnumType *enutype =
+       llvm::cast<clang::EnumType>(qual_type.getTypePtr());
+-  const clang::EnumDecl *enum_decl = enutype->getDecl();
++  const clang::EnumDecl *enum_decl = enutype->getDecl()->getDefinition();
+   assert(enum_decl);
+   lldb::offset_t offset = byte_offset;
+   const uint64_t enum_svalue = data.GetMaxS64Bitfield(
+@@ -9128,7 +9114,7 @@ void TypeSystemClang::DumpTypeDescription(lldb::opaque_compiler_type_t type,
+       if (!objc_class_type)
+         break;
+       clang::ObjCInterfaceDecl *class_interface_decl =
+-            objc_class_type->getInterface();
++            objc_class_type->getInterface()->getDefinition();
+       if (!class_interface_decl)
+         break;
+       if (level == eDescriptionLevelVerbose)
+@@ -9288,17 +9274,17 @@ clang::ClassTemplateDecl *TypeSystemClang::ParseClassTemplateDecl(
+   return nullptr;
+ }
+ 
+-void TypeSystemClang::CompleteTagDecl(clang::TagDecl *decl) {
++void TypeSystemClang::CompleteTagDecl(const clang::TagDecl *decl) {
+   SymbolFile *sym_file = GetSymbolFile();
+   if (sym_file) {
+-    CompilerType clang_type = GetTypeForDecl(decl);
++    CompilerType clang_type = GetTypeForDecl(const_cast<clang::TagDecl *>(decl));
+     if (clang_type)
+       sym_file->CompleteType(clang_type);
+   }
+ }
+ 
+ void TypeSystemClang::CompleteObjCInterfaceDecl(
+-    clang::ObjCInterfaceDecl *decl) {
++    const clang::ObjCInterfaceDecl *decl) {
+   SymbolFile *sym_file = GetSymbolFile();
+   if (sym_file) {
+     CompilerType clang_type = GetTypeForDecl(decl);
+@@ -9339,6 +9325,47 @@ bool TypeSystemClang::LayoutRecordType(
+                                     field_offsets, base_offsets, vbase_offsets);
+ }
+ 
++CompilerType TypeSystemClang::RedeclTagDecl(CompilerType ct) {
++
++  if (clang::TagDecl *d = ClangUtil::GetAsTagDecl(ct)) {
++    if (clang::EnumDecl *e = dyn_cast<EnumDecl>(d)) {
++      Declaration decl;
++      CompilerType ct = CreateEnumerationType(e->getNameAsString().c_str(), d->getDeclContext()->getRedeclContext(), OptionalClangModuleID(), decl, GetType(e->getIntegerType()), e->isScoped());
++      clang::TagDecl *def = ClangUtil::GetAsTagDecl(ct);
++      def->setPreviousDecl(e);
++      return GetTypeForDecl(def);
++    }
++    if (auto *c = dyn_cast<ClassTemplateSpecializationDecl>(d)) {
++      auto redecl_info = m_class_template_redecl_infos.find(c);
++      assert(redecl_info != m_class_template_redecl_infos.end());
++      TemplateParameterInfos template_infos = redecl_info->second.m_template_args;
++      auto *ctd = CreateClassTemplateSpecializationDecl(d->getDeclContext()->getRedeclContext(), OptionalClangModuleID(), c->getSpecializedTemplate(), d->getTagKind(), template_infos);
++      ctd->setPreviousDecl(c);
++      return CompilerType(this, clang::QualType(ctd->getTypeForDecl(), 0U).getAsOpaquePtr());
++    }
++    clang::NamedDecl *res = CreateRecordDecl(d->getDeclContext()->getRedeclContext(),
++                                        OptionalClangModuleID(),
++                            lldb::eAccessPublic, d->getName(), d->getTagKind(),
++                            eLanguageTypeC_plus_plus, nullptr);
++    clang::TagDecl *td = llvm::cast<TagDecl>(res);
++    td->setPreviousDecl(d);
++    CompilerType actual_res = GetTypeForDecl(td);
++    assert(d->getTypeForDecl() == td->getTypeForDecl());
++    return actual_res;
++  }
++  if (clang::ObjCInterfaceDecl *d = ClangUtil::GetAsObjCDecl(ct)) {
++    clang::NamedDecl *res = CreateRecordDecl(d->getDeclContext()->getRedeclContext(), OptionalClangModuleID(),
++                            lldb::eAccessPublic, d->getName(), /*tag_kind=*/0,
++                            eLanguageTypeObjC, nullptr);
++    clang::ObjCInterfaceDecl *td = llvm::cast<ObjCInterfaceDecl>(res);
++    td->setPreviousDecl(d);
++    CompilerType actual_res = GetTypeForDecl(td);
++    assert(d->getTypeForDecl() == td->getTypeForDecl());
++    return actual_res;
++  }
++  return ct;
++}
++
+ // CompilerDecl override functions
+ 
+ ConstString TypeSystemClang::DeclGetName(void *opaque_decl) {
+diff --git a/lldb/source/Plugins/TypeSystem/Clang/TypeSystemClang.h b/lldb/source/Plugins/TypeSystem/Clang/TypeSystemClang.h
+index 24dbb71c8f4d..21b496bca828 100644
+--- a/lldb/source/Plugins/TypeSystem/Clang/TypeSystemClang.h
++++ b/lldb/source/Plugins/TypeSystem/Clang/TypeSystemClang.h
+@@ -48,6 +48,7 @@ class ModuleMap;
+ 
+ namespace lldb_private {
+ 
++class ClangExternalASTSourceCallbacks;
+ class ClangASTMetadata;
+ class ClangASTSource;
+ class Declaration;
+@@ -237,9 +238,6 @@ public:
+   CompilerType GetType(clang::QualType qt) {
+     if (qt.getTypePtrOrNull() == nullptr)
+       return CompilerType();
+-    // Check that the type actually belongs to this TypeSystemClang.
+-    assert(qt->getAsTagDecl() == nullptr ||
+-           &qt->getAsTagDecl()->getASTContext() == &getASTContext());
+     return CompilerType(this, qt.getAsOpaquePtr());
+   }
+ 
+@@ -247,7 +245,7 @@ public:
+ 
+   CompilerType GetTypeForDecl(clang::TagDecl *decl);
+ 
+-  CompilerType GetTypeForDecl(clang::ObjCInterfaceDecl *objc_decl);
++  CompilerType GetTypeForDecl(const clang::ObjCInterfaceDecl *objc_decl);
+ 
+   template <typename RecordDeclType>
+   CompilerType
+@@ -312,6 +310,19 @@ public:
+                                                bool is_explicit = false);
+ 
+   CompilerType CreateRecordType(clang::DeclContext *decl_ctx,
++                                OptionalClangModuleID owning_module,
++                                lldb::AccessType access_type,
++                                llvm::StringRef name, int kind,
++                                lldb::LanguageType language,
++                                ClangASTMetadata *metadata = nullptr,
++                                bool exports_symbols = false) {
++    clang::NamedDecl *d = CreateRecordDecl(decl_ctx, owning_module, access_type,
++                                      name, kind, language, metadata,
++                                      exports_symbols);
++    return GetTypeForDecl(d);
++  }
++
++  clang::NamedDecl *CreateRecordDecl(clang::DeclContext *decl_ctx,
+                                 OptionalClangModuleID owning_module,
+                                 lldb::AccessType access_type,
+                                 llvm::StringRef name, int kind,
+@@ -319,8 +330,23 @@ public:
+                                 ClangASTMetadata *metadata = nullptr,
+                                 bool exports_symbols = false);
+ 
++  void BumpGenerationCounter();
++
+   class TemplateParameterInfos {
+   public:
++    TemplateParameterInfos() = default;
++    TemplateParameterInfos(const TemplateParameterInfos &o) {
++      *this = o;
++    }
++    TemplateParameterInfos &operator=(const TemplateParameterInfos &o) {
++      names = o.names;
++      args = o.args;
++      pack_name = o.pack_name;
++      if (o.packed_args)
++        packed_args = std::make_unique<TemplateParameterInfos>(*o.packed_args);
++      return *this;
++    }
++
+     bool IsValid() const {
+       // Having a pack name but no packed args doesn't make sense, so mark
+       // these template parameters as invalid.
+@@ -335,7 +361,7 @@ public:
+     llvm::SmallVector<const char *, 2> names;
+     llvm::SmallVector<clang::TemplateArgument, 2> args;
+     
+-    const char * pack_name = nullptr;
++    llvm::Optional<std::string> pack_name;
+     std::unique_ptr<TemplateParameterInfos> packed_args;
+   };
+ 
+@@ -376,6 +402,17 @@ public:
+   static bool RecordHasFields(const clang::RecordDecl *record_decl);
+ 
+   CompilerType CreateObjCClass(llvm::StringRef name,
++                               clang::DeclContext *decl_ctx,
++                               OptionalClangModuleID owning_module,
++                               bool isForwardDecl, bool isInternal,
++                               ClangASTMetadata *metadata = nullptr) {
++    clang::ObjCInterfaceDecl *d = CreateObjCDecl(name, decl_ctx, owning_module,
++                                                 isForwardDecl, isInternal,
++                                                 metadata);
++    return GetTypeForDecl(d);
++  }
++
++  clang::ObjCInterfaceDecl *CreateObjCDecl(llvm::StringRef name,
+                                clang::DeclContext *decl_ctx,
+                                OptionalClangModuleID owning_module,
+                                bool isForwardDecl, bool isInternal,
+@@ -443,9 +480,11 @@ public:
+   PDBASTParser *GetPDBParser() override;
+ 
+   // TypeSystemClang callbacks for external source lookups.
+-  void CompleteTagDecl(clang::TagDecl *);
++  void CompleteTagDecl(const clang::TagDecl *);
+ 
+-  void CompleteObjCInterfaceDecl(clang::ObjCInterfaceDecl *);
++  void CompleteObjCInterfaceDecl(const clang::ObjCInterfaceDecl *);
++
++  CompilerType RedeclTagDecl(CompilerType ct);
+ 
+   bool LayoutRecordType(
+       const clang::RecordDecl *record_decl, uint64_t &size, uint64_t &alignment,
+@@ -1052,6 +1091,7 @@ private:
+   GetAsTemplateSpecialization(lldb::opaque_compiler_type_t type);
+ 
+   // Classes that inherit from TypeSystemClang can see and modify these
++  ClangExternalASTSourceCallbacks *m_ast_callbacks = nullptr;
+   std::string m_target_triple;
+   std::unique_ptr<clang::ASTContext> m_ast_up;
+   std::unique_ptr<clang::LangOptions> m_language_options_up;
+@@ -1090,6 +1130,14 @@ private:
+   /// AccessSpecifier.
+   CXXRecordDeclAccessMap m_cxx_record_decl_access;
+ 
++  struct ClassTemplateRedeclInfo {
++    TemplateParameterInfos m_template_args;
++  };
++
++  typedef llvm::DenseMap<const clang::Decl *, ClassTemplateRedeclInfo> ClassTemplateRedeclInfoMap;
++  ClassTemplateRedeclInfoMap m_class_template_redecl_infos;
++
++
+   /// The sema associated that is currently used to build this ASTContext.
+   /// May be null if we are already done parsing this ASTContext or the
+   /// ASTContext wasn't created by parsing source code.
+diff --git a/lldb/test/API/functionalities/lazy-loading/TestLazyLoading.py b/lldb/test/API/functionalities/lazy-loading/TestLazyLoading.py
+index f47c1c556104..6a83137b981a 100644
+--- a/lldb/test/API/functionalities/lazy-loading/TestLazyLoading.py
++++ b/lldb/test/API/functionalities/lazy-loading/TestLazyLoading.py
+@@ -67,6 +67,19 @@ class TestCase(TestBase):
+         self.assertTrue(res.Succeeded())
+         return res.GetOutput()
+ 
++    def get_ast_line_pairs(self):
++        ast = self.get_ast_dump()
++        lines = ast.splitlines()
++        pairs = []
++        for i in range(0, len(lines)):
++          line = lines[i].strip()
++          if i + 1 < len(lines):
++            next_line = lines[i + 1].strip()
++          else:
++            next_line = ""
++          pairs.append([line, next_line])
++        return pairs
++
+     def decl_in_line(self, line, decl):
+         """
+         Returns true iff the given line declares the given Clang decl.
+@@ -82,13 +95,12 @@ class TestCase(TestBase):
+           return False
+         return decl_name in line or decl_name_eol in line
+ 
+-    def decl_completed_in_line(self, line, decl):
++    def decl_completed_in_line(self, line):
+         """
+         Returns true iff the given line declares the given Clang decl and
+-        the decl was completed (i.e., it has no undeserialized declarations
+-        in it).
++        the decl was completed (i.e., it has definition data).
+         """
+-        return self.decl_in_line(line, decl) and not "<undeserialized declarations>" in line
++        return "|-DefinitionData" in line
+ 
+     # The following asserts are used for checking if certain Clang declarations
+     # were loaded or not since the target was created.
+@@ -101,27 +113,40 @@ class TestCase(TestBase):
+         assert_decl_not_loaded or assert_decl_not_completed assuming LLDB's
+         functionality has not suffered by not loading this declaration.
+         """
+-        ast = self.get_ast_dump()
++
++        pairs = self.get_ast_line_pairs()
+         found = False
+-        for line in ast.splitlines():
++        for line, next_line in pairs:
+           if self.decl_in_line(line, decl):
+             found = True
+-            self.assertTrue(self.decl_completed_in_line(line, decl),
+-                            "Should have called assert_decl_not_completed")
+-        self.assertTrue(found, "Declaration no longer loaded " + str(decl) +
+-            ".\nAST:\n" + ast)
++        self.assertTrue(found, "Declaration not loaded " + str(decl) +
++            ".\nAST:\n" + self.get_ast_dump())
++
++    def assert_decl_completed(self, decl):
++        """
++        Asserts that the given decl is currently completed in the module's
++        AST.
++        """
++        pairs = self.get_ast_line_pairs()
++        found = False
++        for line, next_line in pairs:
++          if self.decl_in_line(line, decl) and self.decl_completed_in_line(next_line):
++            found = True
++        self.assertTrue(found, "Declaration not completed " + str(decl) +
++            ".\nAST:\n" + self.get_ast_dump())
+ 
+     def assert_decl_not_completed(self, decl):
+         """
+         Asserts that the given decl is currently not completed in the module's
+-        AST. It may be loaded but then can can only contain undeserialized
+-        declarations.
++        AST.
+         """
+-        ast = self.get_ast_dump()
++        pairs = self.get_ast_line_pairs()
+         found = False
+-        for line in ast.splitlines():
+-          error_msg = "Unexpected completed decl: '" + line + "'.\nAST:\n" + ast
+-          self.assertFalse(self.decl_completed_in_line(line, decl), error_msg)
++        for line, next_line in pairs:
++          if self.decl_in_line(line, decl) and self.decl_completed_in_line(next_line):
++            found = True
++        self.assertFalse(found, "Declaration not loaded or completed " + str(decl) +
++            ".\nAST:\n" + self.get_ast_dump())
+ 
+     def assert_decl_not_loaded(self, decl):
+         """
+@@ -131,8 +156,8 @@ class TestCase(TestBase):
+         ast = self.get_ast_dump()
+         found = False
+         for line in ast.splitlines():
+-          error_msg = "Unexpected loaded decl: '" + line + "'\nAST:\n" + ast
+-          self.assertFalse(self.decl_in_line(line, decl), error_msg)
++          self.assertFalse(self.decl_in_line(line, decl),
++                           "Unexpected loaded decl: '" + line + "'\nAST:\n" + ast)
+ 
+ 
+     def clean_setup(self, location):
+@@ -200,11 +225,11 @@ class TestCase(TestBase):
+         self.expect("expr &struct_var", substrs=['(SomeStruct *) $0'])
+ 
+         # We loaded SomeStruct.
+-        self.assert_decl_loaded(self.some_struct_decl)
++        self.assert_decl_completed(self.some_struct_decl)
+ 
+         # The member declarations should not be completed.
+-        self.assert_decl_not_completed(self.struct_behind_ptr_decl)
+-        self.assert_decl_not_completed(self.struct_behind_ref_decl)
++        self.assert_decl_completed(self.struct_behind_ptr_decl)
++        self.assert_decl_completed(self.struct_behind_ref_decl)
+ 
+         # FIXME: The first member was behind a pointer so it shouldn't be
+         # completed. Somehow LLDB really wants to load the first member, so
+@@ -226,7 +251,7 @@ class TestCase(TestBase):
+         self.assert_decl_loaded(self.class_we_enter_decl)
+         # We loaded the unused members of this class.
+         self.assert_decl_loaded(self.unused_class_member_decl)
+-        self.assert_decl_not_completed(self.unused_class_member_ptr_decl)
++        self.assert_decl_completed(self.unused_class_member_ptr_decl)
+         # We loaded the member we used.
+         self.assert_decl_loaded(self.class_member_decl)
+         # We didn't load the type of the unused static member.
+diff --git a/lldb/test/API/lang/c/modules/TestCModules.py b/lldb/test/API/lang/c/modules/TestCModules.py
+index 68e2b64702d6..191f525c60df 100644
+--- a/lldb/test/API/lang/c/modules/TestCModules.py
++++ b/lldb/test/API/lang/c/modules/TestCModules.py
+@@ -63,7 +63,9 @@ class CModulesTestCase(TestBase):
+         f = open(log_file)
+         log_lines = f.readlines()
+         f.close()
+-        os.remove(log_file)
++#        os.remove(log_file)
++        print(log_file)
++        self.assertIn("struct __sFILE definition", " ".join(log_lines))
+         self.assertEqual(" ".join(log_lines).count("struct __sFILE definition"),
+                          1)
+ 
+diff --git a/lldb/test/Shell/SymbolFile/NativePDB/ast-methods.cpp b/lldb/test/Shell/SymbolFile/NativePDB/ast-methods.cpp
+index f2be33aae816..d3d620d1caca 100644
+--- a/lldb/test/Shell/SymbolFile/NativePDB/ast-methods.cpp
++++ b/lldb/test/Shell/SymbolFile/NativePDB/ast-methods.cpp
+@@ -33,16 +33,16 @@ int main(int argc, char **argv) {
+ }
+ 
+ // AST: TranslationUnitDecl
+-// AST: |-CXXRecordDecl {{.*}} struct Struct definition
+-// AST: | |-CXXMethodDecl {{.*}} simple_method 'void (){{.*}}'
+-// AST: | |-CXXMethodDecl {{.*}} virtual_method 'void (){{.*}}' virtual
+-// AST: | |-CXXMethodDecl {{.*}} static_method 'void ()' static
+-// AST: | |-CXXMethodDecl {{.*}} overloaded_method 'int (){{.*}}'
+-// AST: | |-CXXMethodDecl {{.*}} overloaded_method 'int (char){{.*}}'
+-// AST: | | `-ParmVarDecl {{.*}} 'char'
+-// AST: | `-CXXMethodDecl {{.*}} overloaded_method 'int (char, int, ...)'
+-// AST: |   |-ParmVarDecl {{.*}} 'char'
+-// AST: |   `-ParmVarDecl {{.*}} 'int'
++// AST: `-CXXRecordDecl {{.*}} struct Struct definition
++// AST:   |-CXXMethodDecl {{.*}} simple_method 'void (){{.*}}'
++// AST:   |-CXXMethodDecl {{.*}} virtual_method 'void (){{.*}}' virtual
++// AST:   |-CXXMethodDecl {{.*}} static_method 'void ()' static
++// AST:   |-CXXMethodDecl {{.*}} overloaded_method 'int (){{.*}}'
++// AST:   |-CXXMethodDecl {{.*}} overloaded_method 'int (char){{.*}}'
++// AST:   | `-ParmVarDecl {{.*}} 'char'
++// AST:   `-CXXMethodDecl {{.*}} overloaded_method 'int (char, int, ...)'
++// AST:     |-ParmVarDecl {{.*}} 'char'
++// AST:     `-ParmVarDecl {{.*}} 'int'
+ 
+ // SYMBOL:      int main(int argc, char **argv);
+ // SYMBOL-NEXT: struct Struct {
+diff --git a/lldb/test/Shell/SymbolFile/NativePDB/bitfields.cpp b/lldb/test/Shell/SymbolFile/NativePDB/bitfields.cpp
+index bfa3cbc81947..6941de8d3d6d 100644
+--- a/lldb/test/Shell/SymbolFile/NativePDB/bitfields.cpp
++++ b/lldb/test/Shell/SymbolFile/NativePDB/bitfields.cpp
+@@ -42,20 +42,20 @@ int main(int argc, char **argv) {
+ // CHECK: target modules dump ast
+ // CHECK: Dumping clang ast for 1 modules.
+ // CHECK: TranslationUnitDecl {{.*}}
+-// CHECK: |-CXXRecordDecl {{.*}} struct Struct definition
+-// CHECK: | |-FieldDecl {{.*}} A 'int'
+-// CHECK: | | `-IntegerLiteral {{.*}} 'int' 5
+-// CHECK: | |-FieldDecl {{.*}} B 'int'
+-// CHECK: | | `-IntegerLiteral {{.*}} 'int' 7
+-// CHECK: | |-FieldDecl {{.*}} C 'unsigned int'
+-// CHECK: | | `-IntegerLiteral {{.*}} 'int' 3
+-// CHECK: | |-FieldDecl {{.*}} D 'unsigned int'
+-// CHECK: | | `-IntegerLiteral {{.*}} 'int' 15
+-// CHECK: | |-FieldDecl {{.*}} E 'char'
+-// CHECK: | | `-IntegerLiteral {{.*}} 'int' 1
+-// CHECK: | |-FieldDecl {{.*}} F 'char'
+-// CHECK: | | `-IntegerLiteral {{.*}} 'int' 2
+-// CHECK: | |-FieldDecl {{.*}} G 'char'
+-// CHECK: | | `-IntegerLiteral {{.*}} 'int' 3
+-// CHECK: | `-FieldDecl {{.*}} H 'char'
+-// CHECK: |   `-IntegerLiteral {{.*}} 'int' 3
++// CHECK: `-CXXRecordDecl {{.*}} struct Struct definition
++// CHECK:   |-FieldDecl {{.*}} A 'int'
++// CHECK:   | `-IntegerLiteral {{.*}} 'int' 5
++// CHECK:   |-FieldDecl {{.*}} B 'int'
++// CHECK:   | `-IntegerLiteral {{.*}} 'int' 7
++// CHECK:   |-FieldDecl {{.*}} C 'unsigned int'
++// CHECK:   | `-IntegerLiteral {{.*}} 'int' 3
++// CHECK:   |-FieldDecl {{.*}} D 'unsigned int'
++// CHECK:   | `-IntegerLiteral {{.*}} 'int' 15
++// CHECK:   |-FieldDecl {{.*}} E 'char'
++// CHECK:   | `-IntegerLiteral {{.*}} 'int' 1
++// CHECK:   |-FieldDecl {{.*}} F 'char'
++// CHECK:   | `-IntegerLiteral {{.*}} 'int' 2
++// CHECK:   |-FieldDecl {{.*}} G 'char'
++// CHECK:   | `-IntegerLiteral {{.*}} 'int' 3
++// CHECK:   `-FieldDecl {{.*}} H 'char'
++// CHECK:     `-IntegerLiteral {{.*}} 'int' 3
+diff --git a/lldb/test/Shell/SymbolFile/NativePDB/global-classes.cpp b/lldb/test/Shell/SymbolFile/NativePDB/global-classes.cpp
+index 30293a79c3b6..92e40ae0de17 100644
+--- a/lldb/test/Shell/SymbolFile/NativePDB/global-classes.cpp
++++ b/lldb/test/Shell/SymbolFile/NativePDB/global-classes.cpp
+@@ -273,6 +273,8 @@ constexpr References ReferencesInstance;
+ 
+ // CHECK: Dumping clang ast for 1 modules.
+ // CHECK: TranslationUnitDecl {{.*}}
++// CHECK: |-CXXRecordDecl {{.*}} class ClassWithPadding
++// CHECK: |-VarDecl {{.*}} ClassWithPaddingInstance 'const ClassWithPadding'
+ // CHECK: |-CXXRecordDecl {{.*}} class ClassWithPadding definition
+ // CHECK: | |-FieldDecl {{.*}} a 'char'
+ // CHECK: | |-FieldDecl {{.*}} b 'short'
+@@ -287,7 +289,8 @@ constexpr References ReferencesInstance;
+ // CHECK: | |-FieldDecl {{.*}} k 'long long'
+ // CHECK: | |-FieldDecl {{.*}} l 'char'
+ // CHECK: | `-FieldDecl {{.*}} m 'long long'
+-// CHECK: |-VarDecl {{.*}} ClassWithPaddingInstance 'const ClassWithPadding'
++// CHECK: |-CXXRecordDecl {{.*}} class ClassNoPadding
++// CHECK: |-VarDecl {{.*}} ClassNoPaddingInstance 'const ClassNoPadding'
+ // CHECK: |-CXXRecordDecl {{.*}} class ClassNoPadding definition
+ // CHECK: | |-FieldDecl {{.*}} a 'unsigned char'
+ // CHECK: | |-FieldDecl {{.*}} b 'char'
+@@ -305,28 +308,31 @@ constexpr References ReferencesInstance;
+ // CHECK: | |-FieldDecl {{.*}} n 'unsigned long long'
+ // CHECK: | |-FieldDecl {{.*}} o 'long long'
+ // CHECK: | `-FieldDecl {{.*}} p 'int[5]'
+-// CHECK: |-VarDecl {{.*}} ClassNoPaddingInstance 'const ClassNoPadding'
+ // CHECK: |-EnumDecl {{.*}} EnumType
+ // CHECK: | |-EnumConstantDecl {{.*}} A 'EnumType'
+ // CHECK: | `-EnumConstantDecl {{.*}} B 'EnumType'
++// CHECK: |-CXXRecordDecl {{.*}} struct DerivedClass
++// CHECK: |-VarDecl {{.*}} DC 'const DerivedClass'
+ // CHECK: |-CXXRecordDecl {{.*}} struct DerivedClass definition
+ // CHECK: | |-public 'BaseClass<int>'
+ // CHECK: | |-FieldDecl {{.*}} DerivedMember 'int'
+ // CHECK: | `-CXXConstructorDecl {{.*}} DerivedClass 'void (int, int)'
+ // CHECK: |   |-ParmVarDecl {{.*}} 'int'
+ // CHECK: |   `-ParmVarDecl {{.*}} 'int'
+-// CHECK: |-VarDecl {{.*}} DC 'const DerivedClass'
+ // CHECK: |-CXXRecordDecl {{.*}} struct BaseClass<int> definition
+ // CHECK: | |-FieldDecl {{.*}} BaseMember 'int'
+ // CHECK: | `-CXXMethodDecl {{.*}} BaseClass 'void (int)'
+ // CHECK: |   `-ParmVarDecl {{.*}} 'int'
++// CHECK: |-CXXRecordDecl {{.*}} struct EBO
++// CHECK: |-VarDecl {{.*}} EBOC 'const EBO'
+ // CHECK: |-CXXRecordDecl {{.*}} struct EBO definition
+ // CHECK: | |-public 'EmptyBase'
+ // CHECK: | |-FieldDecl {{.*}} Member 'int'
+ // CHECK: | `-CXXConstructorDecl {{.*}} EBO 'void (int)'
+ // CHECK: |   `-ParmVarDecl {{.*}} 'int'
+-// CHECK: |-VarDecl {{.*}} EBOC 'const EBO'
+ // CHECK: |-CXXRecordDecl {{.*}} struct EmptyBase definition
++// CHECK: |-CXXRecordDecl {{.*}} struct PaddedBases
++// CHECK: |-VarDecl {{.*}} PBC 'const PaddedBases'
+ // CHECK: |-CXXRecordDecl {{.*}} struct PaddedBases definition
+ // CHECK: | |-public 'BaseClass<char>'
+ // CHECK: | |-public 'BaseClass<short>'
+@@ -337,7 +343,6 @@ constexpr References ReferencesInstance;
+ // CHECK: |   |-ParmVarDecl {{.*}} 'short'
+ // CHECK: |   |-ParmVarDecl {{.*}} 'int'
+ // CHECK: |   `-ParmVarDecl {{.*}} 'long long'
+-// CHECK: |-VarDecl {{.*}} PBC 'const PaddedBases'
+ // CHECK: |-CXXRecordDecl {{.*}} struct BaseClass<char> definition
+ // CHECK: | |-FieldDecl {{.*}} BaseMember 'int'
+ // CHECK: | `-CXXMethodDecl {{.*}} BaseClass 'void (int)'
+@@ -346,10 +351,13 @@ constexpr References ReferencesInstance;
+ // CHECK: | |-FieldDecl {{.*}} BaseMember 'int'
+ // CHECK: | `-CXXMethodDecl {{.*}} BaseClass 'void (int)'
+ // CHECK: |   `-ParmVarDecl {{.*}} 'int'
++// CHECK: |-CXXRecordDecl {{.*}} struct <unnamed-type-UnnamedClassInstance>
++// CHECK: |-VarDecl {{.*}} UnnamedClassInstance 'const <unnamed-type-UnnamedClassInstance>'
+ // CHECK: |-CXXRecordDecl {{.*}} struct <unnamed-type-UnnamedClassInstance> definition
+ // CHECK: | |-FieldDecl {{.*}} x 'int'
+ // CHECK: | `-FieldDecl {{.*}} EBOC 'EBO'
+-// CHECK: |-VarDecl {{.*}} UnnamedClassInstance 'const <unnamed-type-UnnamedClassInstance>'
++// CHECK: |-CXXRecordDecl {{.*}} struct Pointers
++// CHECK: |-VarDecl {{.*}} PointersInstance 'const Pointers'
+ // CHECK: |-CXXRecordDecl {{.*}} struct Pointers definition
+ // CHECK: | |-FieldDecl {{.*}} a 'void *'
+ // CHECK: | |-FieldDecl {{.*}} b 'char *'
+@@ -365,22 +373,22 @@ constexpr References ReferencesInstance;
+ // CHECK: | |-FieldDecl {{.*}} m 'double *'
+ // CHECK: | |-FieldDecl {{.*}} n 'unsigned long long *'
+ // CHECK: | `-FieldDecl {{.*}} o 'long long *'
+-// CHECK: |-VarDecl {{.*}} PointersInstance 'const Pointers'
+-// CHECK: |-CXXRecordDecl {{.*}} struct References definition
+-// CHECK: | |-FieldDecl {{.*}} a 'char &'
+-// CHECK: | |-FieldDecl {{.*}} b 'bool &'
+-// CHECK: | |-FieldDecl {{.*}} c 'short &'
+-// CHECK: | |-FieldDecl {{.*}} d 'unsigned short &'
+-// CHECK: | |-FieldDecl {{.*}} e 'unsigned int &'
+-// CHECK: | |-FieldDecl {{.*}} f 'int &'
+-// CHECK: | |-FieldDecl {{.*}} g 'unsigned long &'
+-// CHECK: | |-FieldDecl {{.*}} h 'long &'
+-// CHECK: | |-FieldDecl {{.*}} i 'float &'
+-// CHECK: | |-FieldDecl {{.*}} j 'EnumType &'
+-// CHECK: | |-FieldDecl {{.*}} k 'double &'
+-// CHECK: | |-FieldDecl {{.*}} l 'unsigned long long &'
+-// CHECK: | `-FieldDecl {{.*}} m 'long long &'
+-// CHECK: `-VarDecl {{.*}} ReferencesInstance 'const References'
++// CHECK: |-CXXRecordDecl {{.*}} struct References
++// CHECK: |-VarDecl {{.*}} ReferencesInstance 'const References'
++// CHECK: `-CXXRecordDecl {{.*}} struct References definition
++// CHECK:  |-FieldDecl {{.*}} a 'char &'
++// CHECK:   |-FieldDecl {{.*}} b 'bool &'
++// CHECK:   |-FieldDecl {{.*}} c 'short &'
++// CHECK:   |-FieldDecl {{.*}} d 'unsigned short &'
++// CHECK:   |-FieldDecl {{.*}} e 'unsigned int &'
++// CHECK:   |-FieldDecl {{.*}} f 'int &'
++// CHECK:   |-FieldDecl {{.*}} g 'unsigned long &'
++// CHECK:   |-FieldDecl {{.*}} h 'long &'
++// CHECK:   |-FieldDecl {{.*}} i 'float &'
++// CHECK:   |-FieldDecl {{.*}} j 'EnumType &'
++// CHECK:   |-FieldDecl {{.*}} k 'double &'
++// CHECK:   |-FieldDecl {{.*}} l 'unsigned long long &'
++// CHECK:   `-FieldDecl {{.*}} m 'long long &'
+ 
+ int main(int argc, char **argv) {
+   return 0;
+diff --git a/lldb/unittests/Expression/ClangExpressionDeclMapTest.cpp b/lldb/unittests/Expression/ClangExpressionDeclMapTest.cpp
+index ecee35ff46eb..374a930f1d87 100644
+--- a/lldb/unittests/Expression/ClangExpressionDeclMapTest.cpp
++++ b/lldb/unittests/Expression/ClangExpressionDeclMapTest.cpp
+@@ -119,5 +119,5 @@ TEST_F(ClangExpressionDeclMapTest, TestPersistentDeclLookup) {
+   EXPECT_EQ(decl_name, decls.front()->getQualifiedNameAsString());
+   auto *record = llvm::cast<clang::RecordDecl>(decls.front());
+   // The class was minimally imported from the scratch AST context.
+-  EXPECT_TRUE(record->hasExternalLexicalStorage());
++  EXPECT_EQ(record->getDefinition(), nullptr);
+ }
+diff --git a/lldb/unittests/Symbol/TestClangASTImporter.cpp b/lldb/unittests/Symbol/TestClangASTImporter.cpp
+index c8ffd099716a..be76ec5b4c38 100644
+--- a/lldb/unittests/Symbol/TestClangASTImporter.cpp
++++ b/lldb/unittests/Symbol/TestClangASTImporter.cpp
+@@ -46,7 +46,7 @@ TEST_F(TestClangASTImporter, CopyDeclTagDecl) {
+ 
+   ClangASTImporter importer;
+   clang::Decl *imported =
+-      importer.CopyDecl(&target_ast->getASTContext(), source.record_decl);
++      importer.CopyDecl(&target_ast->getASTContext(), source.fwd_decl);
+   ASSERT_NE(nullptr, imported);
+ 
+   // Check that we got the correct decl by just comparing their qualified name.
+@@ -54,13 +54,13 @@ TEST_F(TestClangASTImporter, CopyDeclTagDecl) {
+   EXPECT_EQ(source.record_decl->getQualifiedNameAsString(),
+             imported_tag_decl->getQualifiedNameAsString());
+   // We did a minimal import of the tag decl.
+-  EXPECT_TRUE(imported_tag_decl->hasExternalLexicalStorage());
++  EXPECT_EQ(imported_tag_decl->getDefinition(), nullptr);
+ 
+   // Check that origin was set for the imported declaration.
+   ClangASTImporter::DeclOrigin origin = importer.GetDeclOrigin(imported);
+   EXPECT_TRUE(origin.Valid());
+   EXPECT_EQ(origin.ctx, &source.ast->getASTContext());
+-  EXPECT_EQ(origin.decl, source.record_decl);
++  EXPECT_EQ(origin.decl, source.fwd_decl);
+ }
+ 
+ TEST_F(TestClangASTImporter, CopyTypeTagDecl) {
+@@ -78,14 +78,22 @@ TEST_F(TestClangASTImporter, CopyTypeTagDecl) {
+   EXPECT_EQ(source.record_decl->getQualifiedNameAsString(),
+             imported_tag_decl->getQualifiedNameAsString());
+   // We did a minimal import of the tag decl.
+-  EXPECT_TRUE(imported_tag_decl->hasExternalLexicalStorage());
++  EXPECT_EQ(imported_tag_decl->getDefinition(), nullptr);
+ 
+   // Check that origin was set for the imported declaration.
+   ClangASTImporter::DeclOrigin origin =
+       importer.GetDeclOrigin(imported_tag_decl);
+   EXPECT_TRUE(origin.Valid());
+   EXPECT_EQ(origin.ctx, &source.ast->getASTContext());
+-  EXPECT_EQ(origin.decl, source.record_decl);
++  EXPECT_EQ(origin.decl, source.fwd_decl);
++
++  clang::Decl *imported_definition = importer.CopyDecl(&target_ast->getASTContext(), source.record_decl);
++  ASSERT_NE(imported_definition, nullptr);
++
++  clang::TagDecl *definition = imported_tag_decl->getDefinition();
++  ASSERT_EQ(definition, imported_definition);
++  EXPECT_EQ(definition, imported_tag_decl->getDefinition());
++  EXPECT_EQ(definition->getPreviousDecl(), imported_tag_decl);
+ }
+ 
+ TEST_F(TestClangASTImporter, CompleteFwdDeclWithOtherOrigin) {
+diff --git a/lldb/unittests/Symbol/TestTypeSystemClang.cpp b/lldb/unittests/Symbol/TestTypeSystemClang.cpp
+index e78a084f59f0..769aed80d126 100644
+--- a/lldb/unittests/Symbol/TestTypeSystemClang.cpp
++++ b/lldb/unittests/Symbol/TestTypeSystemClang.cpp
+@@ -881,14 +881,12 @@ TEST_F(TestTypeSystemClang, TestNotDeletingUserCopyCstrDueToMoveCStr) {
+ }
+ 
+ TEST_F(TestTypeSystemClang, AddMethodToObjCObjectType) {
+-  // Create an interface decl and mark it as having external storage.
++  // Create an interface decl.
+   CompilerType c = m_ast->CreateObjCClass("A", m_ast->GetTranslationUnitDecl(),
+                                           OptionalClangModuleID(),
+                                           /*IsForwardDecl*/ false,
+                                           /*IsInternal*/ false);
+-  ObjCInterfaceDecl *interface = m_ast->GetAsObjCInterfaceDecl(c);
+-  m_ast->SetHasExternalStorage(c.GetOpaqueQualType(), true);
+-  EXPECT_TRUE(interface->hasExternalLexicalStorage());
++  EXPECT_TRUE(m_ast->StartTagDeclarationDefinition(c));
+ 
+   // Add a method to the interface.
+   std::vector<CompilerType> args;
+@@ -904,9 +902,6 @@ TEST_F(TestTypeSystemClang, AddMethodToObjCObjectType) {
+       objc_direct);
+   ASSERT_NE(method, nullptr);
+ 
+-  // The interface decl should still have external lexical storage.
+-  EXPECT_TRUE(interface->hasExternalLexicalStorage());
+-
+   // Test some properties of the created ObjCMethodDecl.
+   EXPECT_FALSE(method->isVariadic());
+   EXPECT_TRUE(method->isImplicit());
+diff --git a/lldb/unittests/TestingSupport/Symbol/ClangTestUtils.h b/lldb/unittests/TestingSupport/Symbol/ClangTestUtils.h
+index 6524f093ab95..56aab924d320 100644
+--- a/lldb/unittests/TestingSupport/Symbol/ClangTestUtils.h
++++ b/lldb/unittests/TestingSupport/Symbol/ClangTestUtils.h
+@@ -39,14 +39,15 @@ inline CompilerType createRecordWithField(TypeSystemClang &ast,
+                                           llvm::StringRef record_name,
+                                           CompilerType field_type,
+                                           llvm::StringRef field_name) {
+-  CompilerType t = createRecord(ast, record_name);
++  CompilerType fwd_decl = createRecord(ast, record_name);
++  CompilerType t = ast.RedeclTagDecl(fwd_decl);
+ 
+   TypeSystemClang::StartTagDeclarationDefinition(t);
+   ast.AddFieldToRecordType(t, field_name, field_type,
+                            lldb::AccessType::eAccessPublic, 7);
+   TypeSystemClang::CompleteTagDeclarationDefinition(t);
+ 
+-  return t;
++  return fwd_decl;
+ }
+ 
+ /// Constructs a TypeSystemClang that contains a single RecordDecl that contains
+@@ -56,14 +57,15 @@ struct SourceASTWithRecord {
+   std::unique_ptr<TypeSystemClang> ast;
+   CompilerType record_type;
+   clang::RecordDecl *record_decl = nullptr;
++  clang::RecordDecl *fwd_decl = nullptr;
+   clang::FieldDecl *field_decl = nullptr;
+   SourceASTWithRecord() {
+     ast = createAST();
+     record_type = createRecordWithField(
+         *ast, "Source", ast->GetBasicType(lldb::BasicType::eBasicTypeChar),
+         "a_field");
+-    record_decl =
+-        llvm::cast<clang::RecordDecl>(ClangUtil::GetAsTagDecl(record_type));
++    record_decl = llvm::cast<clang::RecordDecl>(ClangUtil::GetAsTagDecl(record_type)->getDefinition());
++    fwd_decl = record_decl->getPreviousDecl();
+     field_decl = *record_decl->fields().begin();
+     assert(field_decl);
+   }

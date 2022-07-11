@@ -1531,6 +1531,14 @@ let Predicates = [HasSVEorSME] in {
   def : Pat<(nxv8i1 (extract_subvector (nxv16i1 PPR:$Ps), (i64 8))),
             (PUNPKHI_PP PPR:$Ps)>;
 
+  def : Pat<(nxv1i1 (extract_subvector (nxv4i1 PPR:$Ps), (i64 0))),
+            (PUNPKLO_PP (PUNPKLO_PP PPR:$Ps))>;
+  def : Pat<(nxv1i1 (extract_subvector (nxv4i1 PPR:$Ps), (i64 1))),
+            (PUNPKHI_PP (PUNPKLO_PP PPR:$Ps))>;
+  def : Pat<(nxv1i1 (extract_subvector (nxv4i1 PPR:$Ps), (i64 2))),
+            (PUNPKLO_PP (PUNPKHI_PP PPR:$Ps))>;
+  def : Pat<(nxv1i1 (extract_subvector (nxv4i1 PPR:$Ps), (i64 3))),
+            (PUNPKHI_PP (PUNPKHI_PP PPR:$Ps))>;
   def : Pat<(nxv2i1 (extract_subvector (nxv8i1 PPR:$Ps), (i64 0))),
             (PUNPKLO_PP (PUNPKLO_PP PPR:$Ps))>;
   def : Pat<(nxv2i1 (extract_subvector (nxv8i1 PPR:$Ps), (i64 2))),
@@ -1539,7 +1547,6 @@ let Predicates = [HasSVEorSME] in {
             (PUNPKLO_PP (PUNPKHI_PP PPR:$Ps))>;
   def : Pat<(nxv2i1 (extract_subvector (nxv8i1 PPR:$Ps), (i64 6))),
             (PUNPKHI_PP (PUNPKHI_PP PPR:$Ps))>;
-
   def : Pat<(nxv4i1 (extract_subvector (nxv16i1 PPR:$Ps), (i64 0))),
             (PUNPKLO_PP (PUNPKLO_PP PPR:$Ps))>;
   def : Pat<(nxv4i1 (extract_subvector (nxv16i1 PPR:$Ps), (i64 4))),
@@ -1549,6 +1556,23 @@ let Predicates = [HasSVEorSME] in {
   def : Pat<(nxv4i1 (extract_subvector (nxv16i1 PPR:$Ps), (i64 12))),
             (PUNPKHI_PP (PUNPKHI_PP PPR:$Ps))>;
 
+
+  def : Pat<(nxv1i1 (extract_subvector (nxv8i1 PPR:$Ps), (i64 0))),
+            (PUNPKLO_PP (PUNPKLO_PP (PUNPKLO_PP PPR:$Ps)))>;
+  def : Pat<(nxv1i1 (extract_subvector (nxv8i1 PPR:$Ps), (i64 1))),
+            (PUNPKHI_PP (PUNPKLO_PP (PUNPKLO_PP PPR:$Ps)))>;
+  def : Pat<(nxv1i1 (extract_subvector (nxv8i1 PPR:$Ps), (i64 2))),
+            (PUNPKLO_PP (PUNPKHI_PP (PUNPKLO_PP PPR:$Ps)))>;
+  def : Pat<(nxv1i1 (extract_subvector (nxv8i1 PPR:$Ps), (i64 3))),
+            (PUNPKHI_PP (PUNPKHI_PP (PUNPKLO_PP PPR:$Ps)))>;
+  def : Pat<(nxv1i1 (extract_subvector (nxv8i1 PPR:$Ps), (i64 4))),
+            (PUNPKLO_PP (PUNPKLO_PP (PUNPKHI_PP PPR:$Ps)))>;
+  def : Pat<(nxv1i1 (extract_subvector (nxv8i1 PPR:$Ps), (i64 5))),
+            (PUNPKHI_PP (PUNPKLO_PP (PUNPKHI_PP PPR:$Ps)))>;
+  def : Pat<(nxv1i1 (extract_subvector (nxv8i1 PPR:$Ps), (i64 6))),
+            (PUNPKLO_PP (PUNPKHI_PP (PUNPKHI_PP PPR:$Ps)))>;
+  def : Pat<(nxv1i1 (extract_subvector (nxv8i1 PPR:$Ps), (i64 7))),
+            (PUNPKHI_PP (PUNPKHI_PP (PUNPKHI_PP PPR:$Ps)))>;
   def : Pat<(nxv2i1 (extract_subvector (nxv16i1 PPR:$Ps), (i64 0))),
             (PUNPKLO_PP (PUNPKLO_PP (PUNPKLO_PP PPR:$Ps)))>;
   def : Pat<(nxv2i1 (extract_subvector (nxv16i1 PPR:$Ps), (i64 2))),
@@ -1565,6 +1589,39 @@ let Predicates = [HasSVEorSME] in {
             (PUNPKLO_PP (PUNPKHI_PP (PUNPKHI_PP PPR:$Ps)))>;
   def : Pat<(nxv2i1 (extract_subvector (nxv16i1 PPR:$Ps), (i64 14))),
             (PUNPKHI_PP (PUNPKHI_PP (PUNPKHI_PP PPR:$Ps)))>;
+
+  def : Pat<(nxv1i1 (extract_subvector (nxv16i1 PPR:$Ps), (i64 0))),
+            (PUNPKLO_PP (PUNPKLO_PP (PUNPKLO_PP  (PUNPKLO_PP PPR:$Ps))))>;
+  def : Pat<(nxv1i1 (extract_subvector (nxv16i1 PPR:$Ps), (i64 1))),
+            (PUNPKHI_PP (PUNPKLO_PP (PUNPKLO_PP  (PUNPKLO_PP PPR:$Ps))))>;
+  def : Pat<(nxv1i1 (extract_subvector (nxv16i1 PPR:$Ps), (i64 2))),
+            (PUNPKLO_PP (PUNPKHI_PP (PUNPKLO_PP  (PUNPKLO_PP PPR:$Ps))))>;
+  def : Pat<(nxv1i1 (extract_subvector (nxv16i1 PPR:$Ps), (i64 3))),
+            (PUNPKHI_PP (PUNPKHI_PP (PUNPKLO_PP  (PUNPKLO_PP PPR:$Ps))))>;
+  def : Pat<(nxv1i1 (extract_subvector (nxv16i1 PPR:$Ps), (i64 4))),
+            (PUNPKLO_PP (PUNPKLO_PP (PUNPKHI_PP  (PUNPKLO_PP PPR:$Ps))))>;
+  def : Pat<(nxv1i1 (extract_subvector (nxv16i1 PPR:$Ps), (i64 5))),
+            (PUNPKHI_PP (PUNPKLO_PP (PUNPKHI_PP  (PUNPKLO_PP PPR:$Ps))))>;
+  def : Pat<(nxv1i1 (extract_subvector (nxv16i1 PPR:$Ps), (i64 6))),
+            (PUNPKLO_PP (PUNPKHI_PP (PUNPKHI_PP  (PUNPKLO_PP PPR:$Ps))))>;
+  def : Pat<(nxv1i1 (extract_subvector (nxv16i1 PPR:$Ps), (i64 7))),
+            (PUNPKHI_PP (PUNPKHI_PP (PUNPKHI_PP  (PUNPKLO_PP PPR:$Ps))))>;
+  def : Pat<(nxv1i1 (extract_subvector (nxv16i1 PPR:$Ps), (i64 8))),
+            (PUNPKLO_PP (PUNPKLO_PP (PUNPKLO_PP  (PUNPKHI_PP PPR:$Ps))))>;
+  def : Pat<(nxv1i1 (extract_subvector (nxv16i1 PPR:$Ps), (i64 9))),
+            (PUNPKHI_PP (PUNPKLO_PP (PUNPKLO_PP  (PUNPKHI_PP PPR:$Ps))))>;
+  def : Pat<(nxv1i1 (extract_subvector (nxv16i1 PPR:$Ps), (i64 10))),
+            (PUNPKLO_PP (PUNPKHI_PP (PUNPKLO_PP  (PUNPKHI_PP PPR:$Ps))))>;
+  def : Pat<(nxv1i1 (extract_subvector (nxv16i1 PPR:$Ps), (i64 11))),
+            (PUNPKHI_PP (PUNPKHI_PP (PUNPKLO_PP  (PUNPKHI_PP PPR:$Ps))))>;
+  def : Pat<(nxv1i1 (extract_subvector (nxv16i1 PPR:$Ps), (i64 12))),
+            (PUNPKLO_PP (PUNPKLO_PP (PUNPKHI_PP  (PUNPKHI_PP PPR:$Ps))))>;
+  def : Pat<(nxv1i1 (extract_subvector (nxv16i1 PPR:$Ps), (i64 13))),
+            (PUNPKHI_PP (PUNPKLO_PP (PUNPKHI_PP  (PUNPKHI_PP PPR:$Ps))))>;
+  def : Pat<(nxv1i1 (extract_subvector (nxv16i1 PPR:$Ps), (i64 14))),
+            (PUNPKLO_PP (PUNPKHI_PP (PUNPKHI_PP  (PUNPKHI_PP PPR:$Ps))))>;
+  def : Pat<(nxv1i1 (extract_subvector (nxv16i1 PPR:$Ps), (i64 15))),
+            (PUNPKHI_PP (PUNPKHI_PP (PUNPKHI_PP  (PUNPKHI_PP PPR:$Ps))))>;
 
   // Extract subvectors from FP SVE vectors
   def : Pat<(nxv2f16 (extract_subvector (nxv4f16 ZPR:$Zs), (i64 0))),
@@ -2082,6 +2139,8 @@ let Predicates = [HasSVEorSME] in {
             (PTEST_PP PPR:$pg, PPR:$src)>;
   def : Pat<(AArch64ptest (nxv2i1 PPR:$pg), (nxv2i1 PPR:$src)),
             (PTEST_PP PPR:$pg, PPR:$src)>;
+  def : Pat<(AArch64ptest (nxv1i1 PPR:$pg), (nxv1i1 PPR:$src)),
+            (PTEST_PP PPR:$pg, PPR:$src)>;
 
   let AddedComplexity = 1 in {
   class LD1RPat<ValueType vt, SDPatternOperator operator,
@@ -2346,6 +2405,9 @@ let Predicates = [HasSVEorSME] in {
   def : Pat<(nxv4i1 (and PPR:$Ps1, PPR:$Ps2)),
             (AND_PPzPP (PTRUE_S 31), PPR:$Ps1, PPR:$Ps2)>;
   def : Pat<(nxv2i1 (and PPR:$Ps1, PPR:$Ps2)),
+            (AND_PPzPP (PTRUE_D 31), PPR:$Ps1, PPR:$Ps2)>;
+  // Emulate .Q operation using a PTRUE_D when the other lanes don't matter.
+  def : Pat<(nxv1i1 (and PPR:$Ps1, PPR:$Ps2)),
             (AND_PPzPP (PTRUE_D 31), PPR:$Ps1, PPR:$Ps2)>;
 
   // Add more complex addressing modes here as required

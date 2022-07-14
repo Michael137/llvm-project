@@ -100,13 +100,33 @@ protected:
   typedef llvm::DenseMap<const DWARFDebugInfoEntry *, clang::Decl *>
       DIEToDeclMap;
 
+  using DIEToRecordMap = llvm::DenseMap<DWARFDebugInfoEntry *, clang::TagDecl *>;
+
   lldb_private::TypeSystemClang &m_ast;
   DIEToDeclMap m_die_to_decl;
   DIEToDeclContextMap m_die_to_decl_ctx;
   DeclContextToDIEMap m_decl_ctx_to_die;
   DIEToModuleMap m_die_to_module;
+
+  /// Used for caching Decl's during DWARF parsing
+  DIEToRecordMap m_die_to_record_map;
+
   std::unique_ptr<lldb_private::ClangASTImporter> m_clang_ast_importer_up;
   /// @}
+
+  struct TypeToComplete {
+    lldb_private::CompilerType m_clang_type;
+    DWARFDIE m_die;
+    lldb::TypeSP m_type;
+  };
+
+  /// PrepareContextToReceiveMembers fills this in with types
+  /// to complete later in ParsedDWARFTypeAttributes
+  std::vector<TypeToComplete> m_types_to_complete;
+  llvm::DenseSet<const DWARFDebugInfoEntry *> m_currently_parsed_record_dies; //< TODO: currently unused
+
+  /// Caches clang::Decl for specified 'die'
+  void RegisterDIE(DWARFDebugInfoEntry *die, lldb_private::CompilerType type);
 
   clang::DeclContext *GetDeclContextForBlock(const DWARFDIE &die);
 

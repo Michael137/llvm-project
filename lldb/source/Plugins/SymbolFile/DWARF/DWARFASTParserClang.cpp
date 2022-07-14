@@ -11,8 +11,10 @@
 #include "DWARFASTParser.h"
 #include "DWARFASTParserClang.h"
 #include "DWARFDebugInfo.h"
+#include "DWARFDebugInfoEntry.h"
 #include "DWARFDeclContext.h"
 #include "DWARFDefines.h"
+#include "Plugins/TypeSystem/Clang/TypeSystemClang.h"
 #include "SymbolFileDWARF.h"
 #include "SymbolFileDWARFDebugMap.h"
 #include "SymbolFileDWARFDwo.h"
@@ -59,6 +61,41 @@
 using namespace lldb;
 using namespace lldb_private;
 using namespace lldb_private::dwarf;
+
+namespace {
+/// Helper class for incrementing AST generation
+/// when we add new redecls for existing decls.
+struct GenerationBumper {
+   TypeSystemClang &m_ts;
+   bool m_engaged = true;
+   explicit GenerationBumper(TypeSystemClang &ts) : m_ts(ts) {}
+
+   ~GenerationBumper() {
+    if (m_engaged)
+        m_ts.BumpGenerationCounter();
+   }
+
+   void engage() {
+    m_engaged = true;
+   }
+
+   void disgage() {
+    m_engaged = false;
+   }
+};
+
+static bool DirectlyCompleteType(clang::DeclContext *decl_ctx,
+                                 ParsedDWARFTypeAttributes const& attrs) {
+  if (decl_ctx->isFunctionOrMethod())
+      return true;
+
+  if (attrs.name.IsEmpty() && !attrs.is_forward_declaration)
+      return true;
+
+  return false;
+}
+} // namespace
+
 DWARFASTParserClang::DWARFASTParserClang(TypeSystemClang &ast)
     : m_ast(ast), m_die_to_decl_ctx(), m_decl_ctx_to_die() {}
 
@@ -75,6 +112,13 @@ static bool DeclKindIsCXXClass(clang::Decl::Kind decl_kind) {
   return false;
 }
 
+void DWARFASTParserClang::RegisterDIE(DWARFDebugInfoEntry *die, CompilerType type) {
+  if (clang::TagDecl *td = ClangUtil::GetAsTagDecl(type)) {
+    m_die_to_record_map[die] = td;
+  } else {
+    assert(false && "Unsupported Decl kind");
+  }
+}
 
 ClangASTImporter &DWARFASTParserClang::GetClangASTImporter() {
   if (!m_clang_ast_importer_up) {

@@ -319,6 +319,13 @@ public:
                                 ClangASTMetadata *metadata = nullptr,
                                 bool exports_symbols = false);
 
+  /// Increments generation counter of AST associated with this TypeSystem
+  /// object.
+  ///
+  /// Signals to Clang that we may have added new redecls for existing
+  /// decls.
+  void BumpGenerationCounter();
+
   class TemplateParameterInfos {
   public:
     bool IsValid() const {

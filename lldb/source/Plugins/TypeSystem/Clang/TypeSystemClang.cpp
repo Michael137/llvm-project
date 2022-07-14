@@ -1339,6 +1339,11 @@ CompilerType TypeSystemClang::CreateRecordType(
   return GetType(ast.getTagDeclType(decl));
 }
 
+void TypeSystemClang::BumpGenerationCounter() {
+  if (m_ast_up)
+      m_ast_up->getExternalSource()->incrementGeneration(*m_ast_up);
+}
+
 namespace {
 /// Returns true iff the given TemplateArgument should be represented as an
 /// NonTypeTemplateParmDecl in the AST.

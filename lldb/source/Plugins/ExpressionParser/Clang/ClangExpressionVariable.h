@@ -116,15 +116,13 @@ public:
   /// The following values should not live beyond parsing
   class ParserVars {
   public:
-    ParserVars() : m_lldb_value(), m_lldb_var() {}
+    ParserVars() = default;
 
     const clang::NamedDecl *m_named_decl =
         nullptr; ///< The Decl corresponding to this variable
     llvm::Value *m_llvm_value =
         nullptr; ///< The IR value corresponding to this variable;
                  /// usually a GlobalValue
-    lldb_private::Value
-        m_lldb_value;            ///< The value found in LLDB for this variable
     lldb::VariableSP m_lldb_var; ///< The original variable for this variable
     const lldb_private::Symbol *m_lldb_sym =
         nullptr; ///< The original symbol for this

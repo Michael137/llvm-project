@@ -475,25 +475,6 @@ bool ClangExpressionDeclMap::GetStructElement(const NamedDecl *&decl,
   return true;
 }
 
-bool ClangExpressionDeclMap::GetFunctionInfo(const NamedDecl *decl,
-                                             uint64_t &ptr) {
-  ClangExpressionVariable *entity(ClangExpressionVariable::FindVariableInList(
-      m_found_entities, decl, GetParserID()));
-
-  if (!entity)
-    return false;
-
-  // We know m_parser_vars is valid since we searched for the variable by its
-  // NamedDecl
-
-  ClangExpressionVariable::ParserVars *parser_vars =
-      entity->GetParserVars(GetParserID());
-
-  ptr = parser_vars->m_lldb_value.GetScalar().ULongLong();
-
-  return true;
-}
-
 addr_t ClangExpressionDeclMap::GetSymbolAddress(Target &target,
                                                 Process *process,
                                                 ConstString name,
@@ -1409,24 +1390,25 @@ void ClangExpressionDeclMap::FindExternalVisibleDecls(
   }
 }
 
-bool ClangExpressionDeclMap::GetVariableValue(VariableSP &var,
-                                              lldb_private::Value &var_location,
-                                              TypeFromUser *user_type,
-                                              TypeFromParser *parser_type) {
+void ClangExpressionDeclMap::AddOneVariable(NameSearchContext &context,
+                                            VariableSP var,
+                                            ValueObjectSP valobj) {
+  assert(m_parser_vars.get());
+
   Log *log = GetLog(LLDBLog::Expressions);
 
   Type *var_type = var->GetType();
 
   if (!var_type) {
     LLDB_LOG(log, "Skipped a definition because it has no type");
-    return false;
+    return;
   }
 
   CompilerType var_clang_type = var_type->GetFullCompilerType();
 
   if (!var_clang_type) {
     LLDB_LOG(log, "Skipped a definition because it has no Clang type");
-    return false;
+    return;
   }
 
   TypeSystemClang *clang_ast = llvm::dyn_cast_or_null<TypeSystemClang>(
@@ -1434,24 +1416,7 @@ bool ClangExpressionDeclMap::GetVariableValue(VariableSP &var,
 
   if (!clang_ast) {
     LLDB_LOG(log, "Skipped a definition because it has no Clang AST");
-    return false;
-  }
-
-  DWARFExpressionList &var_location_list = var->LocationExpressionList();
-
-  Target *target = m_parser_vars->m_exe_ctx.GetTargetPtr();
-  Status err;
-
-  if (var->GetLocationIsConstantValueData()) {
-    DataExtractor const_value_extractor;
-    if (var_location_list.GetExpressionData(const_value_extractor)) {
-      var_location = Value(const_value_extractor.GetDataStart(),
-                           const_value_extractor.GetByteSize());
-      var_location.SetValueType(Value::ValueType::HostAddress);
-    } else {
-      LLDB_LOG(log, "Error evaluating constant variable: {0}", err.AsCString());
-      return false;
-    }
+    return;
   }
 
   CompilerType type_to_use = GuardedCopyType(var_clang_type);
@@ -1460,52 +1425,11 @@ bool ClangExpressionDeclMap::GetVariableValue(VariableSP &var,
     LLDB_LOG(log,
              "Couldn't copy a variable's type into the parser's AST context");
 
-    return false;
-  }
-
-  if (parser_type)
-    *parser_type = TypeFromParser(type_to_use);
-
-  if (var_location.GetContextType() == Value::ContextType::Invalid)
-    var_location.SetCompilerType(type_to_use);
-
-  if (var_location.GetValueType() == Value::ValueType::FileAddress) {
-    SymbolContext var_sc;
-    var->CalculateSymbolContext(&var_sc);
-
-    if (!var_sc.module_sp)
-      return false;
-
-    Address so_addr(var_location.GetScalar().ULongLong(),
-                    var_sc.module_sp->GetSectionList());
-
-    lldb::addr_t load_addr = so_addr.GetLoadAddress(target);
-
-    if (load_addr != LLDB_INVALID_ADDRESS) {
-      var_location.GetScalar() = load_addr;
-      var_location.SetValueType(Value::ValueType::LoadAddress);
-    }
-  }
-
-  if (user_type)
-    *user_type = TypeFromUser(var_clang_type);
-
-  return true;
-}
-
-void ClangExpressionDeclMap::AddOneVariable(NameSearchContext &context,
-                                            VariableSP var,
-                                            ValueObjectSP valobj) {
-  assert(m_parser_vars.get());
-
-  Log *log = GetLog(LLDBLog::Expressions);
-
-  TypeFromUser ut;
-  TypeFromParser pt;
-  Value var_location;
-
-  if (!GetVariableValue(var, var_location, &ut, &pt))
     return;
+  }
+
+  TypeFromParser pt = TypeFromParser(type_to_use);
+  TypeFromUser ut   = TypeFromUser(var_clang_type);
 
   clang::QualType parser_opaque_type =
       QualType::getFromOpaquePtr(pt.GetOpaqueQualType());
@@ -1540,7 +1464,6 @@ void ClangExpressionDeclMap::AddOneVariable(NameSearchContext &context,
       entity->GetParserVars(GetParserID());
   parser_vars->m_named_decl = var_decl;
   parser_vars->m_llvm_value = nullptr;
-  parser_vars->m_lldb_value = var_location;
   parser_vars->m_lldb_var = var;
 
   if (is_reference)
@@ -1575,7 +1498,6 @@ void ClangExpressionDeclMap::AddOneVariable(NameSearchContext &context,
           ->GetParserVars(GetParserID());
   parser_vars->m_named_decl = var_decl;
   parser_vars->m_llvm_value = nullptr;
-  parser_vars->m_lldb_value.Clear();
 
   LLDB_LOG(log, "  CEDM::FEVD Added pvar {0}, returned\n{1}",
            pvar_sp->GetName(), ClangUtil::DumpDecl(var_decl));
@@ -1615,15 +1537,6 @@ void ClangExpressionDeclMap::AddOneGenericVariable(NameSearchContext &context,
   entity->EnableParserVars(GetParserID());
   ClangExpressionVariable::ParserVars *parser_vars =
       entity->GetParserVars(GetParserID());
-
-  const Address symbol_address = symbol.GetAddress();
-  lldb::addr_t symbol_load_addr = symbol_address.GetLoadAddress(target);
-
-  // parser_vars->m_lldb_value.SetContext(Value::ContextType::ClangType,
-  // user_type.GetOpaqueQualType());
-  parser_vars->m_lldb_value.SetCompilerType(user_type);
-  parser_vars->m_lldb_value.GetScalar() = symbol_load_addr;
-  parser_vars->m_lldb_value.SetValueType(Value::ValueType::LoadAddress);
 
   parser_vars->m_named_decl = var_decl;
   parser_vars->m_llvm_value = nullptr;
@@ -1665,7 +1578,6 @@ void ClangExpressionDeclMap::AddOneRegister(NameSearchContext &context,
       entity->GetParserVars(GetParserID());
   parser_vars->m_named_decl = var_decl;
   parser_vars->m_llvm_value = nullptr;
-  parser_vars->m_lldb_value.Clear();
   entity->m_flags |= ClangExpressionVariable::EVBareRegister;
 
   LLDB_LOG(log, "  CEDM::FEVD Added register {0}, returned\n{1}",
@@ -1682,8 +1594,6 @@ void ClangExpressionDeclMap::AddOneFunction(NameSearchContext &context,
   NamedDecl *function_decl = nullptr;
   Address fun_address;
   CompilerType function_clang_type;
-
-  bool is_indirect_function = false;
 
   if (function) {
     Type *function_type = function->GetType();
@@ -1788,16 +1698,10 @@ void ClangExpressionDeclMap::AddOneFunction(NameSearchContext &context,
   } else if (symbol) {
     fun_address = symbol->GetAddress();
     function_decl = context.AddGenericFunDecl();
-    is_indirect_function = symbol->IsIndirect();
   } else {
     LLDB_LOG(log, "  AddOneFunction called with no function and no symbol");
     return;
   }
-
-  Target *target = m_parser_vars->m_exe_ctx.GetTargetPtr();
-
-  lldb::addr_t load_addr =
-      fun_address.GetCallableLoadAddress(target, is_indirect_function);
 
   ClangExpressionVariable *entity(new ClangExpressionVariable(
       m_parser_vars->m_exe_ctx.GetBestExecutionContextScope(),
@@ -1812,18 +1716,6 @@ void ClangExpressionDeclMap::AddOneFunction(NameSearchContext &context,
 
   ClangExpressionVariable::ParserVars *parser_vars =
       entity->GetParserVars(GetParserID());
-
-  if (load_addr != LLDB_INVALID_ADDRESS) {
-    parser_vars->m_lldb_value.SetValueType(Value::ValueType::LoadAddress);
-    parser_vars->m_lldb_value.GetScalar() = load_addr;
-  } else {
-    // We have to try finding a file address.
-
-    lldb::addr_t file_addr = fun_address.GetFileAddress();
-
-    parser_vars->m_lldb_value.SetValueType(Value::ValueType::FileAddress);
-    parser_vars->m_lldb_value.GetScalar() = file_addr;
-  }
 
   parser_vars->m_named_decl = function_decl;
   parser_vars->m_llvm_value = nullptr;

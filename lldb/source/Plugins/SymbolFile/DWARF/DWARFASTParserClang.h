@@ -248,9 +248,9 @@ private:
                     FieldInfo &last_field_info);
 
   bool CompleteRecordType(const DWARFDIE &die, lldb_private::Type *type,
-                          lldb_private::CompilerType &clang_type);
+                          lldb_private::CompilerType clang_type);
   bool CompleteEnumType(const DWARFDIE &die, lldb_private::Type *type,
-                        lldb_private::CompilerType &clang_type);
+                        lldb_private::CompilerType clang_type);
 
   lldb::TypeSP ParseTypeModifier(const lldb_private::SymbolContext &sc,
                                  const DWARFDIE &die,

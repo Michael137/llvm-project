@@ -2086,7 +2086,7 @@ bool DWARFASTParserClang::ParseTemplateParameterInfos(
 
 bool DWARFASTParserClang::CompleteRecordType(const DWARFDIE &die,
                                              lldb_private::Type *type,
-                                             CompilerType &clang_type) {
+                                             CompilerType clang_type) {
   const dw_tag_t tag = die.Tag();
   SymbolFileDWARF *dwarf = die.GetDWARF();
 
@@ -2174,7 +2174,7 @@ bool DWARFASTParserClang::CompleteRecordType(const DWARFDIE &die,
 
 bool DWARFASTParserClang::CompleteEnumType(const DWARFDIE &die,
                                            lldb_private::Type *type,
-                                           CompilerType &clang_type) {
+                                           CompilerType clang_type) {
   if (TypeSystemClang::StartTagDeclarationDefinition(clang_type)) {
     if (die.HasChildren()) {
       bool is_signed = false;

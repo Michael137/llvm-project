@@ -249,31 +249,6 @@ public:
       NamedDecl *decl = m_decls_to_complete.pop_back_val();
       m_decls_already_completed.insert(decl);
 
-      // The decl that should be completed has to be imported into the target
-      // context from some other context.
-      assert(to_context_md->hasOrigin(decl));
-      // We should only complete decls coming from the source context.
-      assert(to_context_md->getOrigin(decl).ctx == m_src_ctx);
-
-      Decl *original_decl = to_context_md->getOrigin(decl).decl;
-
-      // Complete the decl now.
-      TypeSystemClang::GetCompleteDecl(m_src_ctx, original_decl);
-      if (auto *tag_decl = dyn_cast<TagDecl>(decl)) {
-        if (auto *original_tag_decl = dyn_cast<TagDecl>(original_decl)) {
-          if (original_tag_decl->isCompleteDefinition()) {
-            m_delegate->ImportDefinitionTo(tag_decl, original_tag_decl);
-            tag_decl->setCompleteDefinition(true);
-          }
-        }
-
-        tag_decl->setHasExternalLexicalStorage(false);
-        tag_decl->setHasExternalVisibleStorage(false);
-      } else if (auto *container_decl = dyn_cast<ObjCContainerDecl>(decl)) {
-        container_decl->setHasExternalLexicalStorage(false);
-        container_decl->setHasExternalVisibleStorage(false);
-      }
-
       to_context_md->removeOrigin(decl);
     }
 
@@ -286,6 +261,9 @@ public:
     // Filter out decls that we can't complete later.
     if (!isa<TagDecl>(to) && !isa<ObjCInterfaceDecl>(to))
       return;
+
+    to = ClangUtil::GetFirstDecl(to);
+
     RecordDecl *from_record_decl = dyn_cast<RecordDecl>(from);
     // We don't need to complete injected class name decls.
     if (from_record_decl && from_record_decl->isInjectedClassName())
@@ -500,14 +478,8 @@ bool ClangASTImporter::CompleteType(const CompilerType &compiler_type) {
   if (!CanImport(compiler_type))
     return false;
 
-  if (Import(compiler_type)) {
-    TypeSystemClang::CompleteTagDeclarationDefinition(compiler_type);
-    return true;
-  }
-
-  TypeSystemClang::SetHasExternalStorage(compiler_type.GetOpaqueQualType(),
-                                         false);
-  return false;
+  Import(compiler_type);
+  return true;
 }
 
 bool ClangASTImporter::LayoutRecordType(
@@ -540,6 +512,9 @@ bool ClangASTImporter::LayoutRecordType(
 
 void ClangASTImporter::SetRecordLayout(const clang::RecordDecl *decl,
                                        const LayoutInfo &layout) {
+  decl = static_cast<const RecordDecl*>(decl->getFirstDecl());
+
+  assert(m_record_decl_to_layout_map.count(decl) == 0 && "Trying to overwrite layout?");
   m_record_decl_to_layout_map.insert(std::make_pair(decl, layout));
 }
 
@@ -1121,45 +1096,24 @@ void ClangASTImporter::ASTImporterDelegate::Imported(clang::Decl *from,
              from, m_source_ctx, &to->getASTContext());
   }
 
-  if (auto *to_tag_decl = dyn_cast<TagDecl>(to)) {
-    to_tag_decl->setHasExternalLexicalStorage();
-    to_tag_decl->getPrimaryContext()->setMustBuildLookupTable();
-    auto from_tag_decl = cast<TagDecl>(from);
-
-    LLDB_LOG(
-        log,
-        "    [ClangASTImporter] To is a TagDecl - attributes {0}{1} [{2}->{3}]",
-        (to_tag_decl->hasExternalLexicalStorage() ? " Lexical" : ""),
-        (to_tag_decl->hasExternalVisibleStorage() ? " Visible" : ""),
-        (from_tag_decl->isCompleteDefinition() ? "complete" : "incomplete"),
-        (to_tag_decl->isCompleteDefinition() ? "complete" : "incomplete"));
-  }
-
   if (auto *to_namespace_decl = dyn_cast<NamespaceDecl>(to)) {
     m_main.BuildNamespaceMap(to_namespace_decl);
     to_namespace_decl->setHasExternalVisibleStorage();
   }
 
   if (auto *to_container_decl = dyn_cast<ObjCContainerDecl>(to)) {
-    to_container_decl->setHasExternalLexicalStorage();
-    to_container_decl->setHasExternalVisibleStorage();
-
     if (log) {
       if (ObjCInterfaceDecl *to_interface_decl =
               llvm::dyn_cast<ObjCInterfaceDecl>(to_container_decl)) {
         LLDB_LOG(
             log,
             "    [ClangASTImporter] To is an ObjCInterfaceDecl - attributes "
-            "{0}{1}{2}",
-            (to_interface_decl->hasExternalLexicalStorage() ? " Lexical" : ""),
-            (to_interface_decl->hasExternalVisibleStorage() ? " Visible" : ""),
+            "{0}",
             (to_interface_decl->hasDefinition() ? " HasDefinition" : ""));
       } else {
         LLDB_LOG(
-            log, "    [ClangASTImporter] To is an {0}Decl - attributes {1}{2}",
-            ((Decl *)to_container_decl)->getDeclKindName(),
-            (to_container_decl->hasExternalLexicalStorage() ? " Lexical" : ""),
-            (to_container_decl->hasExternalVisibleStorage() ? " Visible" : ""));
+            log, "    [ClangASTImporter] To is an {0}Decl",
+            ((Decl *)to_container_decl)->getDeclKindName());
       }
     }
   }
@@ -1175,5 +1129,6 @@ ClangASTImporter::ASTImporterDelegate::GetOriginalDecl(clang::Decl *To) {
 
 bool ClangASTImporter::HasRecordLayout(const RecordDecl *decl) {
   assert(decl);
+  decl = static_cast<const RecordDecl*>(decl->getFirstDecl());
   return m_record_decl_to_layout_map.count(decl);
 }

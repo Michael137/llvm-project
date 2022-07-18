@@ -319,6 +319,14 @@ public:
                                 ClangASTMetadata *metadata = nullptr,
                                 bool exports_symbols = false);
 
+  clang::NamedDecl* CreateRecordDecl(clang::DeclContext *decl_ctx,
+                                     OptionalClangModuleID owning_module,
+                                     lldb::AccessType access_type,
+                                     llvm::StringRef name, int kind,
+                                     lldb::LanguageType language,
+                                     ClangASTMetadata *metadata = nullptr,
+                                     bool exports_symbols = false);
+
   /// Increments generation counter of AST associated with this TypeSystem
   /// object.
   ///
@@ -388,6 +396,12 @@ public:
                                bool isForwardDecl, bool isInternal,
                                ClangASTMetadata *metadata = nullptr);
 
+  clang::ObjCInterfaceDecl *CreateObjCDecl(llvm::StringRef name,
+                             clang::DeclContext *decl_ctx,
+                             OptionalClangModuleID owning_module,
+                             bool isForwardDecl, bool isInternal,
+                             ClangASTMetadata *metadata = nullptr);
+
   // Returns a mask containing bits from the TypeSystemClang::eTypeXXX
   // enumerations
 
@@ -453,6 +467,8 @@ public:
   void CompleteTagDecl(const clang::TagDecl *);
 
   void CompleteObjCInterfaceDecl(const clang::ObjCInterfaceDecl *);
+
+  CompilerType RedeclTagDecl(CompilerType ct);
 
   bool LayoutRecordType(
       const clang::RecordDecl *record_decl, uint64_t &size, uint64_t &alignment,
@@ -1097,7 +1113,7 @@ private:
   /// AccessSpecifier.
   CXXRecordDeclAccessMap m_cxx_record_decl_access;
 
-    struct ClassTemplateRedeclInfo {
+  struct ClassTemplateRedeclInfo {
     TemplateParameterInfos m_template_args;
   };
 

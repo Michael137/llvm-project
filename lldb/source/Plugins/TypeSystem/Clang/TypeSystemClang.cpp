@@ -1267,21 +1267,26 @@ TypeSystemClang::GetOrCreateClangModule(llvm::StringRef name,
   return ast_source->RegisterModule(module);
 }
 
-CompilerType TypeSystemClang::CreateRecordType(
-    clang::DeclContext *decl_ctx, OptionalClangModuleID owning_module,
-    AccessType access_type, llvm::StringRef name, int kind,
-    LanguageType language, ClangASTMetadata *metadata, bool exports_symbols) {
+clang::NamedDecl* TypeSystemClang::CreateRecordDecl(clang::DeclContext *decl_ctx,
+                                   OptionalClangModuleID owning_module,
+                                   lldb::AccessType access_type,
+                                   llvm::StringRef name, int kind,
+                                   lldb::LanguageType language,
+                                   ClangASTMetadata *metadata,
+                                   bool exports_symbols) {
   ASTContext &ast = getASTContext();
 
   if (decl_ctx == nullptr)
     decl_ctx = ast.getTranslationUnitDecl();
 
+  decl_ctx = decl_ctx->getPrimaryContext();
+
   if (language == eLanguageTypeObjC ||
       language == eLanguageTypeObjC_plus_plus) {
     bool isForwardDecl = true;
     bool isInternal = false;
-    return CreateObjCClass(name, decl_ctx, owning_module, isForwardDecl,
-                           isInternal, metadata);
+    return CreateObjCDecl(name, decl_ctx, owning_module, isForwardDecl,
+                          isInternal, metadata);
   }
 
   // NOTE: Eventually CXXRecordDecl will be merged back into RecordDecl and
@@ -1336,7 +1341,18 @@ CompilerType TypeSystemClang::CreateRecordType(
   if (decl_ctx)
     decl_ctx->addDecl(decl);
 
-  return GetType(ast.getTagDeclType(decl));
+  return decl;
+}
+
+CompilerType TypeSystemClang::CreateRecordType(
+    clang::DeclContext *decl_ctx, OptionalClangModuleID owning_module,
+    AccessType access_type, llvm::StringRef name, int kind,
+    LanguageType language, ClangASTMetadata *metadata, bool exports_symbols) {
+    clang::NamedDecl* nd = CreateRecordDecl(decl_ctx, owning_module, access_type,
+                                            name, kind, language, metadata,
+                                            exports_symbols);
+
+    return GetTypeForDecl(nd);
 }
 
 void TypeSystemClang::BumpGenerationCounter() {
@@ -1810,7 +1826,18 @@ bool TypeSystemClang::RecordHasFields(const RecordDecl *record_decl) {
 
 #pragma mark Objective-C Classes
 
-CompilerType TypeSystemClang::CreateObjCClass(
+CompilerType TypeSystemClang::CreateObjCClass(llvm::StringRef name,
+                           clang::DeclContext *decl_ctx,
+                           OptionalClangModuleID owning_module,
+                           bool isForwardDecl, bool isInternal,
+                           ClangASTMetadata *metadata) {
+  clang::ObjCInterfaceDecl *d = CreateObjCDecl(name, decl_ctx, owning_module,
+                                           isForwardDecl, isInternal,
+                                           metadata);
+  return GetTypeForDecl(d);
+}
+
+clang::ObjCInterfaceDecl *TypeSystemClang::CreateObjCDecl(
     llvm::StringRef name, clang::DeclContext *decl_ctx,
     OptionalClangModuleID owning_module, bool isForwardDecl, bool isInternal,
     ClangASTMetadata *metadata) {
@@ -1829,7 +1856,7 @@ CompilerType TypeSystemClang::CreateObjCClass(
   if (metadata)
     SetMetadata(decl, *metadata);
 
-  return GetType(ast.getObjCInterfaceType(decl));
+  return decl;
 }
 
 static inline bool BaseSpecifierIsEmpty(const CXXBaseSpecifier *b) {
@@ -9269,6 +9296,44 @@ void TypeSystemClang::CompleteObjCInterfaceDecl(
     if (clang_type)
       sym_file->CompleteType(clang_type);
   }
+}
+
+CompilerType TypeSystemClang::RedeclTagDecl(CompilerType ct) {
+
+  if (clang::TagDecl *d = ClangUtil::GetAsTagDecl(ct)) {
+    if (clang::EnumDecl *e = dyn_cast<EnumDecl>(d)) {
+      Declaration decl;
+      CompilerType ct = CreateEnumerationType(e->getNameAsString().c_str(),
+                                              d->getDeclContext()->getRedeclContext(),
+                                              OptionalClangModuleID(), decl,
+                                              GetType(e->getIntegerType()), e->isScoped());
+      clang::TagDecl *def = ClangUtil::GetAsTagDecl(ct);
+      def->setPreviousDecl(e);
+      return GetTypeForDecl(def);
+    }
+    if (auto *c = dyn_cast<ClassTemplateSpecializationDecl>(d)) {
+      auto redecl_info = m_class_template_redecl_infos.find(c);
+      assert(redecl_info != m_class_template_redecl_infos.end());
+      auto *ctd = CreateClassTemplateSpecializationDecl(d->getDeclContext()->getRedeclContext(),
+                                                        OptionalClangModuleID(),
+                                                        c->getSpecializedTemplate(),
+                                                        d->getTagKind(),
+                                                        redecl_info->second.m_template_args);
+      ctd->setPreviousDecl(c);
+      return CompilerType(this, clang::QualType(ctd->getTypeForDecl(), 0U).getAsOpaquePtr());
+    }
+    clang::NamedDecl *res = CreateRecordDecl(d->getDeclContext()->getRedeclContext(),
+                                        OptionalClangModuleID(),
+                            lldb::eAccessPublic, d->getName(), d->getTagKind(),
+                            eLanguageTypeC_plus_plus, nullptr);
+    clang::TagDecl *td = llvm::cast<TagDecl>(res);
+    td->setPreviousDecl(d);
+    CompilerType actual_res = GetTypeForDecl(td);
+    assert(d->getTypeForDecl() == td->getTypeForDecl());
+    return actual_res;
+  }
+
+  return ct;
 }
 
 DWARFASTParser *TypeSystemClang::GetDWARFParser() {

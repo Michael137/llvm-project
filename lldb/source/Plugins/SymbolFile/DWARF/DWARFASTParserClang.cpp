@@ -316,7 +316,7 @@ static void PrepareContextToReceiveMembers(TypeSystemClang &ast,
   // gmodules case), we can complete the type by doing a full import.
 
   // If this type was not imported from an external AST, there's nothing to do.
-  if (ast_importer.CanImport(tag_decl_ctx)) {
+  if (ast_importer.HasValidOrigin(tag_decl_ctx)) {
     CompilerType type = ast.GetTypeForDecl(tag_decl_ctx);
     auto qual_type = ClangUtil::GetQualType(type);
     if (ast_importer.RequireCompleteType(qual_type))
@@ -1840,7 +1840,7 @@ DWARFASTParserClang::ParseStructureLikeDIE(const SymbolContext &sc,
   }
 
   if (should_directly_complete)
-    m_types_to_complete.emplace_back(clang_type, die, type_sp);
+    m_types_to_complete.push_back({clang_type, die, type_sp});
 
   return type_sp;
 }

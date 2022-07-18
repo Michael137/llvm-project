@@ -1097,6 +1097,13 @@ private:
   /// AccessSpecifier.
   CXXRecordDeclAccessMap m_cxx_record_decl_access;
 
+    struct ClassTemplateRedeclInfo {
+    TemplateParameterInfos m_template_args;
+  };
+
+  typedef llvm::DenseMap<const clang::Decl *, ClassTemplateRedeclInfo> ClassTemplateRedeclInfoMap;
+  ClassTemplateRedeclInfoMap m_class_template_redecl_infos;
+
   /// The sema associated that is currently used to build this ASTContext.
   /// May be null if we are already done parsing this ASTContext or the
   /// ASTContext wasn't created by parsing source code.

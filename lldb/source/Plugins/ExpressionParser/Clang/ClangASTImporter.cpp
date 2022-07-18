@@ -364,37 +364,21 @@ bool ClangASTImporter::CanImport(const CompilerType &type) {
 
   const clang::Type::TypeClass type_class = qual_type->getTypeClass();
   switch (type_class) {
-  case clang::Type::Record: {
-    const clang::CXXRecordDecl *cxx_record_decl =
-        qual_type->getAsCXXRecordDecl();
-    if (cxx_record_decl) {
-      if (GetDeclOrigin(cxx_record_decl).Valid())
-        return true;
-    }
-  } break;
+  case clang::Type::Record:
+    return HasValidOrigin(qual_type->getAsRecordDecl());
 
-  case clang::Type::Enum: {
-    clang::EnumDecl *enum_decl =
-        llvm::cast<clang::EnumType>(qual_type)->getDecl();
-    if (enum_decl) {
-      if (GetDeclOrigin(enum_decl).Valid())
-        return true;
-    }
-  } break;
+  case clang::Type::Enum:
+    return HasValidOrigin(
+            llvm::cast<clang::EnumType>(qual_type)->getDecl());
 
   case clang::Type::ObjCObject:
   case clang::Type::ObjCInterface: {
     const clang::ObjCObjectType *objc_class_type =
         llvm::dyn_cast<clang::ObjCObjectType>(qual_type);
     if (objc_class_type) {
-      clang::ObjCInterfaceDecl *class_interface_decl =
-          objc_class_type->getInterface();
       // We currently can't complete objective C types through the newly added
       // ASTContext because it only supports TagDecl objects right now...
-      if (class_interface_decl) {
-        if (GetDeclOrigin(class_interface_decl).Valid())
-          return true;
-      }
+      return HasValidOrigin(objc_class_type->getInterface());
     }
   } break;
 
@@ -426,6 +410,16 @@ bool ClangASTImporter::CanImport(const CompilerType &type) {
     break;
   }
 
+  return false;
+}
+
+bool ClangASTImporter::HasValidOrigin(clang::Decl* decl) {
+  if (!decl)
+      return false;
+  if (isa<TagDecl>(decl))
+      return GetDeclOrigin(decl).Valid();
+  if (isa<ObjCInterfaceDecl>(decl))
+      return GetDeclOrigin(decl).Valid();
   return false;
 }
 
@@ -1178,4 +1172,9 @@ void ClangASTImporter::ASTImporterDelegate::Imported(clang::Decl *from,
 clang::Decl *
 ClangASTImporter::ASTImporterDelegate::GetOriginalDecl(clang::Decl *To) {
   return m_main.GetDeclOrigin(To).decl;
+}
+
+bool ClangASTImporter::HasRecordLayout(const RecordDecl *decl) {
+  assert(decl);
+  return m_record_decl_to_layout_map.count(decl);
 }

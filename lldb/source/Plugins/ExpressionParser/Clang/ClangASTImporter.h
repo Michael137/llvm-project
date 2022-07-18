@@ -118,6 +118,10 @@ public:
   /// \param layout The layout for the record.
   void SetRecordLayout(const clang::RecordDecl *decl, const LayoutInfo &layout);
 
+  /// Returns 'true' if the specified 'decl' has associated layout information
+  /// previously seen by this 'ClangASTImporter'.
+  bool HasRecordLayout(const clang::RecordDecl *decl);
+
   bool LayoutRecordType(
       const clang::RecordDecl *record_decl, uint64_t &bit_size,
       uint64_t &alignment,
@@ -134,6 +138,10 @@ public:
   ///
   /// \see ClangASTImporter::Import
   bool CanImport(const CompilerType &type);
+
+  /// Returns 'true' if 'decl' has a valid origin decl (i.e., was imported
+  /// from another AST).
+  bool HasValidOrigin(clang::Decl *decl);
 
   /// If the given type was copied from another TypeSystemClang then copy over
   /// all missing information (e.g., the definition of a 'class' type).
@@ -453,6 +461,11 @@ public:
   typedef llvm::DenseMap<const clang::RecordDecl *, LayoutInfo>
       RecordDeclToLayoutMap;
 
+  /// Caches layout information for each 'RecordDecl*' that has
+  /// previously been laid out by this 'ClangASTImporter' (via
+  /// 'ClangASTImporter::SetRecordLayout'). This map is then
+  /// used in 'ClangASTImporter::LayoutRecordType' to retrieve
+  /// and calculate further record layout information.
   RecordDeclToLayoutMap m_record_decl_to_layout_map;
 };
 

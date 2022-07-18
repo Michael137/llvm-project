@@ -529,7 +529,6 @@ bool ClangASTImporter::LayoutRecordType(
     field_offsets.swap(pos->second.field_offsets);
     base_offsets.swap(pos->second.base_offsets);
     vbase_offsets.swap(pos->second.vbase_offsets);
-    m_record_decl_to_layout_map.erase(pos);
     success = true;
   } else {
     bit_size = 0;

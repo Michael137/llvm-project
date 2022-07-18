@@ -147,11 +147,11 @@ public:
 
   bool CompleteType(const CompilerType &compiler_type);
 
-  bool CompleteTagDecl(clang::TagDecl *decl);
+  bool CompleteTagDecl(const clang::TagDecl *decl);
 
-  bool CompleteTagDeclWithOrigin(clang::TagDecl *decl, clang::TagDecl *origin);
+  bool CompleteTagDeclWithOrigin(const clang::TagDecl *decl, clang::TagDecl *origin);
 
-  bool CompleteObjCInterfaceDecl(clang::ObjCInterfaceDecl *interface_decl);
+  bool CompleteObjCInterfaceDecl(const clang::ObjCInterfaceDecl *interface_decl);
 
   bool CompleteAndFetchChildren(clang::QualType type);
 

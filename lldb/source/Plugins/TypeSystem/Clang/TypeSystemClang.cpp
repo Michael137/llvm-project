@@ -1216,7 +1216,7 @@ CompilerType TypeSystemClang::GetTypeForDecl(TagDecl *decl) {
   return GetType(getASTContext().getTagDeclType(decl));
 }
 
-CompilerType TypeSystemClang::GetTypeForDecl(ObjCInterfaceDecl *decl) {
+CompilerType TypeSystemClang::GetTypeForDecl(const ObjCInterfaceDecl *decl) {
   return GetType(getASTContext().getObjCInterfaceType(decl));
 }
 
@@ -9251,20 +9251,21 @@ clang::ClassTemplateDecl *TypeSystemClang::ParseClassTemplateDecl(
   return nullptr;
 }
 
-void TypeSystemClang::CompleteTagDecl(clang::TagDecl *decl) {
+void TypeSystemClang::CompleteTagDecl(const clang::TagDecl *decl) {
   SymbolFile *sym_file = GetSymbolFile();
   if (sym_file) {
-    CompilerType clang_type = GetTypeForDecl(decl);
+    CompilerType clang_type = GetTypeForDecl(const_cast<clang::TagDecl*>(decl));
     if (clang_type)
       sym_file->CompleteType(clang_type);
   }
 }
 
 void TypeSystemClang::CompleteObjCInterfaceDecl(
-    clang::ObjCInterfaceDecl *decl) {
+    const clang::ObjCInterfaceDecl *decl) {
   SymbolFile *sym_file = GetSymbolFile();
   if (sym_file) {
-    CompilerType clang_type = GetTypeForDecl(decl);
+    CompilerType clang_type =
+        GetTypeForDecl(const_cast<clang::ObjCInterfaceDecl*>(decl));
     if (clang_type)
       sym_file->CompleteType(clang_type);
   }

@@ -273,8 +273,12 @@ public:
   }
 
   void CompleteRedeclChain(const clang::Decl *D) override {
-    for (size_t i = 0; i < Sources.size(); ++i)
+    for (size_t i = 0; i < Sources.size(); ++i) {
       Sources[i]->CompleteRedeclChain(D);
+      if (auto *td = llvm::dyn_cast<clang::TagDecl>(D))
+        if (td->getDefinition())
+          return;
+    }
   }
 
   clang::Selector GetExternalSelector(uint32_t ID) override {

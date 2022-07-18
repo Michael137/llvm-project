@@ -1515,7 +1515,7 @@ ObjCInterfaceDecl *ObjCInterfaceDecl::Create(const ASTContext &C,
   auto *Result = new (C, DC)
       ObjCInterfaceDecl(C, DC, atLoc, Id, typeParamList, ClassLoc, PrevDecl,
                         isInternal);
-  Result->Data.setInt(!C.getLangOpts().Modules);
+  Result->Data.setInt(!C.getExternalSource());
   C.getObjCInterfaceType(Result, PrevDecl);
   return Result;
 }
@@ -1525,7 +1525,7 @@ ObjCInterfaceDecl *ObjCInterfaceDecl::CreateDeserialized(const ASTContext &C,
   auto *Result = new (C, ID)
       ObjCInterfaceDecl(C, nullptr, SourceLocation(), nullptr, nullptr,
                         SourceLocation(), nullptr, false);
-  Result->Data.setInt(!C.getLangOpts().Modules);
+  Result->Data.setInt(!C.getExternalSource());
   return Result;
 }
 
@@ -1916,7 +1916,7 @@ ObjCProtocolDecl *ObjCProtocolDecl::Create(ASTContext &C, DeclContext *DC,
                                            ObjCProtocolDecl *PrevDecl) {
   auto *Result =
       new (C, DC) ObjCProtocolDecl(C, DC, Id, nameLoc, atStartLoc, PrevDecl);
-  Result->Data.setInt(!C.getLangOpts().Modules);
+  Result->Data.setInt(!C.getExternalSource());
   return Result;
 }
 
@@ -1925,7 +1925,7 @@ ObjCProtocolDecl *ObjCProtocolDecl::CreateDeserialized(ASTContext &C,
   ObjCProtocolDecl *Result =
       new (C, ID) ObjCProtocolDecl(C, nullptr, nullptr, SourceLocation(),
                                    SourceLocation(), nullptr);
-  Result->Data.setInt(!C.getLangOpts().Modules);
+  Result->Data.setInt(!C.getExternalSource());
   return Result;
 }
 

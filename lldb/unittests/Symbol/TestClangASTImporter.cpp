@@ -46,7 +46,7 @@ TEST_F(TestClangASTImporter, CopyDeclTagDecl) {
 
   ClangASTImporter importer;
   clang::Decl *imported =
-      importer.CopyDecl(&target_ast->getASTContext(), source.record_decl);
+      importer.CopyDecl(&target_ast->getASTContext(), source.fwd_decl);
   ASSERT_NE(nullptr, imported);
 
   // Check that we got the correct decl by just comparing their qualified name.
@@ -54,13 +54,13 @@ TEST_F(TestClangASTImporter, CopyDeclTagDecl) {
   EXPECT_EQ(source.record_decl->getQualifiedNameAsString(),
             imported_tag_decl->getQualifiedNameAsString());
   // We did a minimal import of the tag decl.
-  EXPECT_TRUE(imported_tag_decl->hasExternalLexicalStorage());
+  EXPECT_EQ(imported_tag_decl->getDefinition(), nullptr);
 
   // Check that origin was set for the imported declaration.
   ClangASTImporter::DeclOrigin origin = importer.GetDeclOrigin(imported);
   EXPECT_TRUE(origin.Valid());
   EXPECT_EQ(origin.ctx, &source.ast->getASTContext());
-  EXPECT_EQ(origin.decl, source.record_decl);
+  EXPECT_EQ(origin.decl, source.fwd_decl);
 }
 
 TEST_F(TestClangASTImporter, CopyTypeTagDecl) {
@@ -78,14 +78,22 @@ TEST_F(TestClangASTImporter, CopyTypeTagDecl) {
   EXPECT_EQ(source.record_decl->getQualifiedNameAsString(),
             imported_tag_decl->getQualifiedNameAsString());
   // We did a minimal import of the tag decl.
-  EXPECT_TRUE(imported_tag_decl->hasExternalLexicalStorage());
+  EXPECT_EQ(imported_tag_decl->getDefinition(), nullptr);
 
   // Check that origin was set for the imported declaration.
   ClangASTImporter::DeclOrigin origin =
       importer.GetDeclOrigin(imported_tag_decl);
   EXPECT_TRUE(origin.Valid());
   EXPECT_EQ(origin.ctx, &source.ast->getASTContext());
-  EXPECT_EQ(origin.decl, source.record_decl);
+  EXPECT_EQ(origin.decl, source.fwd_decl);
+
+  clang::Decl *imported_definition = importer.CopyDecl(&target_ast->getASTContext(), source.record_decl);
+  ASSERT_NE(imported_definition, nullptr);
+
+  clang::TagDecl *definition = imported_tag_decl->getDefinition();
+  ASSERT_EQ(definition, imported_definition);
+  EXPECT_EQ(definition, imported_tag_decl->getDefinition());
+  EXPECT_EQ(definition->getPreviousDecl(), imported_tag_decl);
 }
 
 TEST_F(TestClangASTImporter, CompleteFwdDeclWithOtherOrigin) {

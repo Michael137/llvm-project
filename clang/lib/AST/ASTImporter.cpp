@@ -1772,9 +1772,8 @@ Error ASTNodeImporter::ImportDefinitionIfNeeded(Decl *FromD, Decl *ToD) {
 
   if (RecordDecl *FromRecord = dyn_cast<RecordDecl>(FromD)) {
     if (RecordDecl *ToRecord = cast<RecordDecl>(ToD)) {
-      if (FromRecord->getDefinition() && FromRecord->isCompleteDefinition() &&
-          !ToRecord->getDefinition()) {
-        if (Error Err = ImportDefinition(FromRecord, ToRecord))
+      if (FromRecord->getDefinition() && !ToRecord->getDefinition()) {
+        if (Error Err = ImportDefinition(FromRecord->getDefinition(), ToRecord))
           return Err;
       }
     }
@@ -1837,7 +1836,8 @@ ASTNodeImporter::ImportDeclarationNameLoc(
 
 Error
 ASTNodeImporter::ImportDeclContext(DeclContext *FromDC, bool ForceImport) {
-  if (Importer.isMinimalImport() && !ForceImport) {
+  if (Importer.isMinimalImport() && !ForceImport
+      && isa<NamespaceDecl>(FromDC)) {
     auto ToDCOrErr = Importer.ImportContext(FromDC);
     return ToDCOrErr.takeError();
   }
@@ -1975,7 +1975,7 @@ Error ASTNodeImporter::ImportDefinition(
     To->completeDefinition();
   };
 
-  if (To->getDefinition() || To->isBeingDefined()) {
+  if (To->isThisDeclarationADefinition() || To->isBeingDefined()) {
     if (Kind == IDK_Everything ||
         // In case of lambdas, the class already has a definition ptr set, but
         // the contained decls are not imported yet. Also, isBeingDefined was
@@ -2747,7 +2747,7 @@ ExpectedDecl ASTNodeImporter::VisitEnumDecl(EnumDecl *D) {
 
   // Import the definition
   if (D->isCompleteDefinition())
-    if (Error Err = ImportDefinition(D, D2))
+    if (Error Err = ImportDefinition(D, D2, IDK_Everything))
       return std::move(Err);
 
   return D2;
@@ -2986,7 +2986,7 @@ ExpectedDecl ASTNodeImporter::VisitRecordDecl(RecordDecl *D) {
     D2->setAnonymousStructOrUnion(true);
 
   if (D->isCompleteDefinition())
-    if (Error Err = ImportDefinition(D, D2, IDK_Default))
+    if (Error Err = ImportDefinition(D, D2, IDK_Everything))
       return std::move(Err);
 
   return D2;
@@ -4949,9 +4949,9 @@ Error ASTNodeImporter::ImportDefinition(
                           diag::note_odr_objc_missing_superclass);
     }
 
-    if (shouldForceImportDeclContext(Kind))
-      if (Error Err = ImportDeclContext(From))
-        return Err;
+    if (Error Err = ImportDeclContext(From))
+      return Err;
+
     return Error::success();
   }
 
@@ -5807,7 +5807,7 @@ ExpectedDecl ASTNodeImporter::VisitClassTemplateSpecializationDecl(
   D2->setTemplateSpecializationKind(D->getTemplateSpecializationKind());
 
   if (D->isCompleteDefinition())
-    if (Error Err = ImportDefinition(D, D2))
+    if (Error Err = ImportDefinition(D, D2, IDK_Everything))
       return std::move(Err);
 
   return D2;
@@ -9788,6 +9788,12 @@ void ASTImporter::CompleteDecl (Decl *D) {
 
 Decl *ASTImporter::MapImported(Decl *From, Decl *To) {
   llvm::DenseMap<Decl *, Decl *>::iterator Pos = ImportedDecls.find(From);
+  if (!(Pos == ImportedDecls.end() || Pos->second == To)) {
+    From->dumpColor();
+    To->dumpColor();
+    Pos->second->dumpColor();
+  }
+
   assert((Pos == ImportedDecls.end() || Pos->second == To) &&
       "Try to import an already imported Decl");
   if (Pos != ImportedDecls.end())

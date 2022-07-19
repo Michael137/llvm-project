@@ -1478,9 +1478,7 @@ static bool IsStructurallyEquivalent(StructuralEquivalenceContext &Context,
   // Compare the definitions of these two records. If either or both are
   // incomplete (i.e. it is a forward decl), we assume that they are
   // equivalent.
-  D1 = D1->getDefinition();
-  D2 = D2->getDefinition();
-  if (!D1 || !D2)
+  if (!D1->isThisDeclarationADefinition() || !D2->isThisDeclarationADefinition())
     return true;
 
   // If any of the records has external storage and we do a minimal check (or

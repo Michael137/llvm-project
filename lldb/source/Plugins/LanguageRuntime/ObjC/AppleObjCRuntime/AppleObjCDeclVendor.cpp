@@ -29,42 +29,13 @@ public:
   AppleObjCExternalASTSource(AppleObjCDeclVendor &decl_vendor)
       : m_decl_vendor(decl_vendor) {}
 
-  bool FindExternalVisibleDeclsByName(const clang::DeclContext *decl_ctx,
-                                      clang::DeclarationName name) override {
-
-    Log *log(GetLog(
-        LLDBLog::Expressions)); // FIXME - a more appropriate log channel?
-
-    if (log) {
-      LLDB_LOGF(log,
-                "AppleObjCExternalASTSource::FindExternalVisibleDeclsByName"
-                " on (ASTContext*)%p Looking for %s in (%sDecl*)%p",
-                static_cast<void *>(&decl_ctx->getParentASTContext()),
-                name.getAsString().c_str(), decl_ctx->getDeclKindName(),
-                static_cast<const void *>(decl_ctx));
-    }
-
-    do {
-      const clang::ObjCInterfaceDecl *interface_decl =
-          llvm::dyn_cast<clang::ObjCInterfaceDecl>(decl_ctx);
-
-      if (!interface_decl)
-        break;
-
-      clang::ObjCInterfaceDecl *non_const_interface_decl =
-          const_cast<clang::ObjCInterfaceDecl *>(interface_decl);
-
-      if (!m_decl_vendor.FinishDecl(non_const_interface_decl))
-        break;
-
-      clang::DeclContext::lookup_result result =
-          non_const_interface_decl->lookup(name);
-
-      return (!result.empty());
-    } while (false);
-
-    SetNoExternalVisibleDeclsForName(decl_ctx, name);
-    return false;
+  void CompleteRedeclChain(const clang::Decl *d) override {
+    using namespace clang;
+    auto *const_interface = llvm::dyn_cast<ObjCInterfaceDecl>(d);
+    if (!const_interface)
+      return;
+    auto *interface = const_cast<ObjCInterfaceDecl *>(const_interface);
+    m_decl_vendor.FinishDecl(interface);
   }
 
   void CompleteType(clang::TagDecl *tag_decl) override {
@@ -169,12 +140,11 @@ AppleObjCDeclVendor::GetDeclForISA(ObjCLanguageRuntime::ObjCISA isa) {
   meta_data.SetISAPtr(isa);
   m_ast_ctx.SetMetadata(new_iface_decl, meta_data);
 
-  new_iface_decl->setHasExternalVisibleStorage();
-  new_iface_decl->setHasExternalLexicalStorage();
-
   ast_ctx.getTranslationUnitDecl()->addDecl(new_iface_decl);
 
   m_isa_to_interface[isa] = new_iface_decl;
+  m_interface_to_isa[new_iface_decl] = isa;
+  m_ast_ctx.BumpGenerationCounter();
 
   return new_iface_decl;
 }
@@ -394,11 +364,23 @@ private:
   bool m_is_valid = false;
 };
 
-bool AppleObjCDeclVendor::FinishDecl(clang::ObjCInterfaceDecl *interface_decl) {
+bool AppleObjCDeclVendor::FinishDecl(clang::ObjCInterfaceDecl *fwd_decl) {
+  if (fwd_decl->hasDefinition())
+    return true;
   Log *log(
       GetLog(LLDBLog::Expressions)); // FIXME - a more appropriate log channel?
 
-  ClangASTMetadata *metadata = m_ast_ctx.GetMetadata(interface_decl);
+  using namespace clang;
+
+  QualType qt(fwd_decl->getTypeForDecl(), 0U);
+  CompilerType type(&m_ast_ctx, qt.getAsOpaquePtr());
+  CompilerType definition_type = m_ast_ctx.RedeclTagDecl(type);
+  ObjCInterfaceDecl *interface_decl = ClangUtil::GetAsObjCDecl(definition_type);
+
+  ObjCLanguageRuntime::ObjCISA isa = m_interface_to_isa[fwd_decl];
+  m_isa_to_interface[isa] = interface_decl;
+
+  ClangASTMetadata *metadata = m_ast_ctx.GetMetadata(fwd_decl);
   ObjCLanguageRuntime::ObjCISA objc_isa = 0;
   if (metadata)
     objc_isa = metadata->GetISAPtr();
@@ -406,13 +388,7 @@ bool AppleObjCDeclVendor::FinishDecl(clang::ObjCInterfaceDecl *interface_decl) {
   if (!objc_isa)
     return false;
 
-  if (!interface_decl->hasExternalVisibleStorage())
-    return true;
-
   interface_decl->startDefinition();
-
-  interface_decl->setHasExternalVisibleStorage(false);
-  interface_decl->setHasExternalLexicalStorage(false);
 
   ObjCLanguageRuntime::ClassDescriptorSP descriptor =
       m_runtime.GetClassDescriptorFromISA(objc_isa);

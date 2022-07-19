@@ -115,6 +115,8 @@ static bool DeclKindIsCXXClass(clang::Decl::Kind decl_kind) {
 void DWARFASTParserClang::RegisterDIE(DWARFDebugInfoEntry *die, CompilerType type) {
   if (clang::TagDecl *td = ClangUtil::GetAsTagDecl(type)) {
     m_die_to_record_map[die] = td;
+  } else if (auto *od = ClangUtil::GetAsObjCDecl(type)) {
+     m_die_to_objc_interface_map[die] = od;
   } else {
     assert(false && "Unsupported Decl kind");
   }
@@ -3427,6 +3429,11 @@ DWARFASTParserClang::GetCachedClangDeclContextForDIE(const DWARFDIE &die) {
     DIEToRecordMap::iterator pos2 = m_die_to_record_map.find(die.GetDIE());
     if (pos2 != m_die_to_record_map.end())
       return pos2->second;
+
+    DIEToObjCInterfaceMap::iterator pos3 = m_die_to_objc_interface_map.find(die.GetDIE());
+    if (pos3 != m_die_to_objc_interface_map.end())
+      return pos3->second;
+
     DIEToDeclContextMap::iterator pos = m_die_to_decl_ctx.find(die.GetDIE());
     if (pos != m_die_to_decl_ctx.end())
       return pos->second;

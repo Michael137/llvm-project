@@ -478,8 +478,7 @@ bool ClangASTImporter::CompleteType(const CompilerType &compiler_type) {
   if (!CanImport(compiler_type))
     return false;
 
-  Import(compiler_type);
-  return true;
+  return Import(compiler_type);
 }
 
 bool ClangASTImporter::LayoutRecordType(
@@ -490,6 +489,7 @@ bool ClangASTImporter::LayoutRecordType(
         &base_offsets,
     llvm::DenseMap<const clang::CXXRecordDecl *, clang::CharUnits>
         &vbase_offsets) {
+  record_decl = static_cast<const RecordDecl*>(record_decl->getFirstDecl());
   RecordDeclToLayoutMap::iterator pos =
       m_record_decl_to_layout_map.find(record_decl);
   bool success = false;
@@ -759,7 +759,7 @@ ClangASTImporter::ASTImporterDelegate::ImportImpl(Decl *From) {
   }
 
   
-  while(origin.Valid()) {
+  while (origin.Valid()) {
     ImporterDelegateSP delegate = m_main.GetDelegate(&this->getToContext(), origin.ctx);
     if (clang::Decl *imported = delegate->GetAlreadyImportedOrNull(origin.decl)) {
       RegisterImportedDecl(From, imported);

@@ -92,15 +92,20 @@ protected:
 
   typedef llvm::DenseMap<const DWARFDebugInfoEntry *, clang::DeclContext *>
       DIEToDeclContextMap;
+
   typedef std::multimap<const clang::DeclContext *, const DWARFDIE>
       DeclContextToDIEMap;
+
   typedef llvm::DenseMap<const DWARFDebugInfoEntry *,
                          lldb_private::OptionalClangModuleID>
       DIEToModuleMap;
+
   typedef llvm::DenseMap<const DWARFDebugInfoEntry *, clang::Decl *>
       DIEToDeclMap;
 
   using DIEToRecordMap = llvm::DenseMap<DWARFDebugInfoEntry *, clang::TagDecl *>;
+  using DIEToObjCInterfaceMap = llvm::DenseMap<const DWARFDebugInfoEntry *,
+                                               clang::ObjCInterfaceDecl *>;
 
   lldb_private::TypeSystemClang &m_ast;
   DIEToDeclMap m_die_to_decl;
@@ -110,6 +115,7 @@ protected:
 
   /// Used for caching Decl's during DWARF parsing
   DIEToRecordMap m_die_to_record_map;
+  DIEToObjCInterfaceMap m_die_to_objc_interface_map;
 
   std::unique_ptr<lldb_private::ClangASTImporter> m_clang_ast_importer_up;
   /// @}

@@ -36,6 +36,8 @@ struct ClangUtil {
 
   static clang::TagDecl *GetAsTagDecl(const CompilerType &type);
 
+  static clang::ObjCInterfaceDecl *GetAsObjCDecl(const CompilerType &type);
+
   /// Return first seen declaration for the specified 'decl' (which
   /// could be 'decl' itself).
   ///

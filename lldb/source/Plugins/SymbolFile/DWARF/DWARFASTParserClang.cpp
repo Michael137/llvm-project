@@ -1919,7 +1919,7 @@ bool DWARFASTParserClang::ParseTemplateDIE(
         return false;
     }
     if (const char *name = die.GetName()) {
-      template_param_infos.pack_name = name;
+      template_param_infos.pack_name.emplace(name);
     }
     return true;
   }

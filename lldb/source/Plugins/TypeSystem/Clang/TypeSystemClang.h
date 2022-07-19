@@ -50,6 +50,7 @@ namespace lldb_private {
 
 class ClangASTMetadata;
 class ClangASTSource;
+class ClangExternalASTSourceCallbacks;
 class Declaration;
 
 /// A Clang module ID.
@@ -237,9 +238,6 @@ public:
   CompilerType GetType(clang::QualType qt) {
     if (qt.getTypePtrOrNull() == nullptr)
       return CompilerType();
-    // Check that the type actually belongs to this TypeSystemClang.
-    assert(qt->getAsTagDecl() == nullptr ||
-           &qt->getAsTagDecl()->getASTContext() == &getASTContext());
     return CompilerType(this, qt.getAsOpaquePtr());
   }
 
@@ -336,6 +334,20 @@ public:
 
   class TemplateParameterInfos {
   public:
+    TemplateParameterInfos() = default;
+    TemplateParameterInfos(const TemplateParameterInfos &o) {
+      *this = o;
+    }
+
+    TemplateParameterInfos &operator=(const TemplateParameterInfos &o) {
+      names = o.names;
+      args = o.args;
+      pack_name = o.pack_name;
+      if (o.packed_args)
+        packed_args = std::make_unique<TemplateParameterInfos>(*o.packed_args);
+      return *this;
+    }
+
     bool IsValid() const {
       // Having a pack name but no packed args doesn't make sense, so mark
       // these template parameters as invalid.
@@ -350,7 +362,7 @@ public:
     llvm::SmallVector<const char *, 2> names;
     llvm::SmallVector<clang::TemplateArgument, 2> args;
     
-    const char * pack_name = nullptr;
+    llvm::Optional<std::string> pack_name;
     std::unique_ptr<TemplateParameterInfos> packed_args;
   };
 
@@ -1075,6 +1087,7 @@ private:
   GetAsTemplateSpecialization(lldb::opaque_compiler_type_t type);
 
   // Classes that inherit from TypeSystemClang can see and modify these
+  ClangExternalASTSourceCallbacks *m_ast_callbacks = nullptr;
   std::string m_target_triple;
   std::unique_ptr<clang::ASTContext> m_ast_up;
   std::unique_ptr<clang::LangOptions> m_language_options_up;

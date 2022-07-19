@@ -1175,13 +1175,6 @@ ClangExpressionParser::ParseInternal(DiagnosticManager &diagnostic_manager,
     ParseAST(m_compiler->getSema(), false, false);
   }
 
-  // Make sure we have no pointer to the Sema we are about to destroy.
-  if (ast_context.getLangOpts().Modules)
-    m_ast_context->setSema(nullptr);
-  // Destroy the Sema. This is necessary because we want to emulate the
-  // original behavior of ParseAST (which also destroys the Sema after parsing).
-  m_compiler->setSema(nullptr);
-
   adapter->EndSourceFile();
 
   unsigned num_errors = adapter->getNumErrors();
@@ -1199,6 +1192,14 @@ ClangExpressionParser::ParseInternal(DiagnosticManager &diagnostic_manager,
   }
 
   adapter->ResetManager();
+
+  // Make sure we have no pointer to the Sema we are about to destroy.
+  if (m_ast_context->getASTContext().getLangOpts().Modules)
+    m_ast_context->setSema(nullptr);
+
+  // Destroy the Sema. This is necessary because we want to emulate the
+  // original behavior of ParseAST (which also destroys the Sema after parsing).
+  m_compiler->setSema(nullptr);
 
   return num_errors;
 }

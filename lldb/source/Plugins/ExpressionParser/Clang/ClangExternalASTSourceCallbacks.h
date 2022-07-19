@@ -37,6 +37,12 @@ public:
 
   void CompleteType(clang::ObjCInterfaceDecl *objc_decl) override;
 
+  void CompleteRedeclChain(const clang::Decl *D) override;
+  
+  void bumpGeneration() {
+    incrementGeneration(m_ast.getASTContext());
+  }
+
   bool layoutRecordType(
       const clang::RecordDecl *Record, uint64_t &Size, uint64_t &Alignment,
       llvm::DenseMap<const clang::FieldDecl *, uint64_t> &FieldOffsets,

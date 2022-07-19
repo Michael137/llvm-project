@@ -141,6 +141,8 @@ public:
       llvm::DenseMap<const clang::CXXRecordDecl *, clang::CharUnits>
           &VirtualBaseOffsets) override;
 
+  void CompleteRedeclChain(const clang::Decl *D) override;
+
   /// Complete a TagDecl.
   ///
   /// \param[in] Tag
@@ -221,6 +223,10 @@ public:
         llvm::function_ref<bool(clang::Decl::Kind)> IsKindWeWant,
         llvm::SmallVectorImpl<clang::Decl *> &Decls) override {
       return m_original.FindExternalLexicalDecls(DC, IsKindWeWant, Decls);
+    }
+
+    void CompleteRedeclChain(const clang::Decl *D) override {
+      return m_original.CompleteRedeclChain(D);
     }
 
     void CompleteType(clang::TagDecl *Tag) override {

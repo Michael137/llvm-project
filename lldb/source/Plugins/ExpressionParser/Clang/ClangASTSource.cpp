@@ -380,7 +380,8 @@ clang::ObjCInterfaceDecl *ClangASTSource::GetCompleteObjCInterface(
 
   ObjCInterfaceDecl *complete_iface_decl(complete_interface_type->getDecl());
 
-  return complete_iface_decl;
+  ObjCInterfaceDecl *def = complete_iface_decl->getDefinition();
+  return def;
 }
 
 void ClangASTSource::FindExternalLexicalDecls(
@@ -1531,8 +1532,8 @@ bool ClangASTSource::layoutRecordType(const RecordDecl *record, uint64_t &size,
 
   int field_idx = 0, field_count = record_layout.getFieldCount();
 
-  for (RecordDecl::field_iterator fi = origin_record->field_begin(),
-                                  fe = origin_record->field_end();
+  for (RecordDecl::field_iterator fi = definition->field_begin(),
+                                  fe = definition->field_end();
        fi != fe; ++fi) {
     if (field_idx >= field_count)
       return false; // Layout didn't go well.  Bail out.
@@ -1758,4 +1759,33 @@ ClangASTSource::GetClangModulesDeclVendor() {
   auto persistent_vars = llvm::cast<ClangPersistentVariables>(
       m_target->GetPersistentExpressionStateForLanguage(lldb::eLanguageTypeC));
   return persistent_vars->GetClangModulesDeclVendor();
+}
+
+void ClangASTSource::CompleteRedeclChain(const Decl *d) {
+  if (const clang::TagDecl *td = llvm::dyn_cast<TagDecl>(d)) {
+    if (td->isBeingDefined())
+      return;
+    if (td->getDefinition())
+      return;
+    m_ast_importer_sp->CompleteTagDecl(td);
+    if (!td->getDefinition() && m_ast_importer_sp->GetDeclOrigin(td).Valid()) {
+      if (TagDecl *alternate = FindCompleteType(td))
+        m_ast_importer_sp->CompleteTagDeclWithOrigin(td, alternate);
+    }
+  }
+  if (const auto *od = llvm::dyn_cast<ObjCInterfaceDecl>(d)) {
+    ClangASTImporter::DeclOrigin original = m_ast_importer_sp->GetDeclOrigin(od);
+    if (ObjCInterfaceDecl *orig = dyn_cast_or_null<ObjCInterfaceDecl>(original.decl)) {
+      if (ObjCInterfaceDecl *i = GetCompleteObjCInterface(orig)) {
+        if (i != orig) {
+          m_ast_importer_sp->SetDeclOrigin(d, i);
+          m_ast_importer_sp->CompleteObjCInterfaceDecl(od);
+          return;
+        }
+      }
+    }
+    if (od->getDefinition())
+      return;
+    m_ast_importer_sp->CompleteObjCInterfaceDecl(od);
+  }
 }

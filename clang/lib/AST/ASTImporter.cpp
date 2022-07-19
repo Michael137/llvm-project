@@ -307,7 +307,9 @@ namespace clang {
     }
 
     void addDeclToContexts(Decl *FromD, Decl *ToD) {
-      if (Importer.isMinimalImport()) {
+      if (Importer.isMinimalImport()
+          || Importer.getToContext().getLangOpts().DebuggerSupport
+          || Importer.getFromContext().getLangOpts().DebuggerSupport) {
         // In minimal import case the decl must be added even if it is not
         // contained in original context, for LLDB compatibility.
         // FIXME: Check if a better solution is possible.
@@ -1029,8 +1031,8 @@ Expected<LambdaCapture> ASTNodeImporter::import(const LambdaCapture &From) {
 
 template <typename T>
 bool ASTNodeImporter::hasSameVisibilityContextAndLinkage(T *Found, T *From) {
-  if (Found->getLinkageInternal() != From->getLinkageInternal())
-    return false;
+  // if (Found->getLinkageInternal() != From->getLinkageInternal())
+  //   return false;
 
   if (From->hasExternalFormalLinkage())
     return Found->hasExternalFormalLinkage();
@@ -2476,6 +2478,9 @@ ASTNodeImporter::VisitTypedefNameDecl(TypedefNameDecl *D, bool IsAlias) {
         QualType FromUT = D->getUnderlyingType();
         QualType FoundUT = FoundTypedef->getUnderlyingType();
         if (Importer.IsStructurallyEquivalent(FromUT, FoundUT)) {
+          if (Importer.isMinimalImport())
+            return Importer.MapImported(D, FoundTypedef);
+
           // If the "From" context has a complete underlying type but we
           // already have a complete underlying type then return with that.
           if (!FromUT->isIncompleteType() && !FoundUT->isIncompleteType())
@@ -2819,8 +2824,8 @@ ExpectedDecl ASTNodeImporter::VisitRecordDecl(RecordDecl *D) {
           continue;
 
         if (IsStructuralMatch(D, FoundRecord)) {
-          RecordDecl *FoundDef = FoundRecord->getDefinition();
-          if (D->isThisDeclarationADefinition() && FoundDef) {
+          RecordDecl *FoundDef = nullptr; //FoundRecord->getDefinition();
+          if (false && D->isThisDeclarationADefinition() && FoundDef) {
             // FIXME: Structural equivalence check should check for same
             // user-defined methods.
             Importer.MapImported(D, FoundDef);

@@ -2327,11 +2327,18 @@ void SymbolFileDWARF::FindFunctions(ConstString name,
   Log *log = GetLog(DWARFLog::Lookups);
 
   if (log) {
+    StreamString str;
+    GetObjectFile()->Dump(&str);
+    str.Flush();
     GetObjectFile()->GetModule()->LogMessage(
         log,
         "SymbolFileDWARF::FindFunctions (name=\"%s\", name_type_mask=0x%x, "
         "sc_list)",
         name.GetCString(), name_type_mask);
+    GetObjectFile()->GetModule()->LogMessage(
+        log,
+        ">>>\nObjectFile:\n%s\n<<<\n",
+        str.GetString().data());
   }
 
   if (!DeclContextMatchesThisSymbolFile(parent_decl_ctx))

@@ -375,8 +375,10 @@ bool ClangExpressionSourceCode::GetText(
             if (sc.comp_unit) {
               StreamString error_stream;
 
-              decl_vendor->AddModulesForCompileUnit(
-                  *sc.comp_unit, modules_for_macros, error_stream);
+              if (!decl_vendor->AddModulesForCompileUnit(
+                    *sc.comp_unit, modules_for_macros, error_stream)) {
+                llvm::errs() << "MODULE IMPORT ERROR:\n>>>\n" << error_stream.GetString() << "\n>>>\n";
+              }
             }
           }
         }

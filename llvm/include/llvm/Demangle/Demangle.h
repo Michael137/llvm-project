@@ -81,6 +81,8 @@ struct ItaniumPartialDemangler {
   ItaniumPartialDemangler(ItaniumPartialDemangler &&Other);
   ItaniumPartialDemangler &operator=(ItaniumPartialDemangler &&Other);
 
+  std::string getABITag(char *Buf, size_t *N) const;
+
   /// Demangle into an AST. Subsequent calls to the rest of the member functions
   /// implicitly operate on the AST this produces.
   /// \return true on error, false otherwise

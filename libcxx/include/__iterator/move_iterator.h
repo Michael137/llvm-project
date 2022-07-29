@@ -279,7 +279,9 @@ auto operator<=>(const move_iterator<_Iter1>& __x, const move_iterator<_Iter2>& 
 
 #ifndef _LIBCPP_CXX03_LANG
 template <class _Iter1, class _Iter2>
+//inline __attribute__((__abi_tag__("v15000"))) _LIBCPP_HIDDEN _LIBCPP_CONSTEXPR_AFTER_CXX14
 inline _LIBCPP_HIDE_FROM_ABI _LIBCPP_CONSTEXPR_AFTER_CXX14
+//inline _LIBCPP_HIDDEN _LIBCPP_EXCLUDE_FROM_EXPLICIT_INSTANTIATION _LIBCPP_CONSTEXPR_AFTER_CXX14
 auto operator-(const move_iterator<_Iter1>& __x, const move_iterator<_Iter2>& __y)
     -> decltype(__x.base() - __y.base())
 {

@@ -17,6 +17,7 @@
 #include <set>
 
 #include "llvm/ADT/StringRef.h"
+#include "llvm/Demangle/Demangle.h"
 #include "llvm/Demangle/ItaniumDemangle.h"
 
 #include "lldb/Core/Mangled.h"
@@ -539,9 +540,23 @@ ConstString CPlusPlusLanguage::FindBestAlternateFunctionMangledName(
     Mangled mangled(alternate_mangled_name);
     ConstString demangled = mangled.GetDemangledName();
 
+    //llvm::ItaniumPartialDemangler D;
+    //if (!D.partialDemangle(alternate_mangled_name.AsCString()))
+    //  return ConstString();
+
+    //if (cpp_name.GetArguments().equals(D.getFunctionParameters(nullptr, nullptr))) {
+    //  if (cpp_name.GetQualifiers().empty())
+    //    param_and_qual_matches.push_back(alternate_mangled_name);
+    //  else
+    //    param_matches.push_back(alternate_mangled_name);
+    //}
+
     CPlusPlusLanguage::MethodName alternate_cpp_name(demangled);
     if (!cpp_name.IsValid())
       continue;
+    
+    //if (alternate_mangled_name == "_ZNSt3__1miB6v15000IPP1CS3_EEDTmicldtfp_4baseEcldtfp0_4baseEERKNS_13move_iteratorIT_EERKNS5_IT0_EE")
+    //  param_and_qual_matches.push_back(alternate_mangled_name);
 
     if (alternate_cpp_name.GetArguments() == cpp_name.GetArguments()) {
       if (alternate_cpp_name.GetQualifiers() == cpp_name.GetQualifiers())

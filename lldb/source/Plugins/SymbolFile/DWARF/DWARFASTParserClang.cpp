@@ -36,6 +36,7 @@
 #include "lldb/Utility/Log.h"
 #include "lldb/Utility/StreamString.h"
 
+#include "clang/AST/Attrs.inc"
 #include "llvm/Demangle/Demangle.h"
 
 #include "clang/AST/CXXInheritance.h"
@@ -1119,6 +1120,10 @@ TypeSP DWARFASTParserClang::ParseSubroutine(const DWARFDIE &die,
                   if (attrs.accessibility == eAccessNone)
                     attrs.accessibility = eAccessPublic;
 
+                  LLDB_LOG(log, "Adding method to CXXRecordType: {0} {1}",
+                          attrs.name.GetCString(),
+                          attrs.mangled_name ? attrs.mangled_name : "<unmangled>");
+
                   clang::CXXMethodDecl *cxx_method_decl =
                       m_ast.AddMethodToCXXRecordType(
                           class_opaque_type.GetOpaqueQualType(),
@@ -1209,16 +1214,31 @@ TypeSP DWARFASTParserClang::ParseSubroutine(const DWARFDIE &die,
       if (!function_decl) {
         char *name_buf = nullptr;
         llvm::StringRef name = attrs.name.GetStringRef();
+        clang::AbiTagAttr* abi_tag_attr = nullptr;
 
         // We currently generate function templates with template parameters in
         // their name. In order to get closer to the AST that clang generates
         // we want to strip these from the name when creating the AST.
         if (attrs.mangled_name) {
+          LLDB_LOG(log, "Performing partial demangle: {0} {1}. OldName = {2}",
+                  attrs.name.GetCString(),
+                  attrs.mangled_name ? attrs.mangled_name : "<unmangled>",
+                  name);
           llvm::ItaniumPartialDemangler D;
           if (!D.partialDemangle(attrs.mangled_name)) {
             name_buf = D.getFunctionBaseName(nullptr, nullptr);
             name = name_buf;
           }
+          LLDB_LOG(log, "Performed partial demangle: {0} {1}. NewName = {2}",
+                  attrs.name.GetCString(),
+                  attrs.mangled_name ? attrs.mangled_name : "<unmangled>",
+                  name);
+
+          // std::string abi_tag = D.getABITag(nullptr, nullptr);
+          // llvm::StringRef abi_tag_ref = abi_tag;
+          // if (!abi_tag.empty()) {
+          //   abi_tag_attr = clang::AbiTagAttr::CreateImplicit(m_ast.getASTContext(), &abi_tag_ref, 1);
+          // }
         }
 
         // We just have a function that isn't part of a class
@@ -1229,7 +1249,11 @@ TypeSP DWARFASTParserClang::ParseSubroutine(const DWARFDIE &die,
             attrs.is_inline);
         std::free(name_buf);
 
+        //function_decl->addAttr(abi_tag_attr);
+
         if (has_template_params) {
+          LLDB_LOG(log, "Creating function template decl: {0}", attrs.name.GetCString());
+
           TypeSystemClang::TemplateParameterInfos template_param_infos;
           ParseTemplateParameterInfos(die, template_param_infos);
           template_function_decl = m_ast.CreateFunctionDeclaration(

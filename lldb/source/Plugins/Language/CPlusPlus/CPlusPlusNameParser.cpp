@@ -9,6 +9,7 @@
 #include "CPlusPlusNameParser.h"
 
 #include "clang/Basic/IdentifierTable.h"
+#include "clang/Basic/TokenKinds.h"
 #include "llvm/ADT/StringMap.h"
 #include "llvm/Support/Threading.h"
 
@@ -319,6 +320,33 @@ bool CPlusPlusNameParser::ConsumeBrackets(tok::TokenKind left,
   return true;
 }
 
+bool CPlusPlusNameParser::SkipABITag() {
+  Bookmark start_position = SetBookmark();
+  if (!ConsumeToken(tok::l_square))
+    return false;
+
+  if (!HasMoreTokens())
+    return false;
+
+  const auto &token = Peek();
+  assert(token.getKind() == tok::raw_identifier);
+  assert(token.getRawIdentifier() == "abi");
+  if (!ConsumeToken(tok::raw_identifier))
+    return false;
+
+  if (!ConsumeToken(tok::colon))
+    return false;
+
+  if (!ConsumeToken(tok::raw_identifier))
+    return false;
+
+  if (!ConsumeToken(tok::r_square))
+    return false;
+
+  start_position.Remove();
+  return true;
+}
+
 bool CPlusPlusNameParser::ConsumeOperator() {
   Bookmark start_position = SetBookmark();
   if (!ConsumeToken(tok::kw_operator))
@@ -604,6 +632,24 @@ CPlusPlusNameParser::ParseFullNameImpl() {
       } else {
         TakeBack();
         continue_parsing = false;
+      }
+      break;
+    // TODO: ABI tags aren't legal in C++.They just happen to be prettified into
+    //       [abi:tag]. Instead of adding support for parsing ABI tags, should we
+    //       instead ignore the ABI tags during lookup? Or somehow get the module
+    //       to provide the correct name (like we do with qualified lookup or the
+    //       hacked ADL approach).
+    case tok::l_square: {
+        if (state != State::AfterIdentifier && state != State::AfterOperator) {
+          continue_parsing = false;
+          break;
+        }
+
+        // TODO: handle rollback. Should have a branch with TakeBack();
+        if (!SkipABITag()) {
+          continue_parsing = false;
+          break;
+        }
       }
       break;
     default:

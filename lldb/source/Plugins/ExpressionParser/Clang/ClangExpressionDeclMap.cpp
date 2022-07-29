@@ -1362,6 +1362,8 @@ void ClangExpressionDeclMap::FindExternalVisibleDecls(
   if (IgnoreName(name, false))
     return;
 
+  LLDB_LOG(log, "FindExternalVisibleDecls for {0}", name.AsCString("<unknown>"));
+
   // Only look for functions by name out in our symbols if the function doesn't
   // start with our phony prefix of '$'
 
@@ -1447,6 +1449,8 @@ void ClangExpressionDeclMap::FindExternalVisibleDecls(
     }
   }
 
+  // Comment this function to force clang::Sema's ADL to correctly
+  // resolve unqualified function call
   LookupFunction(context, module_sp, name, namespace_decl);
 
   // Try the modules next.

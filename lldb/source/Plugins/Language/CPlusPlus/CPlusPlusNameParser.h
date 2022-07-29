@@ -143,6 +143,8 @@ private:
   // Consumes operator declaration like 'operator *' or 'operator delete []'
   bool ConsumeOperator();
 
+  bool SkipABITag();
+
   // Skips 'const' and 'volatile'
   void SkipTypeQualifiers();
 

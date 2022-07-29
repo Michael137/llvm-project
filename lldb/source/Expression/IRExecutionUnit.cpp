@@ -868,6 +868,9 @@ lldb::addr_t IRExecutionUnit::FindInUserDefinedSymbols(
 
 lldb::addr_t IRExecutionUnit::FindSymbol(lldb_private::ConstString name,
                                          bool &missing_weak) {
+  Log *log = GetLog(LLDBLog::Expressions);
+  LLDB_LOG(log, "Finding symbol for {0}", name.AsCString());
+
   std::vector<ConstString> candidate_C_names;
   std::vector<ConstString> candidate_CPlusPlus_names;
 

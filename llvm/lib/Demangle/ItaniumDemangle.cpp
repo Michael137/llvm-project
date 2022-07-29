@@ -466,6 +466,35 @@ char *ItaniumPartialDemangler::getFunctionBaseName(char *Buf, size_t *N) const {
   }
 }
 
+std::string ItaniumPartialDemangler::getABITag(char *Buf, size_t *N) const {
+  if (!isFunction())
+    return nullptr;
+
+  const Node *Name = static_cast<const FunctionEncoding *>(RootNode)->getName();
+
+  while (true) {
+    switch (Name->getKind()) {
+    case Node::KAbiTagAttr: {
+      StringView tag = static_cast<const AbiTagAttr *>(Name)->Tag;
+      return std::string(tag.begin(), tag.size());
+    } case Node::KModuleEntity:
+      Name = static_cast<const ModuleEntity *>(Name)->Name;
+      continue;
+    case Node::KNestedName:
+      Name = static_cast<const NestedName *>(Name)->Name;
+      continue;
+    case Node::KLocalName:
+      Name = static_cast<const LocalName *>(Name)->Entity;
+      continue;
+    case Node::KNameWithTemplateArgs:
+      Name = static_cast<const NameWithTemplateArgs *>(Name)->Name;
+      continue;
+    default:
+      return "";
+    }
+  }
+}
+
 char *ItaniumPartialDemangler::getFunctionDeclContextName(char *Buf,
                                                           size_t *N) const {
   if (!isFunction())

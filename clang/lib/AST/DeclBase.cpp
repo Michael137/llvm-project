@@ -1673,8 +1673,9 @@ DeclContext::lookup(DeclarationName Name) const {
   // context have been loaded, since they may add names to the result of this
   // lookup (or add external visible storage).
   ExternalASTSource *Source = getParentASTContext().getExternalSource();
+  [[maybe_unused]] Decl const* unused_decl = nullptr;
   if (Source)
-    (void)cast<Decl>(this)->getMostRecentDecl();
+    unused_decl = cast<Decl>(this)->getMostRecentDecl();
 
   if (hasExternalVisibleStorage()) {
     assert(Source && "external visible storage but no external source?");

@@ -639,19 +639,19 @@ CPlusPlusNameParser::ParseFullNameImpl() {
     //       instead ignore the ABI tags during lookup? Or somehow get the module
     //       to provide the correct name (like we do with qualified lookup or the
     //       hacked ADL approach).
-    case tok::l_square: {
-        if (state != State::AfterIdentifier && state != State::AfterOperator) {
-          continue_parsing = false;
-          break;
-        }
+    //case tok::l_square: {
+    //    if (state != State::AfterIdentifier && state != State::AfterOperator) {
+    //      continue_parsing = false;
+    //      break;
+    //    }
 
-        // TODO: handle rollback. Should have a branch with TakeBack();
-        if (!SkipABITag()) {
-          continue_parsing = false;
-          break;
-        }
-      }
-      break;
+    //    // TODO: handle rollback. Should have a branch with TakeBack();
+    //    if (!SkipABITag()) {
+    //      continue_parsing = false;
+    //      break;
+    //    }
+    //  }
+    //  break;
     default:
       continue_parsing = false;
       break;

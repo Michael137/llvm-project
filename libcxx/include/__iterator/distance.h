@@ -14,9 +14,11 @@
 #include <__iterator/concepts.h>
 #include <__iterator/incrementable_traits.h>
 #include <__iterator/iterator_traits.h>
+//#include <__iterator/move_iterator.h>
 #include <__ranges/access.h>
 #include <__ranges/concepts.h>
 #include <__ranges/size.h>
+//#include <iterator>
 #include <type_traits>
 
 #if !defined(_LIBCPP_HAS_NO_PRAGMA_SYSTEM_HEADER)
@@ -43,6 +45,24 @@ __distance(_RandIter __first, _RandIter __last, random_access_iterator_tag)
 {
     return __last - __first;
 }
+
+//template <class _RandIter, typename _Iter>
+//inline _LIBCPP_INLINE_VISIBILITY _LIBCPP_CONSTEXPR_AFTER_CXX14
+//__enable_if_t<!std::is_same<_RandIter, std::move_iterator<_Iter>>::value,
+//                 typename iterator_traits<_RandIter>::difference_type>
+//__distance(_RandIter __first, _RandIter __last, random_access_iterator_tag)
+//{
+//    return __last - __first;
+//}
+//
+//template <typename _RandIter, typename _Iter>
+//inline _LIBCPP_INLINE_VISIBILITY _LIBCPP_CONSTEXPR_AFTER_CXX14
+//__enable_if_t<std::is_same<_RandIter, std::move_iterator<_Iter>>::value,
+//                 typename iterator_traits<_RandIter>::difference_type>
+//__distance(_RandIter __first, _RandIter __last, random_access_iterator_tag)
+//{
+//    return _VSTD::operator-(__last, __first);
+//}
 
 template <class _InputIter>
 inline _LIBCPP_INLINE_VISIBILITY _LIBCPP_CONSTEXPR_AFTER_CXX14

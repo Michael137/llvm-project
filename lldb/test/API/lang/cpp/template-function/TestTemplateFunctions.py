@@ -46,6 +46,19 @@ class TemplateFunctionsTestCase(TestBase):
           self.expect_expr("d1 << d2", result_type="bool", result_value="true")
           self.expect_expr("d1 == d2", result_type="bool", result_value="true")
 
+          # Calls to functions with ABI tags
+
+          # ...in global namespace
+          self.expect_expr("withAbiTag(b1, b2)", result_type="int", result_value="1")
+
+          # ...unqualified lookup into namespace A
+          self.expect_expr("withAbiTagInNS(b1, b2)", result_type="int", result_value="1")
+          self.expect_expr("operator!=(b1, b2)", result_type="bool", result_value="false")
+
+          # ...qualified lookup into namespace A
+          self.expect_expr("A::withAbiTagInNS(b1, b2)", result_type="int", result_value="1")
+          self.expect_expr("A::operator!=(b1, b2)", result_type="bool", result_value="false")
+
     @skipIfWindows
     def test_template_function_with_cast(self):
         self.do_test_template_function(True)

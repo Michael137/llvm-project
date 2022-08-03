@@ -42,6 +42,19 @@ template <typename T> bool operator>>(const T &, const T &) { return true; }
 
 template <typename T> bool operator==(const T &, const T &) { return true; }
 
+// Check calls to functions with ABI tags
+template <typename T>
+auto __attribute__((abi_tag("TestTag"))) operator!=(const T &lhs,
+                                                    const T &rhs) {
+  return !operator==(lhs, rhs);
+}
+
+template <typename T>
+auto __attribute__((abi_tag("TestTag"))) withAbiTagInNS(const T &, const T &)
+    -> int {
+  return 1;
+}
+
 struct B {};
 } // namespace A
 
@@ -54,15 +67,24 @@ bool operator>>(const D &, const D &) { return true; }
 bool operator<<(const D &, const D &) { return true; }
 bool operator==(const D &, const D &) { return true; }
 
+// Check calls to functions with ABI tags
+template <typename T>
+auto __attribute__((abi_tag("TestTag"))) withAbiTag(const T &, const T &)
+    -> int {
+  return 1;
+}
+
 int main() {
   A::B b1;
   A::B b2;
   D d1;
   D d2;
 
-  bool result_b = b1 < b2 && b1 << b2 && b1 == b2 && b1 > b2 && b1 >> b2;
+  bool result_b =
+      b1 < b2 && b1 << b2 && b1 == b2 && b1 > b2 && b1 >> b2 && b1 != b2;
   bool result_c = d1 < d2 && d1 << d2 && d1 == d2 && d1 > d2 && d1 >> d2;
 
   return foo(42) + result_b + result_c + f(A::C{}) + g(A::C{}) + h(10) + h(1.) +
-         var(1) + var(1, 2); // break here
+         var(1) + var(1, 2) + withAbiTag(b1, b2) +
+         withAbiTagInNS(b1, b2); // break here
 }

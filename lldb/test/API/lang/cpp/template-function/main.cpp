@@ -24,6 +24,9 @@ int f(int) { return 1; }
 template <class T> int h(T x) { return x; }
 int h(double d) { return 5; }
 
+int c(const double *d) { return 6; }
+int c(double *d) { return 7; }
+
 template <class... Us> int var(Us... pargs) { return 10; }
 
 // Having the templated overloaded operators in a namespace effects the
@@ -45,7 +48,7 @@ template <typename T> bool operator==(const T &, const T &) { return true; }
 // Check calls to functions with ABI tags
 template <typename T>
 auto __attribute__((abi_tag("TestTag"))) operator!=(const T &lhs,
-                                                    const T &rhs) {
+                                                    const T &rhs) -> bool {
   return !operator==(lhs, rhs);
 }
 
@@ -84,7 +87,10 @@ int main() {
       b1 < b2 && b1 << b2 && b1 == b2 && b1 > b2 && b1 >> b2 && b1 != b2;
   bool result_c = d1 < d2 && d1 << d2 && d1 == d2 && d1 > d2 && d1 >> d2;
 
+  const double const_double = 5;
+  double non_const_double = 5;
+
   return foo(42) + result_b + result_c + f(A::C{}) + g(A::C{}) + h(10) + h(1.) +
          var(1) + var(1, 2) + withAbiTag(b1, b2) +
-         withAbiTagInNS(b1, b2); // break here
+         withAbiTagInNS(b1, b2) + c(&const_double) + c(&non_const_double); // break here
 }

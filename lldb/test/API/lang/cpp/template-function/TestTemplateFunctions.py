@@ -59,6 +59,9 @@ class TemplateFunctionsTestCase(TestBase):
           self.expect_expr("A::withAbiTagInNS(b1, b2)", result_type="int", result_value="1")
           self.expect_expr("A::operator!=(b1, b2)", result_type="bool", result_value="false")
 
+          self.expect_expr("c(&const_double)", result_type="int", result_value="6")
+          self.expect_expr("c(&non_const_double)", result_type="int", result_value="7")
+
     @skipIfWindows
     def test_template_function_with_cast(self):
         self.do_test_template_function(True)

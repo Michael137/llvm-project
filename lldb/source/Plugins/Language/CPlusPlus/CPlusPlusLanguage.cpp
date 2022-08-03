@@ -17,6 +17,7 @@
 #include <set>
 
 #include "llvm/ADT/StringRef.h"
+#include "llvm/Demangle/Demangle.h"
 #include "llvm/Demangle/ItaniumDemangle.h"
 
 #include "lldb/Core/Mangled.h"
@@ -536,18 +537,79 @@ ConstString CPlusPlusLanguage::FindBestAlternateFunctionMangledName(
   std::vector<ConstString> param_matches;
   for (size_t i = 0; i < alternates.size(); i++) {
     ConstString alternate_mangled_name = alternates[i];
-    Mangled mangled(alternate_mangled_name);
-    ConstString demangled = mangled.GetDemangledName();
 
-    CPlusPlusLanguage::MethodName alternate_cpp_name(demangled);
-    if (!cpp_name.IsValid())
-      continue;
+    // Mangled mangled(alternate_mangled_name);
+    // ConstString demangled = mangled.GetDemangledName();
 
-    if (alternate_cpp_name.GetArguments() == cpp_name.GetArguments()) {
-      if (alternate_cpp_name.GetQualifiers() == cpp_name.GetQualifiers())
-        param_and_qual_matches.push_back(alternate_mangled_name);
-      else
-        param_matches.push_back(alternate_mangled_name);
+    //CPlusPlusLanguage::MethodName alternate_cpp_name(demangled);
+    //if (!cpp_name.IsValid())
+    //  continue;
+
+    //if (alternate_cpp_name.GetArguments() == cpp_name.GetArguments()) {
+    //  if (alternate_cpp_name.GetQualifiers() == cpp_name.GetQualifiers())
+    //    param_and_qual_matches.push_back(alternate_mangled_name);
+    //  else
+    //    param_matches.push_back(alternate_mangled_name);
+    //}
+    
+    // TODO: do we want to check equality on ABI tags?
+    //       ABI tags can be found in FunctionEncoding::Atrs
+    using namespace llvm::itanium_demangle;
+    char const* main_mangled = mangled.GetMangledName().AsCString();
+    ManglingParser<NodeAllocator> main_parser(
+            main_mangled, main_mangled + std::strlen(main_mangled));
+    if (auto* node = main_parser.parse()) {
+      assert(node->getKind() == Node::KFunctionEncoding);
+      FunctionEncoding* encoding = static_cast<FunctionEncoding*>(node);
+      Qualifiers        quals    = encoding->getCVQuals();
+      FunctionRefQual   refQual  = encoding->getRefQual();
+      NodeArray         params   = encoding->getParams();
+
+      bool argumentsMatch  = true;
+
+      char const* alternate = alternate_mangled_name.AsCString();
+      ManglingParser<NodeAllocator> alternate_parser(
+              alternate, alternate + std::strlen(alternate));
+      llvm::errs() << "DEBUGGING: About to start alternate_parser for " << alternate << '\n';
+      if (auto* alt_node = alternate_parser.parse()) {
+        assert(alt_node->getKind() == Node::KFunctionEncoding);
+        FunctionEncoding* alt_encoding = static_cast<FunctionEncoding*>(alt_node);
+        Qualifiers        alt_quals    = alt_encoding->getCVQuals();
+        FunctionRefQual   alt_refQual  = alt_encoding->getRefQual();
+        NodeArray         alt_params   = alt_encoding->getParams();
+
+        if (params.size() != alt_params.size())
+            continue;
+
+        for (size_t idx = 0; idx < params.size(); ++idx) {
+          auto* p1 = params[idx];
+          auto* p2 = alt_params[idx];
+          //assert(p1->getKind() == Node::KNameType);
+          //assert(p2->getKind() == Node::KNameType);
+          //llvm::errs() << static_cast<NameType*>(p1)->getName().begin()
+          //             << " != " << static_cast<NameType*>(p2)->getName().begin();
+
+          // TODO: need stronger equality on arguemtns? does this check qualifiers?
+          //if (static_cast<NameType*>(p1)->getName()
+          //    != static_cast<NameType*>(p2)->getName()) {
+          //  argumentsMatch = false;
+          //  break;
+          //}
+          if (p1->getBaseName() != p2->getBaseName()) {
+            argumentsMatch = false;
+            break;
+          }
+        }
+
+        if (argumentsMatch) {
+          if (quals == alt_quals
+              && refQual == alt_refQual) {
+            param_and_qual_matches.push_back(alternate_mangled_name);
+          } else {
+            param_matches.push_back(alternate_mangled_name);
+          }
+        }
+      }
     }
   }
 

@@ -117,6 +117,10 @@ inline bool operator==(const StringView &LHS, const StringView &RHS) {
          std::strncmp(LHS.begin(), RHS.begin(), LHS.size()) == 0;
 }
 
+inline bool operator!=(const StringView &LHS, const StringView &RHS) {
+  return !(LHS == RHS);
+}
+
 DEMANGLE_NAMESPACE_END
 
 #endif

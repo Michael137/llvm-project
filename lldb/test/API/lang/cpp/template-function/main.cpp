@@ -20,12 +20,19 @@ template <typename T> int g(T) { return 4; }
 // Meant to overload A::f(T) which may be found via ADL
 int f(int) { return 1; }
 
+// This calls into approximate candidate matching
+template<typename T>
+int random(T t) { return 1; }
+
 // Regular overloaded functions case h(T) and h(double).
 template <class T> int h(T x) { return x; }
 int h(double d) { return 5; }
 
-int c(const double *d) { return 6; }
-int c(double *d) { return 7; }
+template<typename T>
+int c(const T *d) { return 6; }
+
+template<typename T>
+int c(T *d) { return 7; }
 
 template <class... Us> int var(Us... pargs) { return 10; }
 
@@ -59,6 +66,12 @@ auto __attribute__((abi_tag("TestTag"))) withAbiTagInNS(const T &, const T &)
 }
 
 struct B {};
+
+template<typename T>
+int k(T *b) { return 6; }
+
+template<typename T>
+int k(T const *b) { return 7; }
 } // namespace A
 
 struct D {};
@@ -80,6 +93,7 @@ auto __attribute__((abi_tag("TestTag"))) withAbiTag(const T &, const T &)
 int main() {
   A::B b1;
   A::B b2;
+  const A::B b3;
   D d1;
   D d2;
 
@@ -92,5 +106,6 @@ int main() {
 
   return foo(42) + result_b + result_c + f(A::C{}) + g(A::C{}) + h(10) + h(1.) +
          var(1) + var(1, 2) + withAbiTag(b1, b2) +
-         withAbiTagInNS(b1, b2) + c(&const_double) + c(&non_const_double); // break here
+         withAbiTagInNS(b1, b2) + c(&const_double) + c(&non_const_double)
+         + k(&b1) + k(&b3) + random<int>(5); // break here
 }

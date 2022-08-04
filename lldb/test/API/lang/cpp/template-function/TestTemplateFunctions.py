@@ -61,6 +61,9 @@ class TemplateFunctionsTestCase(TestBase):
 
           self.expect_expr("c(&const_double)", result_type="int", result_value="6")
           self.expect_expr("c(&non_const_double)", result_type="int", result_value="7")
+          self.expect_expr("k(&b1)", result_type="int", result_value="6")
+          self.expect_expr("k(&b3)", result_type="int", result_value="7")
+          self.expect_expr("random(5)", result_type="int", result_value="1")
 
     @skipIfWindows
     def test_template_function_with_cast(self):

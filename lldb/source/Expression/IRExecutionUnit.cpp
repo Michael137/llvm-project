@@ -671,31 +671,13 @@ void IRExecutionUnit::CollectCandidateCNames(std::vector<ConstString> &C_names,
   C_names.push_back(name);
 }
 
-void IRExecutionUnit::CollectCandidateCPlusPlusNames(
-    std::vector<ConstString> &CPP_names,
+std::vector<ConstString> IRExecutionUnit::CollectCandidateCPlusPlusNames(
     const std::vector<ConstString> &C_names, const SymbolContext &sc) {
   if (auto *cpp_lang = Language::FindPlugin(lldb::eLanguageTypeC_plus_plus)) {
-    for (const ConstString &name : C_names) {
-      // TODO: is this Mangled object really needed?
-      Mangled mangled(name);
-      if (cpp_lang->SymbolNameFitsToLanguage(mangled)) {
-        if (ConstString best_alternate =
-                cpp_lang->FindBestAlternateFunctionMangledName(name.AsCString(), sc)) {
-          CPP_names.push_back(best_alternate);
-        }
-      }
-
-      std::vector<ConstString> alternates =
-          cpp_lang->GenerateAlternateFunctionManglings(name);
-      CPP_names.insert(CPP_names.end(), alternates.begin(), alternates.end());
-
-      // As a last-ditch fallback, try the base name for C++ names.  It's
-      // terrible, but the DWARF doesn't always encode "extern C" correctly.
-      ConstString basename =
-          cpp_lang->GetDemangledFunctionNameWithoutArguments(mangled);
-      CPP_names.push_back(basename);
-    }
+    return cpp_lang->GetAlternateCandidateNames(C_names, sc);
   }
+
+  return {};
 }
 
 class LoadAddressResolver {
@@ -870,7 +852,6 @@ lldb::addr_t IRExecutionUnit::FindInUserDefinedSymbols(
 lldb::addr_t IRExecutionUnit::FindSymbol(lldb_private::ConstString name,
                                          bool &missing_weak) {
   std::vector<ConstString> candidate_C_names;
-  std::vector<ConstString> candidate_CPlusPlus_names;
 
   CollectCandidateCNames(candidate_C_names, name);
 
@@ -889,9 +870,9 @@ lldb::addr_t IRExecutionUnit::FindSymbol(lldb_private::ConstString name,
   if (ret != LLDB_INVALID_ADDRESS)
     return ret;
 
-  CollectCandidateCPlusPlusNames(candidate_CPlusPlus_names, candidate_C_names,
-                                 m_sym_ctx);
-  ret = FindInSymbols(candidate_CPlusPlus_names, m_sym_ctx, missing_weak);
+  std::vector<ConstString> candidate_CPlusPlus_names =
+      CollectCandidateCPlusPlusNames(candidate_C_names, m_sym_ctx);
+  ret = FindInSymbols(std::move(candidate_CPlusPlus_names), m_sym_ctx, missing_weak);
   return ret;
 }
 

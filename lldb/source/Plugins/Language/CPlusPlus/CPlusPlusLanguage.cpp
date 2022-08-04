@@ -64,6 +64,10 @@ bool CPlusPlusLanguage::SymbolNameFitsToLanguage(Mangled mangled) const {
   return mangled_name && CPlusPlusLanguage::IsCPPMangledName(mangled_name);
 }
 
+bool CPlusPlusLanguage::SymbolNameFitsToLanguage(char const* mangled) const {
+  return mangled && CPlusPlusLanguage::IsCPPMangledName(mangled);
+}
+
 ConstString CPlusPlusLanguage::GetDemangledFunctionNameWithoutArguments(
     Mangled mangled) const {
   const char *mangled_name_cstr = mangled.GetMangledName().GetCString();
@@ -455,6 +459,84 @@ public:
     return ManglingSubstitutor::parseCtorDtorName(SoFar, State);
   }
 };
+
+char const*printNode(const llvm::itanium_demangle::Node *RootNode) {
+    llvm::itanium_demangle::OutputBuffer OB;
+  if (!initializeOutputBuffer(nullptr, nullptr, OB, 128))
+    return nullptr;
+  RootNode->print(OB);
+  OB += '\0';
+  return OB.getBuffer();
+}
+
+char const*getFunctionName(llvm::itanium_demangle::Node const* root) {
+  auto *Name = static_cast<llvm::itanium_demangle::FunctionEncoding const*>(root)->getName();
+  return printNode(Name);
+}
+
+
+ConstString FindBestAlternateFunctionMangledName(
+    llvm::itanium_demangle::Node const* node, const SymbolContext &sym_ctx) {
+  using namespace llvm::itanium_demangle;
+  assert(node != nullptr);
+  assert(node->getKind() == Node::KFunctionEncoding);
+
+  auto const*     encoding = static_cast<FunctionEncoding const*>(node);
+  Qualifiers      quals    = encoding->getCVQuals();
+  FunctionRefQual refQual  = encoding->getRefQual();
+  NodeArray       params   = encoding->getParams();
+  auto const*     attrs    = encoding->getAttrs();
+
+  if (!sym_ctx.module_sp)
+    return ConstString();
+
+  lldb_private::SymbolFile *sym_file = sym_ctx.module_sp->GetSymbolFile();
+  if (!sym_file)
+    return ConstString();
+
+  std::vector<ConstString> alternates;
+  sym_file->GetMangledNamesForFunction(getFunctionName(node), alternates);
+
+  std::vector<ConstString> param_and_qual_matches;
+  std::vector<ConstString> param_matches;
+  for (size_t i = 0; i < alternates.size(); i++) {
+    ConstString alternate_mangled_name = alternates[i];
+
+    char const* alternate = alternate_mangled_name.AsCString();
+    ManglingParser<NodeAllocator> alternate_parser(
+            alternate, alternate + std::strlen(alternate));
+    if (auto const* alt_node = alternate_parser.parse()) {
+      assert(alt_node->getKind() == Node::KFunctionEncoding);
+      auto const*     alt_encoding = static_cast<FunctionEncoding const*>(alt_node);
+      Qualifiers      alt_quals    = alt_encoding->getCVQuals();
+      FunctionRefQual alt_refQual  = alt_encoding->getRefQual();
+      NodeArray       alt_params   = alt_encoding->getParams();
+      auto const*     alt_attrs    = alt_encoding->getAttrs();
+
+      if (params == alt_params) {
+        if (quals == alt_quals && refQual == alt_refQual) {
+          if ((attrs && alt_attrs && attrs->equals(alt_attrs))
+              || (!attrs && !alt_attrs)) {
+            // Perfect match. Return it.
+            return alternate_mangled_name;
+          }
+        }
+
+        // Not a perfect match, but count matching parameters
+        // as an approximate match.
+        param_matches.push_back(alternate_mangled_name);
+      }
+    }
+  }
+
+  // No perfect match. Return one of the approximate
+  // matches as a best match
+  if (param_matches.size())
+    return param_matches[0];
+
+  // No matches.
+  return ConstString();
+}
 } // namespace
 
 std::vector<ConstString> CPlusPlusLanguage::GenerateAlternateFunctionManglings(
@@ -511,95 +593,39 @@ std::vector<ConstString> CPlusPlusLanguage::GenerateAlternateFunctionManglings(
   return alternates;
 }
 
-static char *printNode(const llvm::itanium_demangle::Node *RootNode) {
-    llvm::itanium_demangle::OutputBuffer OB;
-  if (!initializeOutputBuffer(nullptr, nullptr, OB, 128))
-    return nullptr;
-  RootNode->print(OB);
-  OB += '\0';
-  return OB.getBuffer();
-}
+std::vector<ConstString> CPlusPlusLanguage::GetAlternateCandidateNames(
+        std::vector<ConstString> const& candidates, SymbolContext const& sc) const {
+  std::vector<ConstString> matches;
 
-static char *getFunctionName(llvm::itanium_demangle::Node const* root) {
-  auto *Name = static_cast<llvm::itanium_demangle::FunctionEncoding const*>(root)->getName();
-  return printNode(Name);
-}
+  for (const ConstString &name : candidates) {
+    char const* mangled = name.AsCString();
+    if (!mangled || !mangled[0])
+      continue;
 
-ConstString CPlusPlusLanguage::FindBestAlternateFunctionMangledName(
-    char const* mangled, const SymbolContext &sym_ctx) const {
-  if (!mangled || !mangled[0])
-    return ConstString();
+    // TODO: account for MSVC demangling scheme
+    using namespace llvm::itanium_demangle;
+    ManglingParser<NodeAllocator> main_parser(
+            mangled, mangled + std::strlen(mangled));
+    auto* node = main_parser.parse();
 
-  // TODO: can we just use the ItaniumPartialDemangler?
-  //       would need to return qualifiers/ref-qualifiers/ABI tag
-  using namespace llvm::itanium_demangle;
-  ManglingParser<NodeAllocator> main_parser(
-          mangled, mangled + std::strlen(mangled));
-  auto* node = main_parser.parse();
-  if (node == nullptr)
-    return ConstString();
-
-  assert(node->getKind() == Node::KFunctionEncoding);
-  FunctionEncoding* encoding = static_cast<FunctionEncoding*>(node);
-  Qualifiers        quals    = encoding->getCVQuals();
-  FunctionRefQual   refQual  = encoding->getRefQual();
-  NodeArray         params   = encoding->getParams();
-  auto const*       attrs    = encoding->getAttrs();
-
-  if (!sym_ctx.module_sp)
-    return ConstString();
-
-  lldb_private::SymbolFile *sym_file = sym_ctx.module_sp->GetSymbolFile();
-  if (!sym_file)
-    return ConstString();
-
-  encoding->dump();
-  std::vector<ConstString> alternates;
-  sym_file->GetMangledNamesForFunction(getFunctionName(node), alternates);
-
-  std::vector<ConstString> param_and_qual_matches;
-  std::vector<ConstString> param_matches;
-  for (size_t i = 0; i < alternates.size(); i++) {
-    ConstString alternate_mangled_name = alternates[i];
-
-    char const* alternate = alternate_mangled_name.AsCString();
-    ManglingParser<NodeAllocator> alternate_parser(
-            alternate, alternate + std::strlen(alternate));
-    if (auto* alt_node = alternate_parser.parse()) {
-      assert(alt_node->getKind() == Node::KFunctionEncoding);
-      FunctionEncoding* alt_encoding = static_cast<FunctionEncoding*>(alt_node);
-      Qualifiers        alt_quals    = alt_encoding->getCVQuals();
-      FunctionRefQual   alt_refQual  = alt_encoding->getRefQual();
-      NodeArray         alt_params   = alt_encoding->getParams();
-      auto const*       alt_attrs    = alt_encoding->getAttrs();
-      alt_encoding->dump();
-
-      if (params == alt_params) {
-        if (quals == alt_quals
-            && refQual == alt_refQual) {
-          // TODO: Do we want to check equality on ABI tags?
-          //       If so, the decl we use to generate IR should
-          //       have an AbiTagAttr attached
-          if (attrs && alt_attrs
-              && attrs->equals(alt_attrs)) {
-            // Perfect match. Return it.
-            llvm::errs() << "MATCHED WITH REF_EQUALITY FOR" << mangled << " vs " << alternate_mangled_name << '\n';
-            return alternate_mangled_name;
-          }
-        }
-
-        param_matches.push_back(alternate_mangled_name);
+    if (SymbolNameFitsToLanguage(mangled)) {
+      if (ConstString best_alternate =
+              FindBestAlternateFunctionMangledName(node, sc)) {
+        matches.push_back(best_alternate);
       }
     }
+
+    std::vector<ConstString> alternates =
+        GenerateAlternateFunctionManglings(name);
+    matches.insert(matches.end(), alternates.begin(), alternates.end());
+
+    // As a last-ditch fallback, try the base name for C++ names.  It's
+    // terrible, but the DWARF doesn't always encode "extern C" correctly.
+    if (char const* basename = getFunctionName(node))
+      matches.emplace_back(basename);
   }
 
-  // No perfect match. Return one of the approximate
-  // matches as a best match
-  if (param_matches.size())
-    return param_matches[0];
-
-  // No matches.
-  return ConstString();
+  return matches;
 }
 
 static void LoadLibCxxFormatters(lldb::TypeCategoryImplSP cpp_category_sp) {

@@ -217,9 +217,8 @@ private:
   void CollectCandidateCNames(std::vector<ConstString> &C_names,
                               ConstString name);
 
-  void CollectCandidateCPlusPlusNames(std::vector<ConstString> &CPP_names,
-                                      const std::vector<ConstString> &C_names,
-                                      const SymbolContext &sc);
+  std::vector<ConstString> CollectCandidateCPlusPlusNames(
+      const std::vector<ConstString> &C_names, const SymbolContext &sc);
 
   lldb::addr_t FindInSymbols(const std::vector<ConstString> &names,
                              const lldb_private::SymbolContext &sc,

@@ -207,6 +207,7 @@ public:
   /// This function should only return true if there is a high confidence
   /// that the name actually belongs to this language.
   virtual bool SymbolNameFitsToLanguage(Mangled name) const { return false; }
+  virtual bool SymbolNameFitsToLanguage(char const* mangled) const { return false; }
 
   // if an individual data formatter can apply to several types and cross a
   // language boundary it makes sense for individual languages to want to
@@ -261,6 +262,12 @@ public:
     return mangled.GetMangledName();
   }
 
+  virtual ConstString
+  GetDemangledFunctionNameWithoutArguments(char const* mangled) const { return {}; }
+
+  virtual std::vector<ConstString> GetAlternateCandidateNames(
+          std::vector<ConstString> const& candidates, SymbolContext const&) const { return {}; }
+
   virtual void GetExceptionResolverDescription(bool catch_on, bool throw_on,
                                                Stream &s);
 
@@ -308,12 +315,6 @@ public:
   virtual std::vector<ConstString>
   GenerateAlternateFunctionManglings(const ConstString mangled) const {
     return std::vector<ConstString>();
-  }
-
-  virtual ConstString
-  FindBestAlternateFunctionMangledName(char const* mangled,
-                                       const SymbolContext &sym_ctx) const {
-    return ConstString();
   }
 
 protected:

@@ -107,9 +107,14 @@ public:
   static llvm::StringRef GetPluginNameStatic() { return "cplusplus"; }
 
   bool SymbolNameFitsToLanguage(Mangled mangled) const override;
+  bool SymbolNameFitsToLanguage(char const* mangled) const override;
   
   bool DemangledNameContainsPath(llvm::StringRef path, 
                                  ConstString demangled) const override;
+
+  std::vector<ConstString> GetAlternateCandidateNames(
+          std::vector<ConstString> const& candidates,
+          SymbolContext const& sc) const override;
 
   ConstString
   GetDemangledFunctionNameWithoutArguments(Mangled mangled) const override;
@@ -134,9 +139,6 @@ public:
 
   std::vector<ConstString>
   GenerateAlternateFunctionManglings(const ConstString mangled) const override;
-
-  ConstString FindBestAlternateFunctionMangledName(
-      char const* mangled, const SymbolContext &sym_ctx) const override;
 
   // PluginInterface protocol
   llvm::StringRef GetPluginName() override { return GetPluginNameStatic(); }

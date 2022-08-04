@@ -311,7 +311,7 @@ public:
   }
 
   virtual ConstString
-  FindBestAlternateFunctionMangledName(const Mangled mangled,
+  FindBestAlternateFunctionMangledName(char const* mangled,
                                        const SymbolContext &sym_ctx) const {
     return ConstString();
   }

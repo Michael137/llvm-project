@@ -676,10 +676,11 @@ void IRExecutionUnit::CollectCandidateCPlusPlusNames(
     const std::vector<ConstString> &C_names, const SymbolContext &sc) {
   if (auto *cpp_lang = Language::FindPlugin(lldb::eLanguageTypeC_plus_plus)) {
     for (const ConstString &name : C_names) {
+      // TODO: is this Mangled object really needed?
       Mangled mangled(name);
       if (cpp_lang->SymbolNameFitsToLanguage(mangled)) {
         if (ConstString best_alternate =
-                cpp_lang->FindBestAlternateFunctionMangledName(mangled, sc)) {
+                cpp_lang->FindBestAlternateFunctionMangledName(name.AsCString(), sc)) {
           CPP_names.push_back(best_alternate);
         }
       }

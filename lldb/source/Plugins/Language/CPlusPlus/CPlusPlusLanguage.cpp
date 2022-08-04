@@ -511,17 +511,37 @@ std::vector<ConstString> CPlusPlusLanguage::GenerateAlternateFunctionManglings(
   return alternates;
 }
 
+static char *printNode(const llvm::itanium_demangle::Node *RootNode) {
+    llvm::itanium_demangle::OutputBuffer OB;
+  if (!initializeOutputBuffer(nullptr, nullptr, OB, 128))
+    return nullptr;
+  RootNode->print(OB);
+  OB += '\0';
+  return OB.getBuffer();
+}
+
+static char *getFunctionName(llvm::itanium_demangle::Node const* root) {
+  auto *Name = static_cast<llvm::itanium_demangle::FunctionEncoding const*>(root)->getName();
+  return printNode(Name);
+}
+
 ConstString CPlusPlusLanguage::FindBestAlternateFunctionMangledName(
-    const Mangled mangled, const SymbolContext &sym_ctx) const {
-  ConstString demangled = mangled.GetDemangledName();
-  if (!demangled)
+    char const* mangled, const SymbolContext &sym_ctx) const {
+  if (!mangled || !mangled[0])
     return ConstString();
 
-  CPlusPlusLanguage::MethodName cpp_name(demangled);
-  std::string scope_qualified_name = cpp_name.GetScopeQualifiedName();
-
-  if (!scope_qualified_name.size())
+  using namespace llvm::itanium_demangle;
+  ManglingParser<NodeAllocator> main_parser(
+          mangled, mangled + std::strlen(mangled));
+  auto* node = main_parser.parse();
+  if (node == nullptr)
     return ConstString();
+
+  assert(node->getKind() == Node::KFunctionEncoding);
+  FunctionEncoding* encoding = static_cast<FunctionEncoding*>(node);
+  Qualifiers        quals    = encoding->getCVQuals();
+  FunctionRefQual   refQual  = encoding->getRefQual();
+  NodeArray         params   = encoding->getParams();
 
   if (!sym_ctx.module_sp)
     return ConstString();
@@ -530,7 +550,11 @@ ConstString CPlusPlusLanguage::FindBestAlternateFunctionMangledName(
   if (!sym_file)
     return ConstString();
 
+  encoding->dump();
   std::vector<ConstString> alternates;
+  char const* scope_qual_view = getFunctionName(node);
+  llvm::errs() << "DEBUGGING: " << scope_qual_view << '\n';
+  std::string scope_qualified_name{scope_qual_view};
   sym_file->GetMangledNamesForFunction(scope_qualified_name, alternates);
 
   std::vector<ConstString> param_and_qual_matches;
@@ -538,76 +562,24 @@ ConstString CPlusPlusLanguage::FindBestAlternateFunctionMangledName(
   for (size_t i = 0; i < alternates.size(); i++) {
     ConstString alternate_mangled_name = alternates[i];
 
-    // Mangled mangled(alternate_mangled_name);
-    // ConstString demangled = mangled.GetDemangledName();
-
-    //CPlusPlusLanguage::MethodName alternate_cpp_name(demangled);
-    //if (!cpp_name.IsValid())
-    //  continue;
-
-    //if (alternate_cpp_name.GetArguments() == cpp_name.GetArguments()) {
-    //  if (alternate_cpp_name.GetQualifiers() == cpp_name.GetQualifiers())
-    //    param_and_qual_matches.push_back(alternate_mangled_name);
-    //  else
-    //    param_matches.push_back(alternate_mangled_name);
-    //}
-    
     // TODO: do we want to check equality on ABI tags?
     //       ABI tags can be found in FunctionEncoding::Atrs
-    using namespace llvm::itanium_demangle;
-    char const* main_mangled = mangled.GetMangledName().AsCString();
-    ManglingParser<NodeAllocator> main_parser(
-            main_mangled, main_mangled + std::strlen(main_mangled));
-    if (auto* node = main_parser.parse()) {
-      assert(node->getKind() == Node::KFunctionEncoding);
-      FunctionEncoding* encoding = static_cast<FunctionEncoding*>(node);
-      Qualifiers        quals    = encoding->getCVQuals();
-      FunctionRefQual   refQual  = encoding->getRefQual();
-      NodeArray         params   = encoding->getParams();
+    char const* alternate = alternate_mangled_name.AsCString();
+    ManglingParser<NodeAllocator> alternate_parser(
+            alternate, alternate + std::strlen(alternate));
+    if (auto* alt_node = alternate_parser.parse()) {
+      assert(alt_node->getKind() == Node::KFunctionEncoding);
+      FunctionEncoding* alt_encoding = static_cast<FunctionEncoding*>(alt_node);
+      Qualifiers        alt_quals    = alt_encoding->getCVQuals();
+      FunctionRefQual   alt_refQual  = alt_encoding->getRefQual();
+      NodeArray         alt_params   = alt_encoding->getParams();
 
-      bool argumentsMatch  = true;
-
-      char const* alternate = alternate_mangled_name.AsCString();
-      ManglingParser<NodeAllocator> alternate_parser(
-              alternate, alternate + std::strlen(alternate));
-      llvm::errs() << "DEBUGGING: About to start alternate_parser for " << alternate << '\n';
-      if (auto* alt_node = alternate_parser.parse()) {
-        assert(alt_node->getKind() == Node::KFunctionEncoding);
-        FunctionEncoding* alt_encoding = static_cast<FunctionEncoding*>(alt_node);
-        Qualifiers        alt_quals    = alt_encoding->getCVQuals();
-        FunctionRefQual   alt_refQual  = alt_encoding->getRefQual();
-        NodeArray         alt_params   = alt_encoding->getParams();
-
-        if (params.size() != alt_params.size())
-            continue;
-
-        for (size_t idx = 0; idx < params.size(); ++idx) {
-          auto* p1 = params[idx];
-          auto* p2 = alt_params[idx];
-          //assert(p1->getKind() == Node::KNameType);
-          //assert(p2->getKind() == Node::KNameType);
-          //llvm::errs() << static_cast<NameType*>(p1)->getName().begin()
-          //             << " != " << static_cast<NameType*>(p2)->getName().begin();
-
-          // TODO: need stronger equality on arguemtns? does this check qualifiers?
-          //if (static_cast<NameType*>(p1)->getName()
-          //    != static_cast<NameType*>(p2)->getName()) {
-          //  argumentsMatch = false;
-          //  break;
-          //}
-          if (p1->getBaseName() != p2->getBaseName()) {
-            argumentsMatch = false;
-            break;
-          }
-        }
-
-        if (argumentsMatch) {
-          if (quals == alt_quals
-              && refQual == alt_refQual) {
-            param_and_qual_matches.push_back(alternate_mangled_name);
-          } else {
-            param_matches.push_back(alternate_mangled_name);
-          }
+      if (params == alt_params) {
+        if (quals == alt_quals
+            && refQual == alt_refQual) {
+          param_and_qual_matches.push_back(alternate_mangled_name);
+        } else {
+          param_matches.push_back(alternate_mangled_name);
         }
       }
     }

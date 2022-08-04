@@ -136,7 +136,7 @@ public:
   GenerateAlternateFunctionManglings(const ConstString mangled) const override;
 
   ConstString FindBestAlternateFunctionMangledName(
-      const Mangled mangled, const SymbolContext &sym_ctx) const override;
+      char const* mangled, const SymbolContext &sym_ctx) const override;
 
   // PluginInterface protocol
   llvm::StringRef GetPluginName() override { return GetPluginNameStatic(); }

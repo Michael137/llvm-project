@@ -530,6 +530,8 @@ ConstString CPlusPlusLanguage::FindBestAlternateFunctionMangledName(
   if (!mangled || !mangled[0])
     return ConstString();
 
+  // TODO: can we just use the ItaniumPartialDemangler?
+  //       would need to return qualifiers/ref-qualifiers/ABI tag
   using namespace llvm::itanium_demangle;
   ManglingParser<NodeAllocator> main_parser(
           mangled, mangled + std::strlen(mangled));
@@ -542,6 +544,7 @@ ConstString CPlusPlusLanguage::FindBestAlternateFunctionMangledName(
   Qualifiers        quals    = encoding->getCVQuals();
   FunctionRefQual   refQual  = encoding->getRefQual();
   NodeArray         params   = encoding->getParams();
+  auto const*       attrs    = encoding->getAttrs();
 
   if (!sym_ctx.module_sp)
     return ConstString();
@@ -552,18 +555,13 @@ ConstString CPlusPlusLanguage::FindBestAlternateFunctionMangledName(
 
   encoding->dump();
   std::vector<ConstString> alternates;
-  char const* scope_qual_view = getFunctionName(node);
-  llvm::errs() << "DEBUGGING: " << scope_qual_view << '\n';
-  std::string scope_qualified_name{scope_qual_view};
-  sym_file->GetMangledNamesForFunction(scope_qualified_name, alternates);
+  sym_file->GetMangledNamesForFunction(getFunctionName(node), alternates);
 
   std::vector<ConstString> param_and_qual_matches;
   std::vector<ConstString> param_matches;
   for (size_t i = 0; i < alternates.size(); i++) {
     ConstString alternate_mangled_name = alternates[i];
 
-    // TODO: do we want to check equality on ABI tags?
-    //       ABI tags can be found in FunctionEncoding::Atrs
     char const* alternate = alternate_mangled_name.AsCString();
     ManglingParser<NodeAllocator> alternate_parser(
             alternate, alternate + std::strlen(alternate));
@@ -573,25 +571,35 @@ ConstString CPlusPlusLanguage::FindBestAlternateFunctionMangledName(
       Qualifiers        alt_quals    = alt_encoding->getCVQuals();
       FunctionRefQual   alt_refQual  = alt_encoding->getRefQual();
       NodeArray         alt_params   = alt_encoding->getParams();
+      auto const*       alt_attrs    = alt_encoding->getAttrs();
+      alt_encoding->dump();
 
       if (params == alt_params) {
         if (quals == alt_quals
             && refQual == alt_refQual) {
-          param_and_qual_matches.push_back(alternate_mangled_name);
-        } else {
-          param_matches.push_back(alternate_mangled_name);
+          // TODO: Do we want to check equality on ABI tags?
+          //       If so, the decl we use to generate IR should
+          //       have an AbiTagAttr attached
+          if (attrs && alt_attrs
+              && attrs->equals(alt_attrs)) {
+            // Perfect match. Return it.
+            llvm::errs() << "MATCHED WITH REF_EQUALITY FOR" << mangled << " vs " << alternate_mangled_name << '\n';
+            return alternate_mangled_name;
+          }
         }
+
+        param_matches.push_back(alternate_mangled_name);
       }
     }
   }
 
-  if (param_and_qual_matches.size())
-    return param_and_qual_matches[0]; // It is assumed that there will be only
-                                      // one!
-  else if (param_matches.size())
-    return param_matches[0]; // Return one of them as a best match
-  else
-    return ConstString();
+  // No perfect match. Return one of the approximate
+  // matches as a best match
+  if (param_matches.size())
+    return param_matches[0];
+
+  // No matches.
+  return ConstString();
 }
 
 static void LoadLibCxxFormatters(lldb::TypeCategoryImplSP cpp_category_sp) {

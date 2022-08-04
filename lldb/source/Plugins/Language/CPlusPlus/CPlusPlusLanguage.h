@@ -142,6 +142,13 @@ public:
 
   // PluginInterface protocol
   llvm::StringRef GetPluginName() override { return GetPluginNameStatic(); }
+
+private:
+  std::vector<ConstString> GetAlternateCandidateNamesForItanium(
+          std::vector<ConstString> const& candidates, SymbolContext const& sc) const;
+
+  std::vector<ConstString> GetAlternateCandidateNamesForMicrosoft(
+          std::vector<ConstString> const& candidates, SymbolContext const& sc) const;
 };
 
 } // namespace lldb_private

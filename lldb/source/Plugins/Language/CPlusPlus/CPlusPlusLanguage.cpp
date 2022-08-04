@@ -474,18 +474,17 @@ char const*getFunctionName(llvm::itanium_demangle::Node const* root) {
   return printNode(Name);
 }
 
-
 ConstString FindBestAlternateFunctionMangledName(
-    llvm::itanium_demangle::Node const* node, const SymbolContext &sym_ctx) {
-  using namespace llvm::itanium_demangle;
-  assert(node != nullptr);
-  assert(node->getKind() == Node::KFunctionEncoding);
+    const Mangled mangled, const SymbolContext &sym_ctx) {
+  ConstString demangled = mangled.GetDemangledName();
+  if (!demangled)
+    return ConstString();
 
-  auto const*     encoding = static_cast<FunctionEncoding const*>(node);
-  Qualifiers      quals    = encoding->getCVQuals();
-  FunctionRefQual refQual  = encoding->getRefQual();
-  NodeArray       params   = encoding->getParams();
-  auto const*     attrs    = encoding->getAttrs();
+  CPlusPlusLanguage::MethodName cpp_name(demangled);
+  std::string scope_qualified_name = cpp_name.GetScopeQualifiedName();
+
+  if (!scope_qualified_name.size())
+    return ConstString();
 
   if (!sym_ctx.module_sp)
     return ConstString();
@@ -495,7 +494,57 @@ ConstString FindBestAlternateFunctionMangledName(
     return ConstString();
 
   std::vector<ConstString> alternates;
+  sym_file->GetMangledNamesForFunction(scope_qualified_name, alternates);
+
+  std::vector<ConstString> param_and_qual_matches;
+  std::vector<ConstString> param_matches;
+  for (size_t i = 0; i < alternates.size(); i++) {
+    ConstString alternate_mangled_name = alternates[i];
+    Mangled mangled(alternate_mangled_name);
+    ConstString demangled = mangled.GetDemangledName();
+
+    CPlusPlusLanguage::MethodName alternate_cpp_name(demangled);
+    if (!cpp_name.IsValid())
+      continue;
+
+    if (alternate_cpp_name.GetArguments() == cpp_name.GetArguments()) {
+      if (alternate_cpp_name.GetQualifiers() == cpp_name.GetQualifiers())
+        param_and_qual_matches.push_back(alternate_mangled_name);
+      else
+        param_matches.push_back(alternate_mangled_name);
+    }
+  }
+
+  if (param_and_qual_matches.size())
+    return param_and_qual_matches[0]; // It is assumed that there will be only
+                                      // one!
+  else if (param_matches.size())
+    return param_matches[0]; // Return one of them as a best match
+  else
+    return ConstString();
+}
+
+ConstString FindBestAlternateFunctionMangledName(
+    llvm::itanium_demangle::Node const* node, const SymbolContext &sym_ctx) {
+  if (!sym_ctx.module_sp)
+    return ConstString();
+
+  lldb_private::SymbolFile *sym_file = sym_ctx.module_sp->GetSymbolFile();
+  if (!sym_file)
+    return ConstString();
+
+  std::vector<ConstString> alternates;
   sym_file->GetMangledNamesForFunction(getFunctionName(node), alternates);
+
+  using namespace llvm::itanium_demangle;
+  assert(node != nullptr);
+  assert(node->getKind() == Node::KFunctionEncoding);
+
+  auto const*     encoding = static_cast<FunctionEncoding const*>(node);
+  Qualifiers      quals    = encoding->getCVQuals();
+  FunctionRefQual refQual  = encoding->getRefQual();
+  NodeArray       params   = encoding->getParams();
+  auto const*     attrs    = encoding->getAttrs();
 
   std::vector<ConstString> param_and_qual_matches;
   std::vector<ConstString> param_matches;
@@ -593,16 +642,14 @@ std::vector<ConstString> CPlusPlusLanguage::GenerateAlternateFunctionManglings(
   return alternates;
 }
 
-std::vector<ConstString> CPlusPlusLanguage::GetAlternateCandidateNames(
+std::vector<ConstString> CPlusPlusLanguage::GetAlternateCandidateNamesForItanium(
         std::vector<ConstString> const& candidates, SymbolContext const& sc) const {
   std::vector<ConstString> matches;
-
   for (const ConstString &name : candidates) {
     char const* mangled = name.AsCString();
     if (!mangled || !mangled[0])
       continue;
 
-    // TODO: account for MSVC demangling scheme
     using namespace llvm::itanium_demangle;
     ManglingParser<NodeAllocator> main_parser(
             mangled, mangled + std::strlen(mangled));
@@ -626,6 +673,52 @@ std::vector<ConstString> CPlusPlusLanguage::GetAlternateCandidateNames(
   }
 
   return matches;
+}
+
+std::vector<ConstString> CPlusPlusLanguage::GetAlternateCandidateNamesForMicrosoft(
+        std::vector<ConstString> const& candidates, SymbolContext const& sc) const {
+  std::vector<ConstString> matches;
+  if (auto *cpp_lang = Language::FindPlugin(lldb::eLanguageTypeC_plus_plus)) {
+    for (const ConstString &name : candidates) {
+      Mangled mangled(name);
+      if (cpp_lang->SymbolNameFitsToLanguage(mangled)) {
+        if (ConstString best_alternate =
+                FindBestAlternateFunctionMangledName(mangled, sc)) {
+          matches.push_back(best_alternate);
+        }
+      }
+
+      std::vector<ConstString> alternates = GenerateAlternateFunctionManglings(name);
+      matches.insert(candidates.end(), alternates.begin(), alternates.end());
+
+      // As a last-ditch fallback, try the base name for C++ names.  It's
+      // terrible, but the DWARF doesn't always encode "extern C" correctly.
+      ConstString basename = GetDemangledFunctionNameWithoutArguments(mangled);
+      matches.push_back(basename);
+    }
+  }
+
+  return matches;
+}
+
+std::vector<ConstString> CPlusPlusLanguage::GetAlternateCandidateNames(
+        std::vector<ConstString> const& candidates, SymbolContext const& sc) const {
+  if (candidates.empty())
+    return {};
+
+  auto scheme = Mangled::GetManglingScheme(candidates[0].GetStringRef());
+  switch (scheme) {
+    case Mangled::eManglingSchemeMSVC:
+      return GetAlternateCandidateNamesForMicrosoft(candidates, sc);
+    case Mangled::eManglingSchemeItanium:
+      return GetAlternateCandidateNamesForItanium(candidates, sc);
+    case Mangled::eManglingSchemeNone:
+    case Mangled::eManglingSchemeRustV0:
+    case Mangled::eManglingSchemeD:
+      llvm_unreachable("eManglingSchemeNone was handled already");
+  }
+
+  return {};
 }
 
 static void LoadLibCxxFormatters(lldb::TypeCategoryImplSP cpp_category_sp) {

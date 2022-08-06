@@ -18,6 +18,8 @@
 
 #include "llvm/ADT/StringRef.h"
 #include "llvm/Demangle/ItaniumDemangle.h"
+#include "llvm/Support/Compiler.h"
+#include "llvm/Support/ErrorHandling.h"
 
 #include "lldb/Core/Mangled.h"
 #include "lldb/Core/Module.h"
@@ -510,6 +512,33 @@ std::vector<ConstString> CPlusPlusLanguage::GenerateAlternateFunctionManglings(
   return alternates;
 }
 
+char const *printNode(const llvm::itanium_demangle::Node *RootNode) {
+  llvm::itanium_demangle::OutputBuffer OB;
+
+  // Initial size of name buffer. Will get resized inside of
+  // 'OutputBuffer' if necessary.
+  constexpr size_t KInitBufferSize = 128;
+
+  if (!initializeOutputBuffer(nullptr, nullptr, OB, KInitBufferSize))
+    return nullptr;
+  RootNode->print(OB);
+  OB += '\0';
+  return OB.getBuffer();
+}
+
+char const *getFunctionName(llvm::itanium_demangle::Node const *root) {
+  using namespace llvm::itanium_demangle;
+
+  if (root->getKind() != Node::KFunctionEncoding)
+    return nullptr;
+
+  auto *Name = static_cast<FunctionEncoding const *>(root)->getName();
+
+  assert(Name != nullptr);
+
+  return printNode(Name);
+}
+
 static ConstString
 FindBestAlternateFunctionMangledName(const Mangled mangled,
                                      const SymbolContext &sym_ctx) {
@@ -559,6 +588,89 @@ FindBestAlternateFunctionMangledName(const Mangled mangled,
     return param_matches[0]; // Return one of them as a best match
   else
     return ConstString();
+}
+
+ConstString
+FindBestAlternateFunctionMangledName(llvm::itanium_demangle::Node const *node,
+                                     const SymbolContext &sym_ctx) {
+  if (!sym_ctx.module_sp)
+    return ConstString();
+
+  lldb_private::SymbolFile *sym_file = sym_ctx.module_sp->GetSymbolFile();
+  if (!sym_file)
+    return ConstString();
+
+  using namespace llvm::itanium_demangle;
+  assert(node != nullptr);
+
+  if (node->getKind() != Node::KFunctionEncoding)
+    return ConstString();
+
+  std::vector<ConstString> alternates;
+  sym_file->GetMangledNamesForFunction(getFunctionName(node), alternates);
+
+  auto const *encoding = static_cast<FunctionEncoding const *>(node);
+  Qualifiers quals = encoding->getCVQuals();
+  FunctionRefQual refQual = encoding->getRefQual();
+  NodeArray params = encoding->getParams();
+  auto const *attrs = encoding->getAttrs();
+
+  // Iterate over all candidate function names and
+  // find a match for the mangled function name
+  // represented by 'node'. We demangle each candidate
+  // into a mangle tree and compare it to the tree rooted
+  // at 'node'. We return a perfect match if we find one.
+  // Otherwise we collect all approximate matches and return
+  // one of them. A "match" is defined as:
+  //
+  // * Perfect match: parameters, CV-quals, reference-quals,
+  //                  attributes are all equal to those of
+  //                  the input node
+  //
+  // * Approximate match: parameters are equal to those of the
+  //                      input node
+  std::vector<ConstString> param_matches;
+  for (ConstString alternate_mangled_name : alternates) {
+    if (!alternate_mangled_name)
+      continue;
+
+    char const *alternate = alternate_mangled_name.GetCString();
+    const auto alternate_len = alternate_mangled_name.GetLength();
+    ManglingParser<NodeAllocator> alternate_parser(alternate,
+                                                   alternate + alternate_len);
+
+    if (auto const *alt_node = alternate_parser.parse()) {
+      assert(alt_node->getKind() == Node::KFunctionEncoding);
+      auto const *alt_encoding =
+          static_cast<FunctionEncoding const *>(alt_node);
+      Qualifiers alt_quals = alt_encoding->getCVQuals();
+      FunctionRefQual alt_refQual = alt_encoding->getRefQual();
+      NodeArray alt_params = alt_encoding->getParams();
+      auto const *alt_attrs = alt_encoding->getAttrs();
+
+      if (params == alt_params) {
+        if (quals == alt_quals && refQual == alt_refQual) {
+          if ((attrs && alt_attrs && attrs->equals(alt_attrs)) ||
+              (!attrs && !alt_attrs)) {
+            // Perfect match. Return it.
+            return alternate_mangled_name;
+          }
+        }
+
+        // Not a perfect match, but count matching parameters
+        // as an approximate match.
+        param_matches.push_back(alternate_mangled_name);
+      }
+    }
+  }
+
+  // No perfect match. Return one of the approximate
+  // matches as a best match.
+  if (param_matches.size())
+    return param_matches[0];
+
+  // No matches.
+  return ConstString();
 }
 
 static void LoadLibCxxFormatters(lldb::TypeCategoryImplSP cpp_category_sp) {
@@ -1407,27 +1519,85 @@ bool CPlusPlusLanguage::IsSourceFile(llvm::StringRef file_path) const {
   return file_path.contains("/usr/include/c++/");
 }
 
+void CPlusPlusLanguage::CollectAlternateFunctionNamesFromMangled(
+    std::vector<ConstString> &results, ConstString name,
+    const SymbolContext &sc) const {
+  Mangled mangled(name);
+  if (SymbolNameFitsToLanguage(mangled)) {
+    if (ConstString best_alternate =
+            FindBestAlternateFunctionMangledName(mangled, sc)) {
+      results.push_back(best_alternate);
+    }
+  }
+
+  std::vector<ConstString> alternates =
+      GenerateAlternateFunctionManglings(name);
+  results.insert(results.end(), alternates.begin(), alternates.end());
+
+  // As a last-ditch fallback, try the base name for C++ names.  It's
+  // terrible, but the DWARF doesn't always encode "extern C" correctly.
+  ConstString basename = GetDemangledFunctionNameWithoutArguments(mangled);
+  results.push_back(basename);
+}
+
+void CPlusPlusLanguage::CollectAlternateFunctionNamesItanium(
+    std::vector<ConstString> &results, ConstString name,
+    const SymbolContext &sc) const {
+  if (!name)
+    return;
+
+  char const *mangled = name.GetCString();
+  const auto mangled_len = name.GetLength();
+  using namespace llvm::itanium_demangle;
+  ManglingParser<NodeAllocator> parser(mangled, mangled + mangled_len);
+  auto const *node = parser.parse();
+
+  if (node && CPlusPlusLanguage::IsCPPMangledName(name.GetStringRef())) {
+    if (ConstString best_alternate =
+            FindBestAlternateFunctionMangledName(node, sc)) {
+      results.push_back(best_alternate);
+    }
+  }
+
+  std::vector<ConstString> alternates =
+      GenerateAlternateFunctionManglings(name);
+  results.insert(results.end(), alternates.begin(), alternates.end());
+
+  // As a last-ditch fallback, try the base name for C++ names.  It's
+  // terrible, but the DWARF doesn't always encode "extern C" correctly.
+  if (node) {
+    ConstString basename(getFunctionName(node));
+    results.push_back(basename);
+  }
+}
+
 std::vector<ConstString> CPlusPlusLanguage::CollectAlternateFunctionNames(
     const std::vector<ConstString> &mangled_names,
     const SymbolContext &sc) const {
   std::vector<ConstString> results;
   for (const ConstString &name : mangled_names) {
-    Mangled mangled(name);
-    if (SymbolNameFitsToLanguage(mangled)) {
-      if (ConstString best_alternate =
-              FindBestAlternateFunctionMangledName(mangled, sc)) {
-        results.push_back(best_alternate);
+    auto scheme = Mangled::GetManglingScheme(name.GetStringRef());
+    switch (scheme) {
+    case Mangled::ManglingScheme::eManglingSchemeItanium:
+      CollectAlternateFunctionNamesItanium(results, name, sc);
+      break;
+    case Mangled::ManglingScheme::eManglingSchemeNone:
+      // Macho-O symbols sometimes contain the non-standard
+      // double-underscore prefix which 'Mangled::GetManglingScheme'
+      // purposefully doesn't support.
+      if (name.GetStringRef().startswith("__Z")) {
+        CollectAlternateFunctionNamesItanium(results, name, sc);
+        break;
       }
+      LLVM_FALLTHROUGH;
+    case Mangled::ManglingScheme::eManglingSchemeMSVC:
+    case Mangled::ManglingScheme::eManglingSchemeRustV0:
+    case Mangled::ManglingScheme::eManglingSchemeD:
+      // We don't have a mangle tree API available. Fall back
+      // to parsing demangled function names to find alternates
+      CollectAlternateFunctionNamesFromMangled(results, name, sc);
+      break;
     }
-
-    std::vector<ConstString> alternates =
-        GenerateAlternateFunctionManglings(name);
-    results.insert(results.end(), alternates.begin(), alternates.end());
-
-    // As a last-ditch fallback, try the base name for C++ names.  It's
-    // terrible, but the DWARF doesn't always encode "extern C" correctly.
-    ConstString basename = GetDemangledFunctionNameWithoutArguments(mangled);
-    results.push_back(basename);
   }
 
   return results;

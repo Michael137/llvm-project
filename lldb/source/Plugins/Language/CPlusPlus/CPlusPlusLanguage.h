@@ -107,7 +107,7 @@ public:
   static llvm::StringRef GetPluginNameStatic() { return "cplusplus"; }
 
   bool SymbolNameFitsToLanguage(Mangled mangled) const override;
-  
+
   bool DemangledNameContainsPath(llvm::StringRef path, 
                                  ConstString demangled) const override;
 
@@ -141,6 +141,16 @@ public:
 
   // PluginInterface protocol
   llvm::StringRef GetPluginName() override { return GetPluginNameStatic(); }
+
+private:
+  void
+  CollectAlternateFunctionNamesFromMangled(std::vector<ConstString> &results,
+                                           ConstString name,
+                                           const SymbolContext &sc) const;
+
+  void CollectAlternateFunctionNamesItanium(std::vector<ConstString> &results,
+                                            ConstString name,
+                                            const SymbolContext &sc) const;
 };
 
 } // namespace lldb_private

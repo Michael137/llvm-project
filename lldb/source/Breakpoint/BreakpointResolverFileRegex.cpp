@@ -122,8 +122,9 @@ Searcher::CallbackReturn BreakpointResolverFileRegex::SearchCallback(
             sc_ctx
                 .GetFunctionName(
                     Mangled::NamePreference::ePreferDemangledWithoutArguments)
-                .AsCString());
-        if (!m_function_names.count(name)) {
+                .AsCString(""));
+
+        if (name.empty() || !m_function_names.count(name)) {
           sc_to_remove.push_back(i);
         }
       }

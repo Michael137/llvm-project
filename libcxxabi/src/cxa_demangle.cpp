@@ -57,6 +57,24 @@ const char *itanium_demangle::parse_discriminator(const char *first,
   return first;
 }
 
+bool itanium_demangle::Node::equals(Node const* Other) const {
+  assert(Other != nullptr);
+
+  if (K != Other->getKind())
+    return false;
+
+  if (Precedence != Other->getPrecedence())
+    return false;
+
+  switch (K) {
+#define NODE(X)                                                                                                        \
+  case K##X:                                                                                                           \
+    return *static_cast<const X*>(this) == *static_cast<const X*>(Other);
+#include "demangle/ItaniumNodes.def"
+  }
+  assert(0 && "unknown mangling node kind");
+}
+
 #ifndef NDEBUG
 namespace {
 struct DumpVisitor {

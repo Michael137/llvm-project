@@ -221,6 +221,18 @@ public:
   /// Visit the most-derived object corresponding to this object.
   template<typename Fn> void visit(Fn F) const;
 
+  /// Returns true if the tree rooted at this node is equivalent to
+  /// the tree rooted at the specified 'Root' node.
+  ///
+  /// Equivalence of two nodes N1 and N2 is defined as:
+  /// 1. N1.getKind() == N2.getKind()
+  /// 2. N1.getPrecedence() == N2.getPrecedence()
+  /// 3. N1 == N2 where '==' is defined by the
+  ///    kind of N1 and N2.
+  ///
+  /// Behaviour is undefined if 'Root == nullptr'.
+  bool equals(Node const *Root) const;
+
   // The following function is provided by all derived classes:
   //
   // Call F with arguments that, when passed to the constructor of this node,
@@ -331,6 +343,23 @@ public:
       FirstElement = false;
     }
   }
+
+  friend bool operator==(NodeArray const &LHS, NodeArray const &RHS) {
+    if (LHS.size() != RHS.size())
+      return false;
+
+    auto **IT1 = LHS.begin();
+    auto **IT2 = RHS.begin();
+    for (; IT1 != LHS.end(); ++IT1, ++IT2)
+      if (!(*IT1)->equals(*IT2))
+        return false;
+
+    return true;
+  }
+
+  friend bool operator!=(NodeArray const &LHS, NodeArray const &RHS) {
+    return !(LHS == RHS);
+  }
 };
 
 struct NodeArrayNode : Node {
@@ -340,6 +369,14 @@ struct NodeArrayNode : Node {
   template<typename Fn> void match(Fn F) const { F(Array); }
 
   void printLeft(OutputBuffer &OB) const override { Array.printWithComma(OB); }
+
+  friend bool operator==(NodeArrayNode const &LHS, NodeArrayNode const &RHS) {
+    return LHS.Array == RHS.Array;
+  }
+
+  friend bool operator!=(NodeArrayNode const &LHS, NodeArrayNode const &RHS) {
+    return !(LHS == RHS);
+  }
 };
 
 class DotSuffix final : public Node {
@@ -357,6 +394,17 @@ public:
     OB += " (";
     OB += Suffix;
     OB += ")";
+  }
+
+  friend bool operator==(DotSuffix const &LHS, DotSuffix const &RHS) {
+    assert(LHS.Prefix != nullptr);
+    assert(RHS.Prefix != nullptr);
+
+    return LHS.Suffix == RHS.Suffix && LHS.Prefix->equals(RHS.Prefix);
+  }
+
+  friend bool operator!=(DotSuffix const &LHS, DotSuffix const &RHS) {
+    return !(LHS == RHS);
   }
 };
 
@@ -377,6 +425,28 @@ public:
     OB += Ext;
     if (TA != nullptr)
       TA->print(OB);
+  }
+
+  friend bool operator==(VendorExtQualType const &LHS,
+                         VendorExtQualType const &RHS) {
+    assert(LHS.Ty != nullptr);
+    assert(RHS.Ty != nullptr);
+
+    if (!(LHS.Ext == RHS.Ext))
+      return false;
+
+    if (!LHS.Ty->equals(RHS.Ty))
+      return false;
+
+    if (LHS.TA != nullptr && RHS.TA != nullptr)
+      return LHS.TA->equals(RHS.TA);
+
+    return LHS.TA == nullptr && RHS.TA == nullptr;
+  }
+
+  friend bool operator!=(VendorExtQualType const &LHS,
+                         VendorExtQualType const &RHS) {
+    return !(LHS == RHS);
   }
 };
 
@@ -435,6 +505,17 @@ public:
   }
 
   void printRight(OutputBuffer &OB) const override { Child->printRight(OB); }
+
+  friend bool operator==(QualType const &LHS, QualType const &RHS) {
+    assert(LHS.Child != nullptr);
+    assert(RHS.Child != nullptr);
+
+    return LHS.Quals == RHS.Quals && LHS.Child->equals(RHS.Child);
+  }
+
+  friend bool operator!=(QualType const &LHS, QualType const &RHS) {
+    return !(LHS == RHS);
+  }
 };
 
 class ConversionOperatorType final : public Node {
@@ -449,6 +530,16 @@ public:
   void printLeft(OutputBuffer &OB) const override {
     OB += "operator ";
     Ty->print(OB);
+  }
+
+  friend bool operator==(ConversionOperatorType const &LHS,
+                         ConversionOperatorType const &RHS) {
+    return LHS.Ty->equals(RHS.Ty);
+  }
+
+  friend bool operator!=(ConversionOperatorType const &LHS,
+                         ConversionOperatorType const &RHS) {
+    return !(LHS == RHS);
   }
 };
 
@@ -466,6 +557,16 @@ public:
     Ty->printLeft(OB);
     OB += Postfix;
   }
+
+  friend bool operator==(PostfixQualifiedType const &LHS,
+                         PostfixQualifiedType const &RHS) {
+    return LHS.Postfix == RHS.Postfix && LHS.Ty->equals(RHS.Ty);
+  }
+
+  friend bool operator!=(PostfixQualifiedType const &LHS,
+                         PostfixQualifiedType const &RHS) {
+    return !(LHS == RHS);
+  }
 };
 
 class NameType final : public Node {
@@ -480,6 +581,14 @@ public:
   StringView getBaseName() const override { return Name; }
 
   void printLeft(OutputBuffer &OB) const override { OB += Name; }
+
+  friend bool operator==(NameType const &LHS, NameType const &RHS) {
+    return LHS.Name == RHS.Name;
+  }
+
+  friend bool operator!=(NameType const &LHS, NameType const &RHS) {
+    return !(LHS == RHS);
+  }
 };
 
 class BitIntType final : public Node {
@@ -500,6 +609,14 @@ public:
     Size->printAsOperand(OB);
     OB.printClose();
   }
+
+  friend bool operator==(BitIntType const &LHS, BitIntType const &RHS) {
+    return LHS.Signed == RHS.Signed && LHS.Size->equals(RHS.Size);
+  }
+
+  friend bool operator!=(BitIntType const &LHS, BitIntType const &RHS) {
+    return !(LHS == RHS);
+  }
 };
 
 class ElaboratedTypeSpefType : public Node {
@@ -515,6 +632,16 @@ public:
     OB += Kind;
     OB += ' ';
     Child->print(OB);
+  }
+
+  friend bool operator==(ElaboratedTypeSpefType const &LHS,
+                         ElaboratedTypeSpefType const &RHS) {
+    return LHS.Kind == RHS.Kind && LHS.Child->equals(RHS.Child);
+  }
+
+  friend bool operator!=(ElaboratedTypeSpefType const &LHS,
+                         ElaboratedTypeSpefType const &RHS) {
+    return !(LHS == RHS);
   }
 };
 
@@ -535,6 +662,14 @@ struct AbiTagAttr : Node {
     OB += Tag;
     OB += "]";
   }
+
+  friend bool operator==(AbiTagAttr const &LHS, AbiTagAttr const &RHS) {
+    return LHS.Tag == RHS.Tag && LHS.Base->equals(RHS.Base);
+  }
+
+  friend bool operator!=(AbiTagAttr const &LHS, AbiTagAttr const &RHS) {
+    return !(LHS == RHS);
+  }
 };
 
 class EnableIfAttr : public Node {
@@ -549,6 +684,14 @@ public:
     OB += " [enable_if:";
     Conditions.printWithComma(OB);
     OB += ']';
+  }
+
+  friend bool operator==(EnableIfAttr const &LHS, EnableIfAttr const &RHS) {
+    return LHS.Conditions == RHS.Conditions;
+  }
+
+  friend bool operator!=(EnableIfAttr const &LHS, EnableIfAttr const &RHS) {
+    return !(LHS == RHS);
   }
 };
 
@@ -574,6 +717,14 @@ public:
     OB += "<";
     OB += Protocol;
     OB += ">";
+  }
+
+  friend bool operator==(ObjCProtoName const &LHS, ObjCProtoName const &RHS) {
+    return LHS.Protocol == RHS.Protocol && LHS.Ty->equals(RHS.Ty);
+  }
+
+  friend bool operator!=(ObjCProtoName const &LHS, ObjCProtoName const &RHS) {
+    return !(LHS == RHS);
   }
 };
 
@@ -616,6 +767,14 @@ public:
         OB += ")";
       Pointee->printRight(OB);
     }
+  }
+
+  friend bool operator==(PointerType const &LHS, PointerType const &RHS) {
+    return LHS.Pointee->equals(RHS.Pointee);
+  }
+
+  friend bool operator!=(PointerType const &LHS, PointerType const &RHS) {
+    return !(LHS == RHS);
   }
 };
 
@@ -699,6 +858,14 @@ public:
       OB += ")";
     Collapsed.second->printRight(OB);
   }
+
+  friend bool operator==(ReferenceType const &LHS, ReferenceType const &RHS) {
+    return LHS.RK == RHS.RK && LHS.Pointee->equals(RHS.Pointee);
+  }
+
+  friend bool operator!=(ReferenceType const &LHS, ReferenceType const &RHS) {
+    return !(LHS == RHS);
+  }
 };
 
 class PointerToMemberType final : public Node {
@@ -731,6 +898,17 @@ public:
       OB += ")";
     MemberType->printRight(OB);
   }
+
+  friend bool operator==(PointerToMemberType const &LHS,
+                         PointerToMemberType const &RHS) {
+    return LHS.ClassType->equals(RHS.ClassType) &&
+           LHS.MemberType->equals(RHS.MemberType);
+  }
+
+  friend bool operator!=(PointerToMemberType const &LHS,
+                         PointerToMemberType const &RHS) {
+    return !(LHS == RHS);
+  }
 };
 
 class ArrayType final : public Node {
@@ -759,6 +937,14 @@ public:
       Dimension->print(OB);
     OB += "]";
     Base->printRight(OB);
+  }
+
+  friend bool operator==(ArrayType const &LHS, ArrayType const &RHS) {
+    return LHS.Base->equals(RHS.Base) && LHS.Dimension->equals(RHS.Dimension);
+  }
+
+  friend bool operator!=(ArrayType const &LHS, ArrayType const &RHS) {
+    return !(LHS == RHS);
   }
 };
 
@@ -820,6 +1006,16 @@ public:
       ExceptionSpec->print(OB);
     }
   }
+
+  friend bool operator==(FunctionType const &LHS, FunctionType const &RHS) {
+    return LHS.CVQuals == RHS.CVQuals && LHS.RefQual == RHS.RefQual &&
+           LHS.Params == RHS.Params && LHS.Ret->equals(RHS.Ret) &&
+           LHS.ExceptionSpec->equals(RHS.ExceptionSpec);
+  }
+
+  friend bool operator!=(FunctionType const &LHS, FunctionType const &RHS) {
+    return !(LHS == RHS);
+  }
 };
 
 class NoexceptSpec : public Node {
@@ -834,6 +1030,14 @@ public:
     OB.printOpen();
     E->printAsOperand(OB);
     OB.printClose();
+  }
+
+  friend bool operator==(NoexceptSpec const &LHS, NoexceptSpec const &RHS) {
+    return LHS.E->equals(RHS.E);
+  }
+
+  friend bool operator!=(NoexceptSpec const &LHS, NoexceptSpec const &RHS) {
+    return !(LHS == RHS);
   }
 };
 
@@ -850,6 +1054,16 @@ public:
     OB.printOpen();
     Types.printWithComma(OB);
     OB.printClose();
+  }
+
+  friend bool operator==(DynamicExceptionSpec const &LHS,
+                         DynamicExceptionSpec const &RHS) {
+    return LHS.Types == RHS.Types;
+  }
+
+  friend bool operator!=(DynamicExceptionSpec const &LHS,
+                         DynamicExceptionSpec const &RHS) {
+    return !(LHS == RHS);
   }
 };
 
@@ -917,6 +1131,42 @@ public:
     if (Attrs != nullptr)
       Attrs->print(OB);
   }
+
+  friend bool operator==(FunctionEncoding const &LHS,
+                         FunctionEncoding const &RHS) {
+    assert(LHS.Name != nullptr);
+    assert(RHS.Name != nullptr);
+
+    if (LHS.CVQuals != RHS.CVQuals)
+      return false;
+
+    if (LHS.RefQual != RHS.RefQual)
+      return false;
+
+    if (!LHS.Name->equals(RHS.Name))
+      return false;
+
+    if (!!LHS.Ret != !!RHS.Ret)
+      return false;
+
+    if (LHS.Ret)
+      if (!LHS.Ret->equals(RHS.Ret))
+        return false;
+
+    if (!!LHS.Attrs != !!RHS.Attrs)
+      return false;
+
+    if (LHS.Attrs)
+      if (!LHS.Attrs->equals(RHS.Attrs))
+        return false;
+
+    return LHS.Params == RHS.Params;
+  }
+
+  friend bool operator!=(FunctionEncoding const &LHS,
+                         FunctionEncoding const &RHS) {
+    return !(LHS == RHS);
+  }
 };
 
 class LiteralOperator : public Node {
@@ -931,6 +1181,19 @@ public:
   void printLeft(OutputBuffer &OB) const override {
     OB += "operator\"\" ";
     OpName->print(OB);
+  }
+
+  friend bool operator==(LiteralOperator const &LHS,
+                         LiteralOperator const &RHS) {
+    assert(LHS.OpName != nullptr);
+    assert(RHS.OpName != nullptr);
+
+    return LHS.OpName->equals(RHS.OpName);
+  }
+
+  friend bool operator!=(LiteralOperator const &LHS,
+                         LiteralOperator const &RHS) {
+    return !(LHS == RHS);
   }
 };
 
@@ -947,6 +1210,17 @@ public:
   void printLeft(OutputBuffer &OB) const override {
     OB += Special;
     Child->print(OB);
+  }
+
+  friend bool operator==(SpecialName const &LHS, SpecialName const &RHS) {
+    assert(LHS.Child != nullptr);
+    assert(RHS.Child != nullptr);
+
+    return LHS.Special == RHS.Special && LHS.Child->equals(RHS.Child);
+  }
+
+  friend bool operator!=(SpecialName const &LHS, SpecialName const &RHS) {
+    return !(LHS == RHS);
   }
 };
 
@@ -967,6 +1241,23 @@ public:
     OB += "-in-";
     SecondType->print(OB);
   }
+
+  friend bool operator==(CtorVtableSpecialName const &LHS,
+                         CtorVtableSpecialName const &RHS) {
+    assert(LHS.FirstType != nullptr);
+    assert(RHS.FirstType != nullptr);
+
+    assert(LHS.SecondType != nullptr);
+    assert(RHS.SecondType != nullptr);
+
+    return LHS.FirstType->equals(RHS.FirstType) &&
+           LHS.SecondType->equals(RHS.SecondType);
+  }
+
+  friend bool operator!=(CtorVtableSpecialName const &LHS,
+                         CtorVtableSpecialName const &RHS) {
+    return !(LHS == RHS);
+  }
 };
 
 struct NestedName : Node {
@@ -984,6 +1275,20 @@ struct NestedName : Node {
     Qual->print(OB);
     OB += "::";
     Name->print(OB);
+  }
+
+  friend bool operator==(NestedName const &LHS, NestedName const &RHS) {
+    assert(LHS.Qual != nullptr);
+    assert(RHS.Qual != nullptr);
+
+    assert(LHS.Name != nullptr);
+    assert(RHS.Name != nullptr);
+
+    return LHS.Qual->equals(RHS.Qual) && LHS.Name->equals(RHS.Name);
+  }
+
+  friend bool operator!=(NestedName const &LHS, NestedName const &RHS) {
+    return !(LHS == RHS);
   }
 };
 
@@ -1007,6 +1312,27 @@ struct ModuleName : Node {
       OB += IsPartition ? ':' : '.';
     Name->print(OB);
   }
+
+  friend bool operator==(ModuleName const &LHS, ModuleName const &RHS) {
+    assert(LHS.Name != nullptr);
+    assert(RHS.Name != nullptr);
+
+    if (LHS.IsPartition != RHS.IsPartition)
+      return false;
+
+    if (!!LHS.Parent != !!RHS.Parent)
+      return false;
+
+    if (LHS.Parent)
+      if (!LHS.Parent->equals(RHS.Parent))
+        return false;
+
+    return LHS.Name->equals(RHS.Name);
+  }
+
+  friend bool operator!=(ModuleName const &LHS, ModuleName const &RHS) {
+    return !(LHS == RHS);
+  }
 };
 
 struct ModuleEntity : Node {
@@ -1025,6 +1351,14 @@ struct ModuleEntity : Node {
     OB += '@';
     Module->print(OB);
   }
+
+  friend bool operator==(ModuleEntity const &LHS, ModuleEntity const &RHS) {
+    return LHS.Module->equals(RHS.Module) && LHS.Name->equals(RHS.Name);
+  }
+
+  friend bool operator!=(ModuleEntity const &LHS, ModuleEntity const &RHS) {
+    return !(LHS == RHS);
+  }
 };
 
 struct LocalName : Node {
@@ -1040,6 +1374,20 @@ struct LocalName : Node {
     Encoding->print(OB);
     OB += "::";
     Entity->print(OB);
+  }
+
+  friend bool operator==(LocalName const &LHS, LocalName const &RHS) {
+    assert(LHS.Encoding != nullptr);
+    assert(RHS.Encoding != nullptr);
+
+    assert(LHS.Entity != nullptr);
+    assert(RHS.Entity != nullptr);
+
+    return LHS.Encoding->equals(RHS.Encoding) && LHS.Entity->equals(RHS.Entity);
+  }
+
+  friend bool operator!=(LocalName const &LHS, LocalName const &RHS) {
+    return !(LHS == RHS);
   }
 };
 
@@ -1061,6 +1409,20 @@ public:
     OB += "::";
     Name->print(OB);
   }
+
+  friend bool operator==(QualifiedName const &LHS, QualifiedName const &RHS) {
+    assert(LHS.Qualifier != nullptr);
+    assert(RHS.Qualifier != nullptr);
+
+    assert(LHS.Name != nullptr);
+    assert(RHS.Name != nullptr);
+
+    return LHS.Qualifier->equals(RHS.Qualifier) && LHS.Name->equals(RHS.Name);
+  }
+
+  friend bool operator!=(QualifiedName const &LHS, QualifiedName const &RHS) {
+    return !(LHS == RHS);
+  }
 };
 
 class VectorType final : public Node {
@@ -1080,6 +1442,15 @@ public:
       Dimension->print(OB);
     OB += "]";
   }
+
+  friend bool operator==(VectorType const &LHS, VectorType const &RHS) {
+    return LHS.BaseType->equals(RHS.BaseType) &&
+           LHS.Dimension->equals(RHS.Dimension);
+  }
+
+  friend bool operator!=(VectorType const &LHS, VectorType const &RHS) {
+    return !(LHS == RHS);
+  }
 };
 
 class PixelVectorType final : public Node {
@@ -1097,6 +1468,16 @@ public:
     Dimension->print(OB);
     OB += "]";
   }
+
+  friend bool operator==(PixelVectorType const &LHS,
+                         PixelVectorType const &RHS) {
+    return LHS.Dimension->equals(RHS.Dimension);
+  }
+
+  friend bool operator!=(PixelVectorType const &LHS,
+                         PixelVectorType const &RHS) {
+    return !(LHS == RHS);
+  }
 };
 
 class BinaryFPType final : public Node {
@@ -1111,6 +1492,14 @@ public:
   void printLeft(OutputBuffer &OB) const override {
     OB += "_Float";
     Dimension->print(OB);
+  }
+
+  friend bool operator==(BinaryFPType const &LHS, BinaryFPType const &RHS) {
+    return LHS.Dimension->equals(RHS.Dimension);
+  }
+
+  friend bool operator!=(BinaryFPType const &LHS, BinaryFPType const &RHS) {
+    return !(LHS == RHS);
   }
 };
 
@@ -1147,6 +1536,16 @@ public:
     if (Index > 0)
       OB << Index - 1;
   }
+
+  friend bool operator==(SyntheticTemplateParamName const &LHS,
+                         SyntheticTemplateParamName const &RHS) {
+    return LHS.Kind == RHS.Kind && LHS.Index == RHS.Index;
+  }
+
+  friend bool operator!=(SyntheticTemplateParamName const &LHS,
+                         SyntheticTemplateParamName const &RHS) {
+    return !(LHS == RHS);
+  }
 };
 
 /// A template type parameter declaration, 'typename T'.
@@ -1162,6 +1561,16 @@ public:
   void printLeft(OutputBuffer &OB) const override { OB += "typename "; }
 
   void printRight(OutputBuffer &OB) const override { Name->print(OB); }
+
+  friend bool operator==(TypeTemplateParamDecl const &LHS,
+                         TypeTemplateParamDecl const &RHS) {
+    return LHS.Name->equals(RHS.Name);
+  }
+
+  friend bool operator!=(TypeTemplateParamDecl const &LHS,
+                         TypeTemplateParamDecl const &RHS) {
+    return !(LHS == RHS);
+  }
 };
 
 /// A non-type template parameter declaration, 'int N'.
@@ -1184,6 +1593,16 @@ public:
   void printRight(OutputBuffer &OB) const override {
     Name->print(OB);
     Type->printRight(OB);
+  }
+
+  friend bool operator==(NonTypeTemplateParamDecl const &LHS,
+                         NonTypeTemplateParamDecl const &RHS) {
+    return LHS.Name->equals(RHS.Name) && LHS.Type->equals(RHS.Type);
+  }
+
+  friend bool operator!=(NonTypeTemplateParamDecl const &LHS,
+                         NonTypeTemplateParamDecl const &RHS) {
+    return !(LHS == RHS);
   }
 };
 
@@ -1208,6 +1627,16 @@ public:
   }
 
   void printRight(OutputBuffer &OB) const override { Name->print(OB); }
+
+  friend bool operator==(TemplateTemplateParamDecl const &LHS,
+                         TemplateTemplateParamDecl const &RHS) {
+    return LHS.Name->equals(RHS.Name) && LHS.Params == RHS.Params;
+  }
+
+  friend bool operator!=(TemplateTemplateParamDecl const &LHS,
+                         TemplateTemplateParamDecl const &RHS) {
+    return !(LHS == RHS);
+  }
 };
 
 /// A template parameter pack declaration, 'typename ...T'.
@@ -1226,6 +1655,16 @@ public:
   }
 
   void printRight(OutputBuffer &OB) const override { Param->printRight(OB); }
+
+  friend bool operator==(TemplateParamPackDecl const &LHS,
+                         TemplateParamPackDecl const &RHS) {
+    return LHS.Param->equals(RHS.Param);
+  }
+
+  friend bool operator!=(TemplateParamPackDecl const &LHS,
+                         TemplateParamPackDecl const &RHS) {
+    return !(LHS == RHS);
+  }
 };
 
 /// An unexpanded parameter pack (either in the expression or type context). If
@@ -1300,6 +1739,14 @@ public:
     if (Idx < Data.size())
       Data[Idx]->printRight(OB);
   }
+
+  friend bool operator==(ParameterPack const &LHS, ParameterPack const &RHS) {
+    return LHS.Data == RHS.Data;
+  }
+
+  friend bool operator!=(ParameterPack const &LHS, ParameterPack const &RHS) {
+    return !(LHS == RHS);
+  }
 };
 
 /// A variadic template argument. This node represents an occurrence of
@@ -1319,6 +1766,16 @@ public:
 
   void printLeft(OutputBuffer &OB) const override {
     Elements.printWithComma(OB);
+  }
+
+  friend bool operator==(TemplateArgumentPack const &LHS,
+                         TemplateArgumentPack const &RHS) {
+    return LHS.Elements == RHS.Elements;
+  }
+
+  friend bool operator!=(TemplateArgumentPack const &LHS,
+                         TemplateArgumentPack const &RHS) {
+    return !(LHS == RHS);
   }
 };
 
@@ -1366,6 +1823,16 @@ public:
       Child->print(OB);
     }
   }
+
+  friend bool operator==(ParameterPackExpansion const &LHS,
+                         ParameterPackExpansion const &RHS) {
+    return LHS.Child->equals(RHS.Child);
+  }
+
+  friend bool operator!=(ParameterPackExpansion const &LHS,
+                         ParameterPackExpansion const &RHS) {
+    return !(LHS == RHS);
+  }
 };
 
 class TemplateArgs final : public Node {
@@ -1383,6 +1850,14 @@ public:
     OB += "<";
     Params.printWithComma(OB);
     OB += ">";
+  }
+
+  friend bool operator==(TemplateArgs const &LHS, TemplateArgs const &RHS) {
+    return LHS.Params == RHS.Params;
+  }
+
+  friend bool operator!=(TemplateArgs const &LHS, TemplateArgs const &RHS) {
+    return !(LHS == RHS);
   }
 };
 
@@ -1461,6 +1936,23 @@ struct ForwardTemplateReference : Node {
     ScopedOverride<bool> SavePrinting(Printing, true);
     Ref->printRight(OB);
   }
+
+  friend bool operator==(ForwardTemplateReference const &LHS,
+                         ForwardTemplateReference const &RHS) {
+    if (LHS.Index != RHS.Index)
+      return false;
+
+    // Ignore 'Printing' member
+    if (LHS.Ref != nullptr && RHS.Ref != nullptr)
+      return LHS.Ref->equals(RHS.Ref);
+
+    return LHS.Ref == nullptr && RHS.Ref == nullptr;
+  }
+
+  friend bool operator!=(ForwardTemplateReference const &LHS,
+                         ForwardTemplateReference const &RHS) {
+    return !(LHS == RHS);
+  }
 };
 
 struct NameWithTemplateArgs : Node {
@@ -1479,6 +1971,17 @@ struct NameWithTemplateArgs : Node {
     Name->print(OB);
     TemplateArgs->print(OB);
   }
+
+  friend bool operator==(NameWithTemplateArgs const &LHS,
+                         NameWithTemplateArgs const &RHS) {
+    return LHS.Name->equals(RHS.Name) &&
+           LHS.TemplateArgs->equals(RHS.TemplateArgs);
+  }
+
+  friend bool operator!=(NameWithTemplateArgs const &LHS,
+                         NameWithTemplateArgs const &RHS) {
+    return !(LHS == RHS);
+  }
 };
 
 class GlobalQualifiedName final : public Node {
@@ -1495,6 +1998,16 @@ public:
   void printLeft(OutputBuffer &OB) const override {
     OB += "::";
     Child->print(OB);
+  }
+
+  friend bool operator==(GlobalQualifiedName const &LHS,
+                         GlobalQualifiedName const &RHS) {
+    return LHS.Child->equals(RHS.Child);
+  }
+
+  friend bool operator!=(GlobalQualifiedName const &LHS,
+                         GlobalQualifiedName const &RHS) {
+    return !(LHS == RHS);
   }
 };
 
@@ -1554,6 +2067,16 @@ private:
       OB << ">";
     }
   }
+
+  friend bool operator==(ExpandedSpecialSubstitution const &LHS,
+                         ExpandedSpecialSubstitution const &RHS) {
+    return LHS.SSK == RHS.SSK;
+  }
+
+  friend bool operator!=(ExpandedSpecialSubstitution const &LHS,
+                         ExpandedSpecialSubstitution const &RHS) {
+    return !(LHS == RHS);
+  }
 };
 
 class SpecialSubstitution final : public ExpandedSpecialSubstitution {
@@ -1599,6 +2122,18 @@ public:
       OB += "~";
     OB += Basename->getBaseName();
   }
+
+  friend bool operator==(CtorDtorName const &LHS, CtorDtorName const &RHS) {
+    assert(LHS.Basename != nullptr);
+    assert(RHS.Basename != nullptr);
+
+    return LHS.IsDtor == RHS.IsDtor && LHS.Variant == RHS.Variant &&
+           LHS.Basename->equals(RHS.Basename);
+  }
+
+  friend bool operator!=(CtorDtorName const &LHS, CtorDtorName const &RHS) {
+    return !(LHS == RHS);
+  }
 };
 
 class DtorName : public Node {
@@ -1612,6 +2147,17 @@ public:
   void printLeft(OutputBuffer &OB) const override {
     OB += "~";
     Base->printLeft(OB);
+  }
+
+  friend bool operator==(DtorName const &LHS, DtorName const &RHS) {
+    assert(LHS.Base != nullptr);
+    assert(RHS.Base != nullptr);
+
+    return LHS.Base->equals(RHS.Base);
+  }
+
+  friend bool operator!=(DtorName const &LHS, DtorName const &RHS) {
+    return !(LHS == RHS);
   }
 };
 
@@ -1627,6 +2173,16 @@ public:
     OB += "'unnamed";
     OB += Count;
     OB += "\'";
+  }
+
+  friend bool operator==(UnnamedTypeName const &LHS,
+                         UnnamedTypeName const &RHS) {
+    return LHS.Count == RHS.Count;
+  }
+
+  friend bool operator!=(UnnamedTypeName const &LHS,
+                         UnnamedTypeName const &RHS) {
+    return !(LHS == RHS);
   }
 };
 
@@ -1663,6 +2219,17 @@ public:
     OB += "\'";
     printDeclarator(OB);
   }
+
+  friend bool operator==(ClosureTypeName const &LHS,
+                         ClosureTypeName const &RHS) {
+    return LHS.TemplateParams == RHS.TemplateParams &&
+           LHS.Params == RHS.Params && LHS.Count == RHS.Count;
+  }
+
+  friend bool operator!=(ClosureTypeName const &LHS,
+                         ClosureTypeName const &RHS) {
+    return !(LHS == RHS);
+  }
 };
 
 class StructuredBindingName : public Node {
@@ -1677,6 +2244,16 @@ public:
     OB.printOpen('[');
     Bindings.printWithComma(OB);
     OB.printClose(']');
+  }
+
+  friend bool operator==(StructuredBindingName const &LHS,
+                         StructuredBindingName const &RHS) {
+    return LHS.Bindings == RHS.Bindings;
+  }
+
+  friend bool operator!=(StructuredBindingName const &LHS,
+                         StructuredBindingName const &RHS) {
+    return !(LHS == RHS);
   }
 };
 
@@ -1714,6 +2291,15 @@ public:
     if (ParenAll)
       OB.printClose();
   }
+
+  friend bool operator==(BinaryExpr const &Left, BinaryExpr const &Right) {
+    return Left.InfixOperator == Right.InfixOperator &&
+           Left.LHS->equals(Right.LHS) && Left.RHS->equals(Right.RHS);
+  }
+
+  friend bool operator!=(BinaryExpr const &Left, BinaryExpr const &Right) {
+    return !(Left == Right);
+  }
 };
 
 class ArraySubscriptExpr : public Node {
@@ -1734,6 +2320,16 @@ public:
     Op2->printAsOperand(OB);
     OB.printClose(']');
   }
+
+  friend bool operator==(ArraySubscriptExpr const &LHS,
+                         ArraySubscriptExpr const &RHS) {
+    return LHS.Op1->equals(RHS.Op1) && LHS.Op2->equals(RHS.Op2);
+  }
+
+  friend bool operator!=(ArraySubscriptExpr const &LHS,
+                         ArraySubscriptExpr const &RHS) {
+    return !(LHS == RHS);
+  }
 };
 
 class PostfixExpr : public Node {
@@ -1751,6 +2347,14 @@ public:
   void printLeft(OutputBuffer &OB) const override {
     Child->printAsOperand(OB, getPrecedence(), true);
     OB += Operator;
+  }
+
+  friend bool operator==(PostfixExpr const &LHS, PostfixExpr const &RHS) {
+    return LHS.Operator == RHS.Operator && LHS.Child->equals(RHS.Child);
+  }
+
+  friend bool operator!=(PostfixExpr const &LHS, PostfixExpr const &RHS) {
+    return !(LHS == RHS);
   }
 };
 
@@ -1775,6 +2379,17 @@ public:
     OB += " : ";
     Else->printAsOperand(OB, Prec::Assign, true);
   }
+
+  friend bool operator==(ConditionalExpr const &LHS,
+                         ConditionalExpr const &RHS) {
+    return LHS.Cond->equals(RHS.Cond) && LHS.Then->equals(RHS.Then) &&
+           LHS.Else->equals(RHS.Else);
+  }
+
+  friend bool operator!=(ConditionalExpr const &LHS,
+                         ConditionalExpr const &RHS) {
+    return !(LHS == RHS);
+  }
 };
 
 class MemberExpr : public Node {
@@ -1794,6 +2409,15 @@ public:
     LHS->printAsOperand(OB, getPrecedence(), true);
     OB += Kind;
     RHS->printAsOperand(OB, getPrecedence(), false);
+  }
+
+  friend bool operator==(MemberExpr const &Left, MemberExpr const &Right) {
+    return Left.Kind == Right.Kind && Left.LHS->equals(Right.LHS) &&
+           Left.RHS->equals(Right.RHS);
+  }
+
+  friend bool operator!=(MemberExpr const &Left, MemberExpr const &Right) {
+    return !(Left == Right);
   }
 };
 
@@ -1829,6 +2453,16 @@ public:
     }
     OB += ">";
   }
+
+  friend bool operator==(SubobjectExpr const &LHS, SubobjectExpr const &RHS) {
+    return LHS.Offset == RHS.Offset && LHS.OnePastTheEnd == RHS.OnePastTheEnd &&
+           LHS.Type->equals(RHS.Type) && LHS.SubExpr->equals(RHS.SubExpr) &&
+           LHS.UnionSelectors == RHS.UnionSelectors;
+  }
+
+  friend bool operator!=(SubobjectExpr const &LHS, SubobjectExpr const &RHS) {
+    return !(LHS == RHS);
+  }
 };
 
 class EnclosingExpr : public Node {
@@ -1851,6 +2485,15 @@ public:
     Infix->print(OB);
     OB.printClose();
     OB += Postfix;
+  }
+
+  friend bool operator==(EnclosingExpr const &LHS, EnclosingExpr const &RHS) {
+    return LHS.Prefix == RHS.Prefix && LHS.Postfix == RHS.Postfix &&
+           LHS.Infix->equals(RHS.Infix);
+  }
+
+  friend bool operator!=(EnclosingExpr const &LHS, EnclosingExpr const &RHS) {
+    return !(LHS == RHS);
   }
 };
 
@@ -1880,6 +2523,15 @@ public:
     From->printAsOperand(OB);
     OB.printClose();
   }
+
+  friend bool operator==(CastExpr const &LHS, CastExpr const &RHS) {
+    return LHS.CastKind == RHS.CastKind && LHS.To->equals(RHS.To) &&
+           LHS.From->equals(RHS.From);
+  }
+
+  friend bool operator!=(CastExpr const &LHS, CastExpr const &RHS) {
+    return !(LHS == RHS);
+  }
 };
 
 class SizeofParamPackExpr : public Node {
@@ -1897,6 +2549,16 @@ public:
     ParameterPackExpansion PPE(Pack);
     PPE.printLeft(OB);
     OB.printClose();
+  }
+
+  friend bool operator==(SizeofParamPackExpr const &LHS,
+                         SizeofParamPackExpr const &RHS) {
+    return LHS.Pack->equals(RHS.Pack);
+  }
+
+  friend bool operator!=(SizeofParamPackExpr const &LHS,
+                         SizeofParamPackExpr const &RHS) {
+    return !(LHS == RHS);
   }
 };
 
@@ -1917,6 +2579,14 @@ public:
     OB.printOpen();
     Args.printWithComma(OB);
     OB.printClose();
+  }
+
+  friend bool operator==(CallExpr const &LHS, CallExpr const &RHS) {
+    return LHS.Callee->equals(RHS.Callee) && LHS.Args == RHS.Args;
+  }
+
+  friend bool operator!=(CallExpr const &LHS, CallExpr const &RHS) {
+    return !(LHS == RHS);
   }
 };
 
@@ -1956,6 +2626,16 @@ public:
       OB.printClose();
     }
   }
+
+  friend bool operator==(NewExpr const &LHS, NewExpr const &RHS) {
+    return LHS.IsGlobal == RHS.IsGlobal && LHS.IsArray == RHS.IsArray &&
+           LHS.Type->equals(RHS.Type) && LHS.ExprList == RHS.ExprList &&
+           LHS.InitList == RHS.InitList;
+  }
+
+  friend bool operator!=(NewExpr const &LHS, NewExpr const &RHS) {
+    return !(LHS == RHS);
+  }
 };
 
 class DeleteExpr : public Node {
@@ -1981,6 +2661,15 @@ public:
     OB += ' ';
     Op->print(OB);
   }
+
+  friend bool operator==(DeleteExpr const &LHS, DeleteExpr const &RHS) {
+    return LHS.IsGlobal == RHS.IsGlobal && LHS.IsArray == RHS.IsArray &&
+           LHS.Op->equals(RHS.Op);
+  }
+
+  friend bool operator!=(DeleteExpr const &LHS, DeleteExpr const &RHS) {
+    return !(LHS == RHS);
+  }
 };
 
 class PrefixExpr : public Node {
@@ -1999,6 +2688,14 @@ public:
     OB += Prefix;
     Child->printAsOperand(OB, getPrecedence());
   }
+
+  friend bool operator==(PrefixExpr const &LHS, PrefixExpr const &RHS) {
+    return LHS.Prefix == RHS.Prefix && LHS.Child->equals(RHS.Child);
+  }
+
+  friend bool operator!=(PrefixExpr const &LHS, PrefixExpr const &RHS) {
+    return !(LHS == RHS);
+  }
 };
 
 class FunctionParam : public Node {
@@ -2012,6 +2709,14 @@ public:
   void printLeft(OutputBuffer &OB) const override {
     OB += "fp";
     OB += Number;
+  }
+
+  friend bool operator==(FunctionParam const &LHS, FunctionParam const &RHS) {
+    return LHS.Number == RHS.Number;
+  }
+
+  friend bool operator!=(FunctionParam const &LHS, FunctionParam const &RHS) {
+    return !(LHS == RHS);
   }
 };
 
@@ -2034,6 +2739,14 @@ public:
     OB.printOpen();
     Expressions.printWithComma(OB);
     OB.printClose();
+  }
+
+  friend bool operator==(ConversionExpr const &LHS, ConversionExpr const &RHS) {
+    return LHS.Type->equals(RHS.Type) && LHS.Expressions == RHS.Expressions;
+  }
+
+  friend bool operator!=(ConversionExpr const &LHS, ConversionExpr const &RHS) {
+    return !(LHS == RHS);
   }
 };
 
@@ -2060,6 +2773,17 @@ public:
     SubExpr->print(OB);
     OB.printClose();
   }
+
+  friend bool operator==(PointerToMemberConversionExpr const &LHS,
+                         PointerToMemberConversionExpr const &RHS) {
+    return LHS.Offset == RHS.Offset && LHS.Type->equals(RHS.Type) &&
+           LHS.SubExpr->equals(RHS.SubExpr);
+  }
+
+  friend bool operator!=(PointerToMemberConversionExpr const &LHS,
+                         PointerToMemberConversionExpr const &RHS) {
+    return !(LHS == RHS);
+  }
 };
 
 class InitListExpr : public Node {
@@ -2077,6 +2801,21 @@ public:
     OB += '{';
     Inits.printWithComma(OB);
     OB += '}';
+  }
+
+  friend bool operator==(InitListExpr const &LHS, InitListExpr const &RHS) {
+    if (!!LHS.Ty != !!RHS.Ty)
+      return false;
+
+    if (LHS.Ty)
+      if (!LHS.Ty->equals(RHS.Ty))
+        return false;
+
+    return LHS.Inits == RHS.Inits;
+  }
+
+  friend bool operator!=(InitListExpr const &LHS, InitListExpr const &RHS) {
+    return !(LHS == RHS);
   }
 };
 
@@ -2103,6 +2842,15 @@ public:
       OB += " = ";
     Init->print(OB);
   }
+
+  friend bool operator==(BracedExpr const &LHS, BracedExpr const &RHS) {
+    return LHS.IsArray == RHS.IsArray && LHS.Elem->equals(RHS.Elem) &&
+           LHS.Init->equals(RHS.Init);
+  }
+
+  friend bool operator!=(BracedExpr const &LHS, BracedExpr const &RHS) {
+    return !(LHS == RHS);
+  }
 };
 
 class BracedRangeExpr : public Node {
@@ -2124,6 +2872,17 @@ public:
     if (Init->getKind() != KBracedExpr && Init->getKind() != KBracedRangeExpr)
       OB += " = ";
     Init->print(OB);
+  }
+
+  friend bool operator==(BracedRangeExpr const &LHS,
+                         BracedRangeExpr const &RHS) {
+    return LHS.First->equals(RHS.First) && LHS.Last->equals(RHS.Last) &&
+           LHS.Init->equals(RHS.Init);
+  }
+
+  friend bool operator!=(BracedRangeExpr const &LHS,
+                         BracedRangeExpr const &RHS) {
+    return !(LHS == RHS);
   }
 };
 
@@ -2172,6 +2931,28 @@ public:
     }
     OB.printClose();
   }
+
+  friend bool operator==(FoldExpr const &LHS, FoldExpr const &RHS) {
+    if (LHS.IsLeftFold != RHS.IsLeftFold ||
+        LHS.OperatorName == RHS.OperatorName)
+      return false;
+
+    if (!!LHS.Pack != !!RHS.Pack)
+      return false;
+
+    if (LHS.Pack)
+      if (!LHS.Pack->equals(RHS.Pack))
+        return false;
+
+    if (LHS.Init != nullptr && RHS.Init != nullptr)
+      return LHS.Init->equals(RHS.Init);
+
+    return LHS.Init == nullptr && RHS.Init == nullptr;
+  }
+
+  friend bool operator!=(FoldExpr const &LHS, FoldExpr const &RHS) {
+    return !(LHS == RHS);
+  }
 };
 
 class ThrowExpr : public Node {
@@ -2186,6 +2967,14 @@ public:
     OB += "throw ";
     Op->print(OB);
   }
+
+  friend bool operator==(ThrowExpr const &LHS, ThrowExpr const &RHS) {
+    return LHS.Op->equals(RHS.Op);
+  }
+
+  friend bool operator!=(ThrowExpr const &LHS, ThrowExpr const &RHS) {
+    return !(LHS == RHS);
+  }
 };
 
 class BoolExpr : public Node {
@@ -2198,6 +2987,14 @@ public:
 
   void printLeft(OutputBuffer &OB) const override {
     OB += Value ? StringView("true") : StringView("false");
+  }
+
+  friend bool operator==(BoolExpr const &LHS, BoolExpr const &RHS) {
+    return LHS.Value == RHS.Value;
+  }
+
+  friend bool operator!=(BoolExpr const &LHS, BoolExpr const &RHS) {
+    return !(LHS == RHS);
   }
 };
 
@@ -2214,6 +3011,17 @@ public:
     Type->print(OB);
     OB += ">\"";
   }
+
+  friend bool operator==(StringLiteral const &LHS, StringLiteral const &RHS) {
+    assert(LHS.Type != nullptr);
+    assert(RHS.Type != nullptr);
+
+    return LHS.Type->equals(RHS.Type);
+  }
+
+  friend bool operator!=(StringLiteral const &LHS, StringLiteral const &RHS) {
+    return !(LHS == RHS);
+  }
 };
 
 class LambdaExpr : public Node {
@@ -2229,6 +3037,14 @@ public:
     if (Type->getKind() == KClosureTypeName)
       static_cast<const ClosureTypeName *>(Type)->printDeclarator(OB);
     OB += "{...}";
+  }
+
+  friend bool operator==(LambdaExpr const &LHS, LambdaExpr const &RHS) {
+    return LHS.Type->equals(RHS.Type);
+  }
+
+  friend bool operator!=(LambdaExpr const &LHS, LambdaExpr const &RHS) {
+    return !(LHS == RHS);
   }
 };
 
@@ -2252,6 +3068,17 @@ public:
       OB << "-" << Integer.dropFront(1);
     else
       OB << Integer;
+  }
+
+  friend bool operator==(EnumLiteral const &LHS, EnumLiteral const &RHS) {
+    assert(LHS.Ty != nullptr);
+    assert(RHS.Ty != nullptr);
+
+    return LHS.Integer == RHS.Integer && LHS.Ty->equals(RHS.Ty);
+  }
+
+  friend bool operator!=(EnumLiteral const &LHS, EnumLiteral const &RHS) {
+    return !(LHS == RHS);
   }
 };
 
@@ -2280,6 +3107,14 @@ public:
 
     if (Type.size() <= 3)
       OB += Type;
+  }
+
+  friend bool operator==(IntegerLiteral const &LHS, IntegerLiteral const &RHS) {
+    return LHS.Type == RHS.Type && LHS.Value == RHS.Value;
+  }
+
+  friend bool operator!=(IntegerLiteral const &LHS, IntegerLiteral const &RHS) {
+    return !(LHS == RHS);
   }
 };
 
@@ -2337,6 +3172,16 @@ public:
       int n = snprintf(num, sizeof(num), FloatData<Float>::spec, value);
       OB += StringView(num, num + n);
     }
+  }
+
+  friend bool operator==(FloatLiteralImpl<Float> const &LHS,
+                         FloatLiteralImpl<Float> const &RHS) {
+    return LHS.Contents == RHS.Contents;
+  }
+
+  friend bool operator!=(FloatLiteralImpl<Float> const &LHS,
+                         FloatLiteralImpl<Float> const &RHS) {
+    return !(LHS == RHS);
   }
 };
 

@@ -310,10 +310,20 @@ public:
     return std::vector<ConstString>();
   }
 
-  virtual ConstString
-  FindBestAlternateFunctionMangledName(const Mangled mangled,
-                                       const SymbolContext &sym_ctx) const {
-    return ConstString();
+  /// Generates a list of mangled function name alternatives
+  ///
+  /// \param[in] mangled_names List of mangled names to generate
+  ///                          alternatives for.
+  ///
+  /// \param[in] sc SymbolContext used to find approximately matching
+  ///               mangled function names.
+  ///
+  /// \returns List of mangled function names that are similar to
+  ///          the names in 'mangled_names'.
+  virtual std::vector<ConstString>
+  CollectAlternateFunctionNames(const std::vector<ConstString> &mangled_names,
+                                const SymbolContext &sc) const {
+    return {};
   }
 
 protected:

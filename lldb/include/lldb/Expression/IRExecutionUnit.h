@@ -217,9 +217,20 @@ private:
   void CollectCandidateCNames(std::vector<ConstString> &C_names,
                               ConstString name);
 
-  void CollectCandidateCPlusPlusNames(std::vector<ConstString> &CPP_names,
-                                      const std::vector<ConstString> &C_names,
-                                      const SymbolContext &sc);
+  /// Generates a list of mangled function names from a list of
+  /// of similar mangled function names.
+  ///
+  /// \param[in] C_names List of mangled names to generate
+  ///                    alternatives for.
+  ///
+  /// \param[in] sc SymbolContext used to find approximately matching
+  ///               mangled function names.
+  ///
+  /// \returns List of mangled function names that are similar to
+  ///          the names in 'C_names'.
+  std::vector<ConstString>
+  CollectCandidateCPlusPlusNames(const std::vector<ConstString> &C_names,
+                                 const SymbolContext &sc);
 
   lldb::addr_t FindInSymbols(const std::vector<ConstString> &names,
                              const lldb_private::SymbolContext &sc,

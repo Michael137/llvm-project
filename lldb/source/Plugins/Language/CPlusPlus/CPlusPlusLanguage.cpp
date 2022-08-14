@@ -510,8 +510,9 @@ std::vector<ConstString> CPlusPlusLanguage::GenerateAlternateFunctionManglings(
   return alternates;
 }
 
-ConstString CPlusPlusLanguage::FindBestAlternateFunctionMangledName(
-    const Mangled mangled, const SymbolContext &sym_ctx) const {
+static ConstString
+FindBestAlternateFunctionMangledName(const Mangled mangled,
+                                     const SymbolContext &sym_ctx) {
   ConstString demangled = mangled.GetDemangledName();
   if (!demangled)
     return ConstString();
@@ -1404,4 +1405,30 @@ bool CPlusPlusLanguage::IsSourceFile(llvm::StringRef file_path) const {
   // Check if we're in a STL path (where the files usually have no extension
   // that we could check for.
   return file_path.contains("/usr/include/c++/");
+}
+
+std::vector<ConstString> CPlusPlusLanguage::CollectAlternateFunctionNames(
+    const std::vector<ConstString> &mangled_names,
+    const SymbolContext &sc) const {
+  std::vector<ConstString> results;
+  for (const ConstString &name : mangled_names) {
+    Mangled mangled(name);
+    if (SymbolNameFitsToLanguage(mangled)) {
+      if (ConstString best_alternate =
+              FindBestAlternateFunctionMangledName(mangled, sc)) {
+        results.push_back(best_alternate);
+      }
+    }
+
+    std::vector<ConstString> alternates =
+        GenerateAlternateFunctionManglings(name);
+    results.insert(results.end(), alternates.begin(), alternates.end());
+
+    // As a last-ditch fallback, try the base name for C++ names.  It's
+    // terrible, but the DWARF doesn't always encode "extern C" correctly.
+    ConstString basename = GetDemangledFunctionNameWithoutArguments(mangled);
+    results.push_back(basename);
+  }
+
+  return results;
 }

@@ -135,8 +135,9 @@ public:
   std::vector<ConstString>
   GenerateAlternateFunctionManglings(const ConstString mangled) const override;
 
-  ConstString FindBestAlternateFunctionMangledName(
-      const Mangled mangled, const SymbolContext &sym_ctx) const override;
+  std::vector<ConstString>
+  CollectAlternateFunctionNames(const std::vector<ConstString> &mangled_names,
+                                const SymbolContext &sc) const override;
 
   // PluginInterface protocol
   llvm::StringRef GetPluginName() override { return GetPluginNameStatic(); }

@@ -61,11 +61,13 @@ Mangled::ManglingScheme Mangled::GetManglingScheme(llvm::StringRef const name) {
 }
 
 Mangled::Mangled(ConstString s) : m_mangled(), m_demangled() {
+  llvm::errs() << "Mangled(ConstString)" << s << '\n';
   if (s)
     SetValue(s);
 }
 
 Mangled::Mangled(llvm::StringRef name) {
+  llvm::errs() << "Mangled(StringRef)" << name << '\n';
   if (!name.empty())
     SetValue(ConstString(name));
 }
@@ -98,6 +100,8 @@ void Mangled::SetValue(ConstString s, bool mangled) {
       m_demangled.Clear();
       m_mangled = s;
     } else {
+      if (s == "cfunc" || s == "Test" || s == "func")
+        llvm::errs() << "Setting demangled name: " << s.AsCString("") << "\n";
       m_demangled = s;
       m_mangled.Clear();
     }
@@ -113,6 +117,8 @@ void Mangled::SetValue(ConstString name) {
       m_demangled.Clear();
       m_mangled = name;
     } else {
+      if (name == "cfunc" || name == "Test" || name == "func")
+        llvm::errs() << "Setting demangled name: " << name.AsCString("") << "\n";
       m_demangled = name;
       m_mangled.Clear();
     }
@@ -319,7 +325,11 @@ ConstString Mangled::GetName(Mangled::NamePreference preference) const {
 
   // Call the accessor to make sure we get a demangled name in case it hasn't
   // been demangled yet...
+  //llvm::errs() << __func__ << ": " << m_mangled.AsCString("") << " -> ";
   ConstString demangled = GetDemangledName();
+  if (strcmp(demangled.AsCString(""), "::cfunc()") == 0
+     || strcmp(demangled.AsCString(""), "") == 0)
+    llvm::errs() << __func__ << ": " << m_demangled.AsCString("") << '\n';
 
   if (preference == ePreferDemangledWithoutArguments) {
     if (Language *lang = Language::FindPlugin(GuessLanguage())) {

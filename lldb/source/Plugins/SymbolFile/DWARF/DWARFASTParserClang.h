@@ -13,6 +13,7 @@
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/ADT/SmallVector.h"
+#include "llvm/ADT/StringRef.h"
 
 #include "DWARFASTParser.h"
 #include "DWARFDIE.h"
@@ -39,6 +40,72 @@ public:
   DWARFASTParserClang(lldb_private::TypeSystemClang &ast);
 
   ~DWARFASTParserClang() override;
+
+  void CreateAndLinkFunctionDeclLegacy(
+          ParsedDWARFTypeAttributes const& attrs,
+          DWARFDIE const& die,
+          SymbolFileDWARF *dwarf,
+          std::vector<clang::ParmVarDecl *> &function_param_decls,
+          clang::DeclContext *containing_decl_ctx,
+          bool has_template_params,
+          bool ignore_containing_context,
+          lldb_private::CompilerType clang_type,
+          std::string object_pointer_name);
+
+  void CreateAndLinkFunctionDeclWithLogging(
+          ParsedDWARFTypeAttributes const& attrs,
+          DWARFDIE const& die,
+          SymbolFileDWARF *dwarf,
+          std::vector<clang::ParmVarDecl *> &function_param_decls,
+          clang::DeclContext *containing_decl_ctx,
+          bool has_template_params,
+          bool ignore_containing_context,
+          lldb_private::CompilerType clang_type,
+          std::string object_pointer_name);
+
+  void CreateAndLinkTemplateDecl(
+          ParsedDWARFTypeAttributes const& attrs,
+          DWARFDIE const& die,
+          SymbolFileDWARF *dwarf,
+          std::vector<clang::ParmVarDecl *> &function_param_decls,
+          clang::DeclContext *containing_decl_ctx,
+          bool has_template_params,
+          bool ignore_containing_context,
+          lldb_private::CompilerType clang_type,
+          std::string object_pointer_name);
+
+  void CreateAndLinkFunctionDeclImpl(
+          ParsedDWARFTypeAttributes const& attrs,
+          DWARFDIE const& die,
+          SymbolFileDWARF *dwarf,
+          std::vector<clang::ParmVarDecl *> &function_param_decls,
+          clang::DeclContext *containing_decl_ctx,
+          bool has_template_params,
+          bool ignore_containing_context,
+          lldb_private::CompilerType clang_type,
+          std::string object_pointer_name);
+
+  clang::FunctionDecl* AttachFunctionDecl(
+          llvm::StringRef name,
+          ParsedDWARFTypeAttributes const& attrs,
+          DWARFDIE const& die,
+          std::vector<clang::ParmVarDecl *> &function_param_decls,
+          clang::DeclContext *containing_decl_ctx,
+          bool has_template_params,
+          bool ignore_containing_context,
+          lldb_private::CompilerType clang_type,
+          std::string object_pointer_name);
+
+  clang::FunctionDecl* AttachFunctionTemplateDecl(
+          llvm::StringRef name,
+          ParsedDWARFTypeAttributes const& attrs,
+          DWARFDIE const& die,
+          std::vector<clang::ParmVarDecl *> &function_param_decls,
+          clang::DeclContext *containing_decl_ctx,
+          bool has_template_params,
+          bool ignore_containing_context,
+          lldb_private::CompilerType clang_type,
+          std::string object_pointer_name);
 
   // DWARFASTParser interface.
   lldb::TypeSP ParseTypeFromDWARF(const lldb_private::SymbolContext &sc,

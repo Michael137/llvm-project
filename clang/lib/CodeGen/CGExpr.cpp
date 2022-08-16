@@ -5110,6 +5110,8 @@ CGCallee CodeGenFunction::EmitCallee(const Expr *E) {
   // Resolve direct calls.
   } else if (auto DRE = dyn_cast<DeclRefExpr>(E)) {
     if (auto FD = dyn_cast<FunctionDecl>(DRE->getDecl())) {
+      if (FD->getName() == "tagged")
+        llvm::errs() << "EmitDirectCallee\n";
       return EmitDirectCallee(*this, FD);
     }
   } else if (auto ME = dyn_cast<MemberExpr>(E)) {

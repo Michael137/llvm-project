@@ -655,15 +655,20 @@ SymbolContext::GetFunctionName(Mangled::NamePreference preference) const {
       if (inlined_block) {
         const InlineFunctionInfo *inline_info =
             inlined_block->GetInlinedFunctionInfo();
-        if (inline_info)
+        if (inline_info) {
+          llvm::errs() << "Getting from inline function\n";
           return inline_info->GetName();
+        }
       }
     }
+    llvm::errs() << "Getting from function\n";
     return function->GetMangled().GetName(preference);
   } else if (symbol && symbol->ValueIsAddress()) {
+    llvm::errs() << "Getting from symbol\n";
     return symbol->GetMangled().GetName(preference);
   } else {
     // No function, return an empty string.
+    llvm::errs() << "Empty function and symbol when resolving breakpoint\n";
     return ConstString();
   }
 }
@@ -1076,6 +1081,7 @@ bool SymbolContextSpecifier::SymbolContextMatches(const SymbolContext &sc) {
       if (inline_info != nullptr) {
         was_inlined = true;
         const Mangled &name = inline_info->GetMangled();
+        llvm::errs() << __func__ << ": " << name.GetMangledName() << '\n';
         if (!name.NameMatches(func_name))
           return false;
       }

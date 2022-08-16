@@ -341,6 +341,7 @@ CGDebugInfo *CodeGenerator::getCGDebugInfo() {
 }
 
 const Decl *CodeGenerator::GetDeclForMangledName(llvm::StringRef name) {
+  llvm::errs() << __func__ << ": " << name << '\n';
   return static_cast<CodeGeneratorImpl*>(this)->GetDeclForMangledName(name);
 }
 

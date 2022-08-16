@@ -1396,7 +1396,7 @@ static TemplateParameterList *CreateTemplateParameterList(
     } else {
       template_param_decls.push_back(TemplateTypeParmDecl::Create(
           ast, decl_context, SourceLocation(), SourceLocation(), depth, i,
-          identifier_info, is_typename, parameter_pack));
+          identifier_info, /* is_typename */ true, parameter_pack));
     }
   }
 
@@ -1457,6 +1457,9 @@ clang::FunctionTemplateDecl *TypeSystemClang::CreateFunctionTemplateDecl(
   // anyway allows accessing everything inside a record.
   if (decl_ctx->isRecord())
     func_tmpl_decl->setAccess(clang::AccessSpecifier::AS_public);
+
+  decl_ctx->addDecl(func_tmpl_decl);
+  VerifyDecl(func_decl);
 
   return func_tmpl_decl;
 }
@@ -2139,7 +2142,8 @@ std::string TypeSystemClang::GetTypeNameForDecl(const NamedDecl *named_decl) {
 FunctionDecl *TypeSystemClang::CreateFunctionDeclaration(
     clang::DeclContext *decl_ctx, OptionalClangModuleID owning_module,
     llvm::StringRef name, const CompilerType &function_clang_type,
-    clang::StorageClass storage, bool is_inline) {
+    clang::StorageClass storage, bool is_inline,
+    char const* mangled_name, bool addToAST) {
   FunctionDecl *func_decl = nullptr;
   ASTContext &ast = getASTContext();
   if (!decl_ctx)
@@ -2161,11 +2165,25 @@ FunctionDecl *TypeSystemClang::CreateFunctionDeclaration(
                                   ? ConstexprSpecKind::Constexpr
                                   : ConstexprSpecKind::Unspecified);
   SetOwningModule(func_decl, owning_module);
-  decl_ctx->addDecl(func_decl);
+
+  if (addToAST)
+    decl_ctx->addDecl(func_decl);
+
+  //if (mangled_name)
+  //  func_decl->addAttr(clang::AsmLabelAttr::CreateImplicit(
+  //      ast, mangled_name, /*literal=*/false));
 
   VerifyDecl(func_decl);
 
   return func_decl;
+}
+
+CompilerType
+TypeSystemClang::CreateTemplateFunctionType(const CompilerType &result_type,
+                                    const CompilerType *args, unsigned num_args,
+                                    bool is_variadic, unsigned type_quals,
+                                    clang::CallingConv cc) {
+  return CreateFunctionType(result_type, args, num_args, is_variadic, type_quals);
 }
 
 CompilerType

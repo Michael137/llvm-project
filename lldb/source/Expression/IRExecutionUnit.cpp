@@ -37,6 +37,7 @@
 #include "lldb/Utility/Log.h"
 
 #include "lldb/../../source/Plugins/ObjectFile/JIT/ObjectFileJIT.h"
+#include "lldb/lldb-defines.h"
 
 using namespace lldb_private;
 
@@ -795,8 +796,10 @@ IRExecutionUnit::FindInSymbols(const std::vector<ConstString> &names,
       sc.module_sp->FindFunctions(name, CompilerDeclContext(),
                                   lldb::eFunctionNameTypeFull, function_options,
                                   sc_list);
-      if (auto load_addr = resolver.Resolve(sc_list))
+      if (auto load_addr = resolver.Resolve(sc_list)) {
+        llvm::errs() << llvm::formatv("Found symbol for {0} in this module\n", name.AsCString(""));
         return *load_addr;
+      }
     }
 
     if (sc.target_sp) {
@@ -890,7 +893,14 @@ lldb::addr_t IRExecutionUnit::FindSymbol(lldb_private::ConstString name,
 
   CollectCandidateCPlusPlusNames(candidate_CPlusPlus_names, candidate_C_names,
                                  m_sym_ctx);
+  llvm::errs() << "Candidates:\n";
+  for (auto const& candidate : candidate_CPlusPlus_names)
+    llvm::errs() << llvm::formatv("\t{0}\n", candidate.AsCString());
   ret = FindInSymbols(candidate_CPlusPlus_names, m_sym_ctx, missing_weak);
+
+  if (ret != LLDB_INVALID_ADDRESS)
+    llvm::errs() << "Found symbol!\n";
+
   return ret;
 }
 

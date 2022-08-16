@@ -683,7 +683,10 @@ protected:
 
 public:
   QualType getType() const { return DeclType; }
-  void setType(QualType newType) { DeclType = newType; }
+  void setType(QualType newType) {
+      llvm::errs() << "Setting QualType type " << newType.getAsString() << '\n';
+      DeclType = newType;
+  }
 
   /// Determine whether this symbol is weakly-imported,
   ///        or declared with the weak or weak-ref attr.

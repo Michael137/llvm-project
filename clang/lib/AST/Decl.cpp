@@ -5018,6 +5018,7 @@ FunctionDecl::Create(ASTContext &C, DeclContext *DC, SourceLocation StartLoc,
   FunctionDecl *New = new (C, DC) FunctionDecl(
       Function, C, DC, StartLoc, NameInfo, T, TInfo, SC, UsesFPIntrin,
       isInlineSpecified, ConstexprKind, TrailingRequiresClause);
+  llvm::errs() << "Creating FunctionDecl: " << T.getAsString() << '\n';
   New->setHasWrittenPrototype(hasWrittenPrototype);
   return New;
 }

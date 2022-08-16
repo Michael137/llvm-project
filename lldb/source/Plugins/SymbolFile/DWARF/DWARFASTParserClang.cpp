@@ -36,6 +36,8 @@
 #include "lldb/Utility/Log.h"
 #include "lldb/Utility/StreamString.h"
 
+#include "clang/AST/Type.h"
+#include "clang/Basic/AttributeCommonInfo.h"
 #include "llvm/Demangle/Demangle.h"
 
 #include "clang/AST/CXXInheritance.h"
@@ -892,6 +894,498 @@ ConvertDWARFCallingConventionToClang(const ParsedDWARFTypeAttributes &attrs) {
   return clang::CC_C;
 }
 
+void DWARFASTParserClang::CreateAndLinkFunctionDeclLegacy(
+        ParsedDWARFTypeAttributes const& attrs,
+        DWARFDIE const& die,
+        SymbolFileDWARF *dwarf,
+        std::vector<clang::ParmVarDecl *> &function_param_decls,
+        clang::DeclContext *containing_decl_ctx,
+        bool has_template_params,
+        bool ignore_containing_context,
+        CompilerType clang_type,
+        std::string object_pointer_name) {
+  Log *log = GetLog(DWARFLog::TypeCompletion | DWARFLog::Lookups);
+  clang::FunctionDecl *function_decl = nullptr;
+  clang::FunctionDecl *template_function_decl = nullptr;
+
+  if (attrs.abstract_origin.IsValid()) {
+    DWARFDIE abs_die = attrs.abstract_origin.Reference();
+
+    if (dwarf->ResolveType(abs_die)) {
+      function_decl = llvm::dyn_cast_or_null<clang::FunctionDecl>(
+          GetCachedClangDeclContextForDIE(abs_die));
+
+      if (function_decl) {
+        LinkDeclContextToDIE(function_decl, die);
+      }
+    }
+  }
+
+  if (!function_decl) {
+    char *name_buf = nullptr;
+    llvm::StringRef name = attrs.name.GetStringRef();
+
+    // We currently generate function templates with template parameters in
+    // their name. In order to get closer to the AST that clang generates
+    // we want to strip these from the name when creating the AST.
+    if (attrs.mangled_name) {
+      llvm::ItaniumPartialDemangler D;
+      if (!D.partialDemangle(attrs.mangled_name)) {
+        name_buf = D.getFunctionBaseName(nullptr, nullptr);
+        name = name_buf;
+      }
+    }
+
+    // We just have a function that isn't part of a class
+    function_decl = m_ast.CreateFunctionDeclaration(
+        ignore_containing_context ? m_ast.GetTranslationUnitDecl()
+                                  : containing_decl_ctx,
+        GetOwningClangModule(die), name, clang_type, attrs.storage,
+        attrs.is_inline, attrs.mangled_name);
+    std::free(name_buf);
+
+    if (has_template_params) {
+      TypeSystemClang::TemplateParameterInfos template_param_infos;
+      ParseTemplateParameterInfos(die, template_param_infos);
+      template_function_decl = m_ast.CreateFunctionDeclaration(
+          ignore_containing_context ? m_ast.GetTranslationUnitDecl()
+                                    : containing_decl_ctx,
+          GetOwningClangModule(die), attrs.name.GetStringRef(), clang_type,
+          attrs.storage, attrs.is_inline, attrs.mangled_name);
+      clang::FunctionTemplateDecl *func_template_decl =
+          m_ast.CreateFunctionTemplateDecl(
+              containing_decl_ctx, GetOwningClangModule(die),
+              template_function_decl, template_param_infos);
+      m_ast.CreateFunctionTemplateSpecializationInfo(
+          template_function_decl, func_template_decl, template_param_infos);
+    }
+
+    lldbassert(function_decl);
+
+    if (function_decl) {
+      LinkDeclContextToDIE(function_decl, die);
+
+      function_decl->dump();
+
+      if (!function_param_decls.empty()) {
+        m_ast.SetFunctionParameters(function_decl, function_param_decls);
+        if (template_function_decl)
+          m_ast.SetFunctionParameters(template_function_decl,
+                                      function_param_decls);
+      }
+
+      ClangASTMetadata metadata;
+      metadata.SetUserID(die.GetID());
+
+      if (!object_pointer_name.empty()) {
+        metadata.SetObjectPtrName(object_pointer_name.c_str());
+        LLDB_LOGF(log,
+                  "Setting object pointer name: %s on function "
+                  "object %p.",
+                  object_pointer_name.c_str(),
+                  static_cast<void *>(function_decl));
+      }
+      m_ast.SetMetadata(function_decl, metadata);
+    }
+  }
+}
+
+void DWARFASTParserClang::CreateAndLinkFunctionDeclWithLogging(
+        ParsedDWARFTypeAttributes const& attrs,
+        DWARFDIE const& die,
+        SymbolFileDWARF *dwarf,
+        std::vector<clang::ParmVarDecl *> &function_param_decls,
+        clang::DeclContext *containing_decl_ctx,
+        bool has_template_params,
+        bool ignore_containing_context,
+        CompilerType clang_type,
+        std::string object_pointer_name) {
+  Log *log = GetLog(DWARFLog::TypeCompletion | DWARFLog::Lookups);
+  clang::FunctionDecl *function_decl = nullptr;
+  clang::FunctionDecl *template_function_decl = nullptr;
+
+  if (attrs.abstract_origin.IsValid()) {
+    DWARFDIE abs_die = attrs.abstract_origin.Reference();
+
+    if (dwarf->ResolveType(abs_die)) {
+      function_decl = llvm::dyn_cast_or_null<clang::FunctionDecl>(
+          GetCachedClangDeclContextForDIE(abs_die));
+
+      if (function_decl) {
+        LinkDeclContextToDIE(function_decl, die);
+      }
+    }
+  }
+
+  if (!function_decl) {
+    char *name_buf = nullptr;
+    llvm::StringRef name = attrs.name.GetStringRef();
+
+    // We currently generate function templates with template parameters in
+    // their name. In order to get closer to the AST that clang generates
+    // we want to strip these from the name when creating the AST.
+    if (attrs.mangled_name) {
+      llvm::ItaniumPartialDemangler D;
+      if (!D.partialDemangle(attrs.mangled_name)) {
+        name_buf = D.getFunctionBaseName(nullptr, nullptr);
+        name = name_buf;
+      }
+    }
+
+    // We just have a function that isn't part of a class
+    function_decl = m_ast.CreateFunctionDeclaration(
+        ignore_containing_context ? m_ast.GetTranslationUnitDecl()
+                                  : containing_decl_ctx,
+        GetOwningClangModule(die), name, clang_type, attrs.storage,
+        attrs.is_inline, attrs.mangled_name);
+    std::free(name_buf);
+
+    char const* abi = "vTest";
+    llvm::StringRef abi_ref{abi};
+    clang::AbiTagAttr *tags = clang::AbiTagAttr::Create(
+            m_ast.getASTContext(), &abi_ref, 1, {}, clang::AttributeCommonInfo::AS_CXX11);
+
+    //function_decl->addAttr(tags);
+    function_decl->dump();
+
+    if (has_template_params) {
+      TypeSystemClang::TemplateParameterInfos template_param_infos;
+      ParseTemplateParameterInfos(die, template_param_infos);
+      template_function_decl = m_ast.CreateFunctionDeclaration(
+          ignore_containing_context ? m_ast.GetTranslationUnitDecl()
+                                    : containing_decl_ctx,
+          GetOwningClangModule(die), attrs.name.GetStringRef(), clang_type,
+          attrs.storage, attrs.is_inline, attrs.mangled_name);
+      //template_function_decl->addAttr(tags);
+
+      clang::FunctionTemplateDecl *func_template_decl =
+          m_ast.CreateFunctionTemplateDecl(
+              containing_decl_ctx, GetOwningClangModule(die),
+              template_function_decl, template_param_infos);
+      m_ast.CreateFunctionTemplateSpecializationInfo(
+          template_function_decl, func_template_decl, template_param_infos);
+
+      func_template_decl->dump();
+    }
+
+    if (template_function_decl)
+      template_function_decl->dump();
+
+    m_ast.Dump(llvm::errs());
+
+    lldbassert(function_decl);
+
+    if (function_decl) {
+      LinkDeclContextToDIE(function_decl, die);
+
+      if (!function_param_decls.empty()) {
+        m_ast.SetFunctionParameters(function_decl, function_param_decls);
+        if (template_function_decl)
+          m_ast.SetFunctionParameters(template_function_decl,
+                                      function_param_decls);
+      }
+
+      ClangASTMetadata metadata;
+      metadata.SetUserID(die.GetID());
+
+      if (!object_pointer_name.empty()) {
+        metadata.SetObjectPtrName(object_pointer_name.c_str());
+        LLDB_LOGF(log,
+                  "Setting object pointer name: %s on function "
+                  "object %p.",
+                  object_pointer_name.c_str(),
+                  static_cast<void *>(function_decl));
+      }
+      m_ast.SetMetadata(function_decl, metadata);
+    }
+  }
+}
+
+void DWARFASTParserClang::CreateAndLinkTemplateDecl(
+        ParsedDWARFTypeAttributes const& attrs,
+        DWARFDIE const& die,
+        SymbolFileDWARF *dwarf,
+        std::vector<clang::ParmVarDecl *> &function_param_decls,
+        clang::DeclContext *containing_decl_ctx,
+        bool has_template_params,
+        bool ignore_containing_context,
+        CompilerType clang_type,
+        std::string object_pointer_name) {
+  Log *log = GetLog(DWARFLog::TypeCompletion | DWARFLog::Lookups);
+  clang::FunctionDecl *function_decl = nullptr;
+  clang::FunctionDecl *template_function_decl = nullptr;
+
+  if (attrs.abstract_origin.IsValid()) {
+    DWARFDIE abs_die = attrs.abstract_origin.Reference();
+
+    if (dwarf->ResolveType(abs_die)) {
+      function_decl = llvm::dyn_cast_or_null<clang::FunctionDecl>(
+          GetCachedClangDeclContextForDIE(abs_die));
+
+      if (function_decl) {
+        LinkDeclContextToDIE(function_decl, die);
+      }
+    }
+  }
+
+  if (!function_decl) {
+    char *name_buf = nullptr;
+    llvm::StringRef name = attrs.name.GetStringRef();
+
+    // We currently generate function templates with template parameters in
+    // their name. In order to get closer to the AST that clang generates
+    // we want to strip these from the name when creating the AST.
+    if (attrs.mangled_name) {
+      llvm::ItaniumPartialDemangler D;
+      if (!D.partialDemangle(attrs.mangled_name)) {
+        name_buf = D.getFunctionBaseName(nullptr, nullptr);
+        name = name_buf;
+      }
+    }
+
+    // We just have a function that isn't part of a class
+    function_decl = m_ast.CreateFunctionDeclaration(
+        ignore_containing_context ? m_ast.GetTranslationUnitDecl()
+                                  : containing_decl_ctx,
+        GetOwningClangModule(die), name, clang_type, attrs.storage,
+        attrs.is_inline, attrs.mangled_name, false);
+
+    char const* abi = "vTest";
+    llvm::StringRef abi_ref{abi};
+    clang::AbiTagAttr *tags = clang::AbiTagAttr::Create(
+            m_ast.getASTContext(), &abi_ref, 1, {}, clang::AttributeCommonInfo::AS_CXX11);
+
+    //function_decl->addAttr(tags);
+    function_decl->dump();
+
+    clang::FunctionTemplateDecl* func_template_decl = nullptr;
+
+    if (has_template_params) {
+      TypeSystemClang::TemplateParameterInfos template_param_infos;
+      ParseTemplateParameterInfos(die, template_param_infos);
+      template_function_decl = m_ast.CreateFunctionDeclaration(
+          ignore_containing_context ? m_ast.GetTranslationUnitDecl()
+                                    : containing_decl_ctx,
+          GetOwningClangModule(die), name, clang_type,
+          attrs.storage, attrs.is_inline, attrs.mangled_name, false);
+      //template_function_decl->addAttr(tags);
+
+      func_template_decl =
+          m_ast.CreateFunctionTemplateDecl(
+              containing_decl_ctx, GetOwningClangModule(die),
+              template_function_decl, template_param_infos);
+      m_ast.CreateFunctionTemplateSpecializationInfo(
+          function_decl, func_template_decl, template_param_infos);
+
+      func_template_decl->dump();
+    }
+
+    std::free(name_buf);
+
+    if (template_function_decl)
+      template_function_decl->dump();
+
+    m_ast.Dump(llvm::errs());
+
+    lldbassert(function_decl);
+
+    //clang::FunctionDecl* decl_to_use = func_template_decl ? func_template_decl : function_decl;
+    clang::FunctionDecl* decl_to_use = template_function_decl ? template_function_decl : function_decl;
+
+    if (decl_to_use) {
+      LinkDeclContextToDIE(decl_to_use, die);
+
+      if (!function_param_decls.empty()) {
+        m_ast.SetFunctionParameters(function_decl, function_param_decls);
+        if (template_function_decl)
+          m_ast.SetFunctionParameters(template_function_decl,
+                                      function_param_decls);
+      }
+
+      ClangASTMetadata metadata;
+      metadata.SetUserID(die.GetID());
+
+      if (!object_pointer_name.empty()) {
+        metadata.SetObjectPtrName(object_pointer_name.c_str());
+        LLDB_LOGF(log,
+                  "Setting object pointer name: %s on function "
+                  "object %p.",
+                  object_pointer_name.c_str(),
+                  static_cast<void *>(function_decl));
+      }
+      m_ast.SetMetadata(decl_to_use, metadata);
+    }
+  }
+}
+
+clang::FunctionDecl* DWARFASTParserClang::AttachFunctionDecl(
+        llvm::StringRef name,
+        ParsedDWARFTypeAttributes const& attrs,
+        DWARFDIE const& die,
+        std::vector<clang::ParmVarDecl *> &function_param_decls,
+        clang::DeclContext *containing_decl_ctx,
+        bool has_template_params,
+        bool ignore_containing_context,
+        CompilerType clang_type,
+        std::string object_pointer_name) {
+  Log *log = GetLog(DWARFLog::TypeCompletion | DWARFLog::Lookups);
+  clang::FunctionDecl* function_decl = m_ast.CreateFunctionDeclaration(
+      ignore_containing_context ? m_ast.GetTranslationUnitDecl()
+                                : containing_decl_ctx,
+      GetOwningClangModule(die), name, clang_type, attrs.storage,
+      attrs.is_inline, attrs.mangled_name);
+
+  m_ast.Dump(llvm::errs());
+
+  lldbassert(function_decl);
+
+  if (function_decl) {
+    LinkDeclContextToDIE(function_decl, die);
+
+    if (!function_param_decls.empty()) {
+      m_ast.SetFunctionParameters(function_decl, function_param_decls);
+    }
+
+    ClangASTMetadata metadata;
+    metadata.SetUserID(die.GetID());
+
+    if (!object_pointer_name.empty()) {
+      metadata.SetObjectPtrName(object_pointer_name.c_str());
+      LLDB_LOGF(log,
+                "Setting object pointer name: %s on function "
+                "object %p.",
+                object_pointer_name.c_str(),
+                static_cast<void *>(function_decl));
+    }
+    m_ast.SetMetadata(function_decl, metadata);
+  }
+
+  return function_decl;
+}
+
+/*
+| |-FunctionTemplateDecl 0x11c8faf78 <line:17:1, line:20:1> line:18:32 tagged
+| | |-TemplateTypeParmDecl 0x11c8face0 <line:17:11, col:20> col:20 referenced typename depth 0 index 0 T
+| | |-FunctionDecl 0x11c8faed8 <line:18:27, line:20:1> line:18:32 tagged 'bool (T)'
+| | | |-ParmVarDecl 0x11c8fae18 <col:39, col:41> col:41 t 'T'
+| | | |-CompoundStmt 0x11c8fb100 <col:44, line:20:1>
+| | | | `-ReturnStmt 0x11c8fb0f0 <line:19:5, col:12>
+| | | |   `-CXXBoolLiteralExpr 0x11c8fb0e0 <col:12> 'bool' true
+| | | `-AbiTagAttr 0x11c8fafd8 <line:18:3, col:23> vTest
+| | `-FunctionDecl 0x11c902600 <col:27, line:20:1> line:18:32 used tagged 'bool (A::B)'
+| |   |-TemplateArgument type 'A::B'
+| |   | `-RecordType 0x11c8dbcf0 'A::B'
+| |   |   `-CXXRecord 0x11c8dbc60 'B'
+| |   |-ParmVarDecl 0x11c8fe338 <col:39, col:41> col:41 t 'A::B':'A::B'
+| |   |-CompoundStmt 0x11c9032e0 <col:44, line:20:1>
+| |   | `-ReturnStmt 0x11c9032d0 <line:19:5, col:12>
+| |   |   `-CXXBoolLiteralExpr 0x11c8fb0e0 <col:12> 'bool' true
+| |   `-AbiTagAttr 0x11c902700 <line:18:3, col:23> vTest
+*/
+clang::FunctionDecl* DWARFASTParserClang::AttachFunctionTemplateDecl(
+        llvm::StringRef name,
+        ParsedDWARFTypeAttributes const& attrs,
+        DWARFDIE const& die,
+        std::vector<clang::ParmVarDecl *> &function_param_decls,
+        clang::DeclContext *containing_decl_ctx,
+        bool has_template_params,
+        bool ignore_containing_context,
+        CompilerType clang_type,
+        std::string object_pointer_name) {
+  // Create FunctionDecl with ParmVarDecl of QualType 'T'
+  //   TODO: Requires clang_type to not be specialized to 'A::B'
+  clang::FunctionDecl* function_decl = m_ast.CreateFunctionDeclaration(
+    ignore_containing_context ? m_ast.GetTranslationUnitDecl()
+                              : containing_decl_ctx,
+    GetOwningClangModule(die), name, clang_type, attrs.storage,
+    attrs.is_inline, attrs.mangled_name);
+
+  {
+    std::string astDump;
+    llvm::raw_string_ostream sstr(astDump);
+    function_decl->dump(sstr);
+    llvm::errs() << llvm::formatv("{0}: created first function decl:\n\t{1}\n", __func__, astDump);
+  }
+  
+  // Create FunctionDecl with TemplateArgument 'A::B'
+  //TypeSystemClang::TemplateParameterInfos template_param_infos;
+  //ParseTemplateParameterInfos(die, template_param_infos);
+  //clang::FunctionDecl* template_function_decl = m_ast.CreateFunctionDeclaration(
+  //    ignore_containing_context ? m_ast.GetTranslationUnitDecl()
+  //                              : containing_decl_ctx,
+  //    GetOwningClangModule(die), attrs.name.GetStringRef(), clang_type,
+  //    attrs.storage, attrs.is_inline);
+  //template_function_decl->addAttr(tags);
+
+  //clang::FunctionTemplateDecl *func_template_decl =
+  //    m_ast.CreateFunctionTemplateDecl(
+  //        containing_decl_ctx, GetOwningClangModule(die),
+  //        template_function_decl, template_param_infos);
+  //m_ast.CreateFunctionTemplateSpecializationInfo(
+  //    template_function_decl, func_template_decl, template_param_infos);
+
+  //func_template_decl->dump();
+  
+
+  // Create FunctionTemplateDecl with TemplateTypeParmDecl and containing both FunctionDecl's
+  // Link DIE to FunctionTemplateDecl
+}
+
+void DWARFASTParserClang::CreateAndLinkFunctionDeclImpl(
+        ParsedDWARFTypeAttributes const& attrs,
+        DWARFDIE const& die,
+        SymbolFileDWARF *dwarf,
+        std::vector<clang::ParmVarDecl *> &function_param_decls,
+        clang::DeclContext *containing_decl_ctx,
+        bool has_template_params,
+        bool ignore_containing_context,
+        CompilerType clang_type,
+        std::string object_pointer_name) {
+  if (attrs.abstract_origin.IsValid()) {
+    clang::FunctionDecl *function_decl = nullptr;
+    DWARFDIE abs_die = attrs.abstract_origin.Reference();
+
+    if (dwarf->ResolveType(abs_die)) {
+      function_decl = llvm::dyn_cast_or_null<clang::FunctionDecl>(
+          GetCachedClangDeclContextForDIE(abs_die));
+
+      if (function_decl) {
+        LinkDeclContextToDIE(function_decl, die);
+        return;
+      }
+    }
+  }
+
+  char *name_buf = nullptr;
+  llvm::StringRef name = attrs.name.GetStringRef();
+
+  // We currently generate function templates with template parameters in
+  // their name. In order to get closer to the AST that clang generates
+  // we want to strip these from the name when creating the AST.
+  if (attrs.mangled_name) {
+    llvm::ItaniumPartialDemangler D;
+    if (!D.partialDemangle(attrs.mangled_name)) {
+      name_buf = D.getFunctionBaseName(nullptr, nullptr);
+      name = name_buf;
+    }
+  }
+  std::free(name_buf);
+
+  char const* abi = "vTest";
+  llvm::StringRef abi_ref{abi};
+  clang::AbiTagAttr *tags = clang::AbiTagAttr::Create(
+          m_ast.getASTContext(), &abi_ref, 1, {}, clang::AttributeCommonInfo::AS_CXX11);
+
+  // We just have a function that isn't part of a class
+  if (has_template_params) {
+    AttachFunctionTemplateDecl(name, attrs, die, function_param_decls, containing_decl_ctx,
+                       has_template_params, ignore_containing_context, clang_type, object_pointer_name);
+  } else {
+    AttachFunctionDecl(name, attrs, die, function_param_decls, containing_decl_ctx,
+                       has_template_params, ignore_containing_context, clang_type, object_pointer_name);
+  }
+}
+
 TypeSP DWARFASTParserClang::ParseSubroutine(const DWARFDIE &die,
                            ParsedDWARFTypeAttributes &attrs) {
   Log *log = GetLog(DWARFLog::TypeCompletion | DWARFLog::Lookups);
@@ -977,6 +1471,24 @@ TypeSP DWARFASTParserClang::ParseSubroutine(const DWARFDIE &die,
   CompilerType clang_type = m_ast.CreateFunctionType(
       return_clang_type, function_param_types.data(),
       function_param_types.size(), is_variadic, type_quals, calling_convention);
+
+  llvm::errs() << "Created function type:\n";
+  clang_type.dump();
+
+  //if (has_template_params) {
+  //  TypeSystemClang::TemplateParameterInfos  template_param_info;
+  //  ParseTemplateParameterInfos(die, template_param_info);
+
+  //  std::vector<CompilerType> template_params;
+  //  for (auto const& param : template_param_info.names)
+  //    
+
+  //  CompilerType template_clang_type = m_ast.CreateTemplateFunctionType(
+  //      return_clang_type,
+  //      , is_variadic, type_quals, calling_convention);
+  //  llvm::errs() << "Created template function type:\n";
+  //  template_clang_type.dump();
+  //}
 
   if (attrs.name) {
     bool type_handled = false;
@@ -1190,89 +1702,25 @@ TypeSP DWARFASTParserClang::ParseSubroutine(const DWARFDIE &die,
     }
 
     if (!type_handled) {
-      clang::FunctionDecl *function_decl = nullptr;
-      clang::FunctionDecl *template_function_decl = nullptr;
-
-      if (attrs.abstract_origin.IsValid()) {
-        DWARFDIE abs_die = attrs.abstract_origin.Reference();
-
-        if (dwarf->ResolveType(abs_die)) {
-          function_decl = llvm::dyn_cast_or_null<clang::FunctionDecl>(
-              GetCachedClangDeclContextForDIE(abs_die));
-
-          if (function_decl) {
-            LinkDeclContextToDIE(function_decl, die);
-          }
-        }
-      }
-
-      if (!function_decl) {
-        char *name_buf = nullptr;
-        llvm::StringRef name = attrs.name.GetStringRef();
-
-        // We currently generate function templates with template parameters in
-        // their name. In order to get closer to the AST that clang generates
-        // we want to strip these from the name when creating the AST.
-        if (attrs.mangled_name) {
-          llvm::ItaniumPartialDemangler D;
-          if (!D.partialDemangle(attrs.mangled_name)) {
-            name_buf = D.getFunctionBaseName(nullptr, nullptr);
-            name = name_buf;
-          }
-        }
-
-        // We just have a function that isn't part of a class
-        function_decl = m_ast.CreateFunctionDeclaration(
-            ignore_containing_context ? m_ast.GetTranslationUnitDecl()
-                                      : containing_decl_ctx,
-            GetOwningClangModule(die), name, clang_type, attrs.storage,
-            attrs.is_inline);
-        std::free(name_buf);
-
-        if (has_template_params) {
-          TypeSystemClang::TemplateParameterInfos template_param_infos;
-          ParseTemplateParameterInfos(die, template_param_infos);
-          template_function_decl = m_ast.CreateFunctionDeclaration(
-              ignore_containing_context ? m_ast.GetTranslationUnitDecl()
-                                        : containing_decl_ctx,
-              GetOwningClangModule(die), attrs.name.GetStringRef(), clang_type,
-              attrs.storage, attrs.is_inline);
-          clang::FunctionTemplateDecl *func_template_decl =
-              m_ast.CreateFunctionTemplateDecl(
-                  containing_decl_ctx, GetOwningClangModule(die),
-                  template_function_decl, template_param_infos);
-          m_ast.CreateFunctionTemplateSpecializationInfo(
-              template_function_decl, func_template_decl, template_param_infos);
-        }
-
-        lldbassert(function_decl);
-
-        if (function_decl) {
-          LinkDeclContextToDIE(function_decl, die);
-
-          if (!function_param_decls.empty()) {
-            m_ast.SetFunctionParameters(function_decl, function_param_decls);
-            if (template_function_decl)
-              m_ast.SetFunctionParameters(template_function_decl,
-                                          function_param_decls);
-          }
-
-          ClangASTMetadata metadata;
-          metadata.SetUserID(die.GetID());
-
-          if (!object_pointer_name.empty()) {
-            metadata.SetObjectPtrName(object_pointer_name.c_str());
-            LLDB_LOGF(log,
-                      "Setting object pointer name: %s on function "
-                      "object %p.",
-                      object_pointer_name.c_str(),
-                      static_cast<void *>(function_decl));
-          }
-          m_ast.SetMetadata(function_decl, metadata);
-        }
-      }
+      CreateAndLinkFunctionDeclLegacy(
+              attrs, die, dwarf, function_param_decls, containing_decl_ctx,
+              has_template_params, ignore_containing_context, clang_type,
+              object_pointer_name);
+      //CreateAndLinkTemplateDecl(
+      //        attrs, die, dwarf, function_param_decls, containing_decl_ctx,
+      //        has_template_params, ignore_containing_context, clang_type,
+      //        object_pointer_name);
+      //CreateAndLinkFunctionDeclWithLogging(
+      //        attrs, die, dwarf, function_param_decls, containing_decl_ctx,
+      //        has_template_params, ignore_containing_context, clang_type,
+      //        object_pointer_name);
+      //CreateAndLinkFunctionDeclImpl(
+      //        attrs, die, dwarf, function_param_decls, containing_decl_ctx,
+      //        has_template_params, ignore_containing_context, clang_type,
+      //        object_pointer_name);
     }
   }
+
   return std::make_shared<Type>(
       die.GetID(), dwarf, attrs.name, llvm::None, nullptr, LLDB_INVALID_UID,
       Type::eEncodingIsUID, &attrs.decl, clang_type, Type::ResolveState::Full);

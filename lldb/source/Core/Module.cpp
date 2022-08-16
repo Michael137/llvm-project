@@ -393,6 +393,7 @@ void Module::ParseAllDebugSymbols() {
 
       // Parse the variables for this function and all its blocks
       sc.function = f.get();
+      llvm::errs() << llvm::formatv("Setting function symbol: {0} {1}\n", sc.function->GetName(), sc.function);
       symbols->ParseVariablesForContext(sc);
       return false;
     });

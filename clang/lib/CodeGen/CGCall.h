@@ -102,16 +102,7 @@ public:
 
   /// Construct a callee.  Call this constructor directly when this
   /// isn't a direct call.
-  CGCallee(const CGCalleeInfo &abstractInfo, llvm::Value *functionPtr)
-      : KindOrFunctionPointer(
-            SpecialKind(reinterpret_cast<uintptr_t>(functionPtr))) {
-    AbstractInfo = abstractInfo;
-    assert(functionPtr && "configuring callee without function pointer");
-    assert(functionPtr->getType()->isPointerTy());
-    assert(functionPtr->getType()->isOpaquePointerTy() ||
-           functionPtr->getType()->getNonOpaquePointerElementType()
-               ->isFunctionTy());
-  }
+  CGCallee(const CGCalleeInfo &abstractInfo, llvm::Value *functionPtr);
 
   static CGCallee forBuiltin(unsigned builtinID,
                              const FunctionDecl *builtinDecl) {

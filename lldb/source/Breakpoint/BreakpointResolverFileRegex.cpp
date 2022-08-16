@@ -117,13 +117,17 @@ Searcher::CallbackReturn BreakpointResolverFileRegex::SearchCallback(
       std::vector<size_t> sc_to_remove;
       for (size_t i = 0; i < sc_list.GetSize(); i++) {
         SymbolContext sc_ctx;
-        sc_list.GetContextAtIndex(i, sc_ctx);
-        std::string name(
-            sc_ctx
+        const bool ret = sc_list.GetContextAtIndex(i, sc_ctx);
+        assert(ret);
+        char const* fnName = sc_ctx
                 .GetFunctionName(
-                    Mangled::NamePreference::ePreferDemangledWithoutArguments)
-                .AsCString());
-        if (!m_function_names.count(name)) {
+                    Mangled::NamePreference::ePreferDemangledWithoutArguments).AsCString("");
+        assert(fnName);
+
+        for (auto const& fn : m_function_names)
+          llvm::errs() << "Function name: " << fn << " vs. " << fnName << '\n';
+
+        if (!m_function_names.count(std::string(fnName))) {
           sc_to_remove.push_back(i);
         }
       }

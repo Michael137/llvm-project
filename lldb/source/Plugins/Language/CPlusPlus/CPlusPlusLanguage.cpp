@@ -536,6 +536,8 @@ ConstString CPlusPlusLanguage::FindBestAlternateFunctionMangledName(
   std::vector<ConstString> param_matches;
   for (size_t i = 0; i < alternates.size(); i++) {
     ConstString alternate_mangled_name = alternates[i];
+    llvm::errs() << llvm::formatv("Matching {0} == {1}\n", mangled.GetMangledName(),
+                                                         alternate_mangled_name.GetCString());
     Mangled mangled(alternate_mangled_name);
     ConstString demangled = mangled.GetDemangledName();
 
@@ -548,6 +550,8 @@ ConstString CPlusPlusLanguage::FindBestAlternateFunctionMangledName(
         param_and_qual_matches.push_back(alternate_mangled_name);
       else
         param_matches.push_back(alternate_mangled_name);
+
+      llvm::errs() << "MATCH FOUND\n";
     }
   }
 

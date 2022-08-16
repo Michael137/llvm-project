@@ -396,12 +396,18 @@ public:
   clang::FunctionDecl *CreateFunctionDeclaration(
       clang::DeclContext *decl_ctx, OptionalClangModuleID owning_module,
       llvm::StringRef name, const CompilerType &function_Type,
-      clang::StorageClass storage, bool is_inline);
+      clang::StorageClass storage, bool is_inline, char const* mangled_name = nullptr,
+      bool addToAST = true);
 
   CompilerType CreateFunctionType(const CompilerType &result_type,
                                   const CompilerType *args, unsigned num_args,
                                   bool is_variadic, unsigned type_quals,
                                   clang::CallingConv cc = clang::CC_C);
+
+  CompilerType CreateTemplateFunctionType(const CompilerType &result_type,
+                                          const CompilerType *args, unsigned num_args,
+                                          bool is_variadic, unsigned type_quals,
+                                          clang::CallingConv cc = clang::CC_C);
 
   clang::ParmVarDecl *
   CreateParameterDeclaration(clang::DeclContext *decl_ctx,

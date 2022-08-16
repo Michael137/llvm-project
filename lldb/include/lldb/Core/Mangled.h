@@ -136,7 +136,12 @@ public:
 
   void SetDemangledName(ConstString name) { m_demangled = name; }
 
-  void SetMangledName(ConstString name) { m_mangled = name; }
+  void SetMangledName(ConstString name) {
+      if (name == "cfunc" || name == "Test" || name == "func")
+        llvm::errs() << "Setting demangled name: " << name.AsCString("") << "\n";
+
+      m_mangled = name;
+  }
 
   /// Mangled name get accessor.
   ///

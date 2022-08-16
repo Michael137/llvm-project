@@ -4712,6 +4712,23 @@ static unsigned getMaxVectorWidth(const llvm::Type *Ty) {
   return MaxVectorWidth;
 }
 
+CGCallee::CGCallee(const CGCalleeInfo &abstractInfo, llvm::Value *functionPtr)
+      : KindOrFunctionPointer(
+        SpecialKind(reinterpret_cast<uintptr_t>(functionPtr))) {
+  AbstractInfo = abstractInfo;
+  assert(functionPtr && "configuring callee without function pointer");
+  assert(functionPtr->getType()->isPointerTy());
+  assert(functionPtr->getType()->isOpaquePointerTy() ||
+         functionPtr->getType()->getNonOpaquePointerElementType()
+             ->isFunctionTy());
+  
+  if (isOrdinary()) {
+    //llvm::errs() << __func__ << ": " << getFunctionPointer()->getName() << '\n';
+    if (getFunctionPointer()->getName() == "_ZN1A6taggedB5vTestENS_1BE")
+      llvm::errs() << __func__ << ": _ZN1A6taggedB5vTestENS_1BE\n";
+  }
+}
+
 RValue CodeGenFunction::EmitCall(const CGFunctionInfo &CallInfo,
                                  const CGCallee &Callee,
                                  ReturnValueSlot ReturnValue,
@@ -4731,6 +4748,8 @@ RValue CodeGenFunction::EmitCall(const CGFunctionInfo &CallInfo,
 
   const Decl *TargetDecl = Callee.getAbstractInfo().getCalleeDecl().getDecl();
   if (const FunctionDecl *FD = dyn_cast_or_null<FunctionDecl>(TargetDecl)) {
+    if (FD->getName() == "tagged")
+      llvm::errs() << "EMITTING CALL\n";
     // We can only guarantee that a function is called from the correct
     // context/function based on the appropriate target attributes,
     // so only check in the case where we have both always_inline and target

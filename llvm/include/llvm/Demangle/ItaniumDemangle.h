@@ -2071,6 +2071,9 @@ public:
 
   friend bool operator==(GlobalQualifiedName const &LHS,
                          GlobalQualifiedName const &RHS) {
+    assert(LHS.Child != nullptr);
+    assert(RHS.Child != nullptr);
+
     return LHS.Child->equals(RHS.Child);
   }
 
@@ -2362,6 +2365,12 @@ public:
   }
 
   friend bool operator==(BinaryExpr const &Left, BinaryExpr const &Right) {
+    assert(Left.LHS != nullptr);
+    assert(Right.LHS != nullptr);
+
+    assert(Left.RHS != nullptr);
+    assert(Right.RHS != nullptr);
+
     return Left.InfixOperator == Right.InfixOperator &&
            Left.LHS->equals(Right.LHS) && Left.RHS->equals(Right.RHS);
   }
@@ -2392,6 +2401,12 @@ public:
 
   friend bool operator==(ArraySubscriptExpr const &LHS,
                          ArraySubscriptExpr const &RHS) {
+    assert(LHS.Op1 != nullptr);
+    assert(RHS.Op1 != nullptr);
+
+    assert(LHS.Op2 != nullptr);
+    assert(RHS.Op2 != nullptr);
+
     return LHS.Op1->equals(RHS.Op1) && LHS.Op2->equals(RHS.Op2);
   }
 
@@ -2419,6 +2434,9 @@ public:
   }
 
   friend bool operator==(PostfixExpr const &LHS, PostfixExpr const &RHS) {
+    assert(LHS.Child != nullptr);
+    assert(RHS.Child != nullptr);
+
     return LHS.Operator == RHS.Operator && LHS.Child->equals(RHS.Child);
   }
 
@@ -2563,6 +2581,9 @@ public:
   }
 
   friend bool operator==(EnclosingExpr const &LHS, EnclosingExpr const &RHS) {
+    assert(LHS.Infix != nullptr);
+    assert(RHS.Infix != nullptr);
+
     return LHS.Prefix == RHS.Prefix && LHS.Postfix == RHS.Postfix &&
            LHS.Infix->equals(RHS.Infix);
   }
@@ -2663,6 +2684,9 @@ public:
   }
 
   friend bool operator==(CallExpr const &LHS, CallExpr const &RHS) {
+    assert(LHS.Callee != nullptr);
+    assert(RHS.Callee != nullptr);
+
     return LHS.Callee->equals(RHS.Callee) && LHS.Args == RHS.Args;
   }
 

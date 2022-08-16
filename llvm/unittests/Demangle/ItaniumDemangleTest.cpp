@@ -1949,7 +1949,7 @@ TEST(ItaniumDemangle, Equality_CastExpr) {
   }
 }
 
-TEST(ItaniumDemangle, Cast_ForwardTemplateReference) {
+TEST(ItaniumDemangle, Equality_ForwardTemplateReference) {
   ManglingNodeCreator Creator;
 
   auto *Type1 = Creator.make<NameType>("Foo");
@@ -2000,6 +2000,226 @@ TEST(ItaniumDemangle, Cast_ForwardTemplateReference) {
     Node *RHS = Creator.make<ForwardTemplateReference>(0);
     static_cast<ForwardTemplateReference*>(LHS)->Ref = Type1;
     static_cast<ForwardTemplateReference*>(RHS)->Ref = Type2;
+    ASSERT_FALSE(test_utils::compareNodes(LHS, RHS));
+  }
+}
+
+TEST(ItaniumDemangle, Equality_GlobalQualifiedName) {
+  ManglingNodeCreator Creator;
+
+  auto *Name1 = Creator.make<NameType>("Foo");
+  auto *Name2 = Creator.make<NameType>("Bar");
+
+  {
+    // Equal
+    Node *LHS = Creator.make<GlobalQualifiedName>(Name1);
+    Node *RHS = Creator.make<GlobalQualifiedName>(Name1);
+    ASSERT_TRUE(test_utils::compareNodes(LHS, RHS));
+  }
+
+  {
+    // Different names
+    Node *LHS = Creator.make<GlobalQualifiedName>(Name1);
+    Node *RHS = Creator.make<GlobalQualifiedName>(Name2);
+    ASSERT_FALSE(test_utils::compareNodes(LHS, RHS));
+  }
+}
+
+TEST(ItaniumDemangle, Equality_BinaryExpr) {
+  ManglingNodeCreator Creator;
+
+  auto *Name1 = Creator.make<NameType>("Foo");
+  auto *Name2 = Creator.make<NameType>("Bar");
+
+  {
+    // Equal
+    Node *LHS = Creator.make<BinaryExpr>(Name1, "==", Name2, Node::Prec::Equality);
+    Node *RHS = Creator.make<BinaryExpr>(Name1, "==", Name2, Node::Prec::Equality);
+    ASSERT_TRUE(test_utils::compareNodes(LHS, RHS));
+  }
+
+  {
+    // Different left node
+    Node *LHS = Creator.make<BinaryExpr>(Name1, "==", Name2, Node::Prec::Equality);
+    Node *RHS = Creator.make<BinaryExpr>(Name2, "==", Name2, Node::Prec::Equality);
+    ASSERT_FALSE(test_utils::compareNodes(LHS, RHS));
+  }
+
+  {
+    // Different operator
+    Node *LHS = Creator.make<BinaryExpr>(Name1, "==", Name2, Node::Prec::Equality);
+    Node *RHS = Creator.make<BinaryExpr>(Name1, "!=", Name2, Node::Prec::Equality);
+    ASSERT_FALSE(test_utils::compareNodes(LHS, RHS));
+  }
+
+  {
+    // Different right node
+    Node *LHS = Creator.make<BinaryExpr>(Name1, "==", Name2, Node::Prec::Equality);
+    Node *RHS = Creator.make<BinaryExpr>(Name1, "==", Name1, Node::Prec::Equality);
+    ASSERT_FALSE(test_utils::compareNodes(LHS, RHS));
+  }
+}
+
+TEST(ItaniumDemangle, Equality_ArraySubscriptExpr) {
+  ManglingNodeCreator Creator;
+
+  auto *Name1 = Creator.make<NameType>("foo");
+  auto *Name2 = Creator.make<NameType>("bar");
+
+  auto *Subscript1 = Creator.make<NameType>("0");
+  auto *Subscript2 = Creator.make<NameType>("1");
+
+  {
+    // Equal
+    Node *LHS = Creator.make<ArraySubscriptExpr>(Name1, Subscript1, Node::Prec::Default);
+    Node *RHS = Creator.make<ArraySubscriptExpr>(Name1, Subscript1, Node::Prec::Default);
+    ASSERT_TRUE(test_utils::compareNodes(LHS, RHS));
+  }
+
+  {
+    // Different names
+    Node *LHS = Creator.make<ArraySubscriptExpr>(Name1, Subscript1, Node::Prec::Default);
+    Node *RHS = Creator.make<ArraySubscriptExpr>(Name2, Subscript1, Node::Prec::Default);
+    ASSERT_FALSE(test_utils::compareNodes(LHS, RHS));
+  }
+
+  {
+    // Different subscripts
+    Node *LHS = Creator.make<ArraySubscriptExpr>(Name1, Subscript1, Node::Prec::Default);
+    Node *RHS = Creator.make<ArraySubscriptExpr>(Name1, Subscript2, Node::Prec::Default);
+    ASSERT_FALSE(test_utils::compareNodes(LHS, RHS));
+  }
+}
+
+TEST(ItaniumDemangle, Equality_PostfixExpr) {
+  ManglingNodeCreator Creator;
+
+  auto *Name1 = Creator.make<NameType>("foo");
+  auto *Name2 = Creator.make<NameType>("bar");
+
+  {
+    // Equal
+    Node *LHS = Creator.make<PostfixExpr>(Name1, "++", Node::Prec::Default);
+    Node *RHS = Creator.make<PostfixExpr>(Name1, "++", Node::Prec::Default);
+    ASSERT_TRUE(test_utils::compareNodes(LHS, RHS));
+  }
+
+  {
+    // Different names
+    Node *LHS = Creator.make<PostfixExpr>(Name1, "++", Node::Prec::Default);
+    Node *RHS = Creator.make<PostfixExpr>(Name2, "++", Node::Prec::Default);
+    ASSERT_FALSE(test_utils::compareNodes(LHS, RHS));
+  }
+
+  {
+    // Different operators
+    Node *LHS = Creator.make<PostfixExpr>(Name1, "++", Node::Prec::Default);
+    Node *RHS = Creator.make<PostfixExpr>(Name1, "--", Node::Prec::Default);
+    ASSERT_FALSE(test_utils::compareNodes(LHS, RHS));
+  }
+}
+
+TEST(ItaniumDemangle, Equality_ConditionalExpr) {
+  ManglingNodeCreator Creator;
+
+  auto *Cond1 = Creator.make<NameType>("cond1");
+  auto *Cond2 = Creator.make<NameType>("cond2");
+
+  auto *Then1 = Creator.make<NameType>("then1");
+  auto *Then2 = Creator.make<NameType>("then2");
+
+  auto *Else1 = Creator.make<NameType>("else1");
+  auto *Else2 = Creator.make<NameType>("else2");
+
+  {
+    // Equal
+    Node *LHS = Creator.make<ConditionalExpr>(Cond1, Then1, Else1, Node::Prec::Conditional);
+    Node *RHS = Creator.make<ConditionalExpr>(Cond1, Then1, Else1, Node::Prec::Conditional);
+    ASSERT_TRUE(test_utils::compareNodes(LHS, RHS));
+  }
+
+  {
+    // Different condition
+    Node *LHS = Creator.make<ConditionalExpr>(Cond1, Then1, Else1, Node::Prec::Conditional);
+    Node *RHS = Creator.make<ConditionalExpr>(Cond2, Then1, Else1, Node::Prec::Conditional);
+    ASSERT_FALSE(test_utils::compareNodes(LHS, RHS));
+  }
+
+  {
+    // Different then-expression
+    Node *LHS = Creator.make<ConditionalExpr>(Cond1, Then1, Else1, Node::Prec::Conditional);
+    Node *RHS = Creator.make<ConditionalExpr>(Cond1, Then2, Else1, Node::Prec::Conditional);
+    ASSERT_FALSE(test_utils::compareNodes(LHS, RHS));
+  }
+
+  {
+    // Different else-expression
+    Node *LHS = Creator.make<ConditionalExpr>(Cond1, Then1, Else1, Node::Prec::Conditional);
+    Node *RHS = Creator.make<ConditionalExpr>(Cond1, Then1, Else2, Node::Prec::Conditional);
+    ASSERT_FALSE(test_utils::compareNodes(LHS, RHS));
+  }
+}
+
+TEST(ItaniumDemangle, Equality_EnclosingExpr) {
+  ManglingNodeCreator Creator;
+
+  auto *Name1 = Creator.make<NameType>("foo");
+  auto *Name2 = Creator.make<NameType>("bar");
+
+  {
+    // Equal
+    Node *LHS = Creator.make<EnclosingExpr>("[", Name1);
+    Node *RHS = Creator.make<EnclosingExpr>("[", Name1);
+    ASSERT_TRUE(test_utils::compareNodes(LHS, RHS));
+  }
+
+  {
+    // Different left enclosing expression
+    Node *LHS = Creator.make<EnclosingExpr>("[", Name1);
+    Node *RHS = Creator.make<EnclosingExpr>("{", Name1);
+    ASSERT_FALSE(test_utils::compareNodes(LHS, RHS));
+  }
+
+  {
+    // Different names
+    Node *LHS = Creator.make<EnclosingExpr>("[", Name1);
+    Node *RHS = Creator.make<EnclosingExpr>("[", Name2);
+    ASSERT_FALSE(test_utils::compareNodes(LHS, RHS));
+  }
+}
+
+TEST(ItaniumDemangle, Equality_CallExpr) {
+  ManglingNodeCreator Creator;
+
+  auto *Name1 = Creator.make<NameType>("foo");
+  auto *Name2 = Creator.make<NameType>("bar");
+
+  std::vector<Node *> Params1{Creator.make<NameType>("double"),
+                              Creator.make<NameType>("int")};
+
+  std::vector<Node *> Params2{Creator.make<NameType>("int")};
+
+  NodeArray Args1 = Creator.makeNodeArray(Params1.cbegin(), Params1.cend());
+  NodeArray Args2 = Creator.makeNodeArray(Params2.cbegin(), Params2.cend());
+
+  {
+    // Equal
+    Node *LHS = Creator.make<CallExpr>(Name1, Args1, Node::Prec::Default);
+    Node *RHS = Creator.make<CallExpr>(Name1, Args1, Node::Prec::Default);
+    ASSERT_TRUE(test_utils::compareNodes(LHS, RHS));
+  }
+
+  {
+    // Different names
+    Node *LHS = Creator.make<CallExpr>(Name1, Args1, Node::Prec::Default);
+    Node *RHS = Creator.make<CallExpr>(Name2, Args1, Node::Prec::Default);
+    ASSERT_FALSE(test_utils::compareNodes(LHS, RHS));
+  }
+
+  {
+    // Different args
+    Node *LHS = Creator.make<CallExpr>(Name1, Args1, Node::Prec::Default);
+    Node *RHS = Creator.make<CallExpr>(Name1, Args2, Node::Prec::Default);
     ASSERT_FALSE(test_utils::compareNodes(LHS, RHS));
   }
 }

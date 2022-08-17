@@ -2733,6 +2733,9 @@ public:
   }
 
   friend bool operator==(NewExpr const &LHS, NewExpr const &RHS) {
+    assert(LHS.Type != nullptr);
+    assert(RHS.Type != nullptr);
+
     return LHS.IsGlobal == RHS.IsGlobal && LHS.IsArray == RHS.IsArray &&
            LHS.Type->equals(RHS.Type) && LHS.ExprList == RHS.ExprList &&
            LHS.InitList == RHS.InitList;
@@ -2768,6 +2771,9 @@ public:
   }
 
   friend bool operator==(DeleteExpr const &LHS, DeleteExpr const &RHS) {
+    assert(LHS.Op != nullptr);
+    assert(RHS.Op != nullptr);
+
     return LHS.IsGlobal == RHS.IsGlobal && LHS.IsArray == RHS.IsArray &&
            LHS.Op->equals(RHS.Op);
   }

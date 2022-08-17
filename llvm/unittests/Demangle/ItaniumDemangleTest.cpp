@@ -2223,3 +2223,95 @@ TEST(ItaniumDemangle, Equality_CallExpr) {
     ASSERT_FALSE(test_utils::compareNodes(LHS, RHS));
   }
 }
+
+TEST(ItaniumDemangle, Equality_NewExpr) {
+  ManglingNodeCreator Creator;
+
+  auto *Type1 = Creator.make<NameType>("Foo");
+  auto *Type2 = Creator.make<NameType>("Bar");
+
+  std::vector<Node *> Params1{Creator.make<NameType>("double"),
+                              Creator.make<NameType>("int")};
+
+  std::vector<Node *> Params2{Creator.make<NameType>("int")};
+
+  NodeArray Exprs1 = Creator.makeNodeArray(Params1.cbegin(), Params1.cend());
+  NodeArray Exprs2 = Creator.makeNodeArray(Params2.cbegin(), Params2.cend());
+
+  {
+    // Equal
+    Node *LHS = Creator.make<NewExpr>(Exprs1, Type1, Exprs1, true, true, Node::Prec::Default);
+    Node *RHS = Creator.make<NewExpr>(Exprs1, Type1, Exprs1, true, true, Node::Prec::Default);
+    ASSERT_TRUE(test_utils::compareNodes(LHS, RHS));
+  }
+
+  {
+    // Different init expr list
+    Node *LHS = Creator.make<NewExpr>(Exprs1, Type1, Exprs1, true, true, Node::Prec::Default);
+    Node *RHS = Creator.make<NewExpr>(Exprs2, Type1, Exprs1, true, true, Node::Prec::Default);
+    ASSERT_FALSE(test_utils::compareNodes(LHS, RHS));
+  }
+
+  {
+    // Different types
+    Node *LHS = Creator.make<NewExpr>(Exprs1, Type1, Exprs1, true, true, Node::Prec::Default);
+    Node *RHS = Creator.make<NewExpr>(Exprs1, Type2, Exprs1, true, true, Node::Prec::Default);
+    ASSERT_FALSE(test_utils::compareNodes(LHS, RHS));
+  }
+
+  {
+    // Different args
+    Node *LHS = Creator.make<NewExpr>(Exprs1, Type1, Exprs1, true, true, Node::Prec::Default);
+    Node *RHS = Creator.make<NewExpr>(Exprs1, Type1, Exprs2, true, true, Node::Prec::Default);
+    ASSERT_FALSE(test_utils::compareNodes(LHS, RHS));
+  }
+
+  {
+    // Different IsGlobal
+    Node *LHS = Creator.make<NewExpr>(Exprs1, Type1, Exprs1, true, true, Node::Prec::Default);
+    Node *RHS = Creator.make<NewExpr>(Exprs1, Type1, Exprs1, false, true, Node::Prec::Default);
+    ASSERT_FALSE(test_utils::compareNodes(LHS, RHS));
+  }
+
+  {
+    // Different IsArray
+    Node *LHS = Creator.make<NewExpr>(Exprs1, Type1, Exprs1, true, true, Node::Prec::Default);
+    Node *RHS = Creator.make<NewExpr>(Exprs1, Type1, Exprs1, true, false, Node::Prec::Default);
+    ASSERT_FALSE(test_utils::compareNodes(LHS, RHS));
+  }
+}
+
+TEST(ItaniumDemangle, Equality_DeleteExpr) {
+  ManglingNodeCreator Creator;
+
+  auto *Op1 = Creator.make<NameType>("Foo");
+  auto *Op2 = Creator.make<NameType>("Bar");
+
+  {
+    // Equal
+    Node *LHS = Creator.make<DeleteExpr>(Op1, true, true, Node::Prec::Default);
+    Node *RHS = Creator.make<DeleteExpr>(Op1, true, true, Node::Prec::Default);
+    ASSERT_TRUE(test_utils::compareNodes(LHS, RHS));
+  }
+
+  {
+    // Different operands
+    Node *LHS = Creator.make<DeleteExpr>(Op1, true, true, Node::Prec::Default);
+    Node *RHS = Creator.make<DeleteExpr>(Op2, true, true, Node::Prec::Default);
+    ASSERT_FALSE(test_utils::compareNodes(LHS, RHS));
+  }
+
+  {
+    // Different IsGlobal
+    Node *LHS = Creator.make<DeleteExpr>(Op1, true, true, Node::Prec::Default);
+    Node *RHS = Creator.make<DeleteExpr>(Op2, false, true, Node::Prec::Default);
+    ASSERT_FALSE(test_utils::compareNodes(LHS, RHS));
+  }
+
+  {
+    // Different IsArray
+    Node *LHS = Creator.make<DeleteExpr>(Op1, true, true, Node::Prec::Default);
+    Node *RHS = Creator.make<DeleteExpr>(Op1, true, false, Node::Prec::Default);
+    ASSERT_FALSE(test_utils::compareNodes(LHS, RHS));
+  }
+}

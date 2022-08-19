@@ -40,3 +40,4 @@ class ImportStdModule(TestBase):
         self.expect("expr (size_t)v.size()",
                     substrs=["Couldn't lookup symbols"],
                     error=True)
+        assert False

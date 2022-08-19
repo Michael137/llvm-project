@@ -634,6 +634,9 @@ FindBestAlternateFunctionMangledName(llvm::itanium_demangle::Node const *node,
     if (!alternate_mangled_name)
       continue;
 
+    llvm::errs() << llvm::formatv("\tCompared mangle tree for: {0}\n",
+                                  alternate_mangled_name.GetCString());
+
     char const *alternate = alternate_mangled_name.GetCString();
     const auto alternate_len = alternate_mangled_name.GetLength();
     ManglingParser<NodeAllocator> alternate_parser(alternate,
@@ -1569,6 +1572,13 @@ void CPlusPlusLanguage::CollectAlternateFunctionNamesItanium(
     ConstString basename(getFunctionName(node));
     results.push_back(basename);
   }
+
+  llvm::errs() << "\tCollected: [";
+  for (auto const& elem : results)
+    if (elem)
+      llvm::errs() << elem << ", ";
+
+  llvm::errs() << "]\n";
 }
 
 std::vector<ConstString> CPlusPlusLanguage::CollectAlternateFunctionNames(
@@ -1576,8 +1586,10 @@ std::vector<ConstString> CPlusPlusLanguage::CollectAlternateFunctionNames(
     const SymbolContext &sc) const {
   std::vector<ConstString> results;
   for (const ConstString &name : mangled_names) {
+    llvm::errs() << "Mangled name is: " << name.AsCString("<unknown>") << '\n';
     auto scheme = Mangled::GetManglingScheme(name.GetStringRef());
     switch (scheme) {
+#if 0
     case Mangled::ManglingScheme::eManglingSchemeItanium:
       CollectAlternateFunctionNamesItanium(results, name, sc);
       break;
@@ -1593,6 +1605,9 @@ std::vector<ConstString> CPlusPlusLanguage::CollectAlternateFunctionNames(
     case Mangled::ManglingScheme::eManglingSchemeMSVC:
     case Mangled::ManglingScheme::eManglingSchemeRustV0:
     case Mangled::ManglingScheme::eManglingSchemeD:
+#else
+    default:
+#endif
       // We don't have a mangle tree API available. Fall back
       // to parsing demangled function names to find alternates
       CollectAlternateFunctionNamesFromMangled(results, name, sc);

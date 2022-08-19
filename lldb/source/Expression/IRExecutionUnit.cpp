@@ -15,6 +15,8 @@
 #include "llvm/IR/Module.h"
 #include "llvm/Support/SourceMgr.h"
 #include "llvm/Support/raw_ostream.h"
+#include <chrono>
+#include <cstdlib>
 
 #include "lldb/Core/Debugger.h"
 #include "lldb/Core/Disassembler.h"
@@ -778,30 +780,38 @@ IRExecutionUnit::FindInSymbols(const std::vector<ConstString> &names,
       sc.module_sp->FindFunctions(name, CompilerDeclContext(),
                                   lldb::eFunctionNameTypeFull, function_options,
                                   sc_list);
-      if (auto load_addr = resolver.Resolve(sc_list))
+      if (auto load_addr = resolver.Resolve(sc_list)) {
+        llvm::errs() << "Found symbol: " << name.AsCString("<unknown>") << '\n';
         return *load_addr;
+      }
     }
 
     if (sc.target_sp) {
       SymbolContextList sc_list;
       sc.target_sp->GetImages().FindFunctions(name, lldb::eFunctionNameTypeFull,
                                               function_options, sc_list);
-      if (auto load_addr = resolver.Resolve(sc_list))
+      if (auto load_addr = resolver.Resolve(sc_list)) {
+        llvm::errs() << "Found symbol: " << name.AsCString("<unknown>") << '\n';
         return *load_addr;
+      }
     }
 
     if (sc.target_sp) {
       SymbolContextList sc_list;
       sc.target_sp->GetImages().FindSymbolsWithNameAndType(
           name, lldb::eSymbolTypeAny, sc_list);
-      if (auto load_addr = resolver.Resolve(sc_list))
+      if (auto load_addr = resolver.Resolve(sc_list)) {
+        llvm::errs() << "Found symbol: " << name.AsCString("<unknown>") << '\n';
         return *load_addr;
+      }
     }
 
     lldb::addr_t best_internal_load_address =
         resolver.GetBestInternalLoadAddress();
-    if (best_internal_load_address != LLDB_INVALID_ADDRESS)
+    if (best_internal_load_address != LLDB_INVALID_ADDRESS) {
+      llvm::errs() << "Found symbol: " << name.AsCString("<unknown>") << '\n';
       return best_internal_load_address;
+    }
   }
 
   return LLDB_INVALID_ADDRESS;
@@ -950,7 +960,9 @@ IRExecutionUnit::MemoryManager::GetSymbolAddressAndPresence(
 
   ConstString name_cs(Name.c_str());
 
+  auto start = std::chrono::steady_clock::now();
   lldb::addr_t ret = m_parent.FindSymbol(name_cs, missing_weak);
+  llvm::errs() << "TIME: " << (std::chrono::steady_clock::now() - start) / std::chrono::microseconds(1) << '\n';
 
   if (ret == LLDB_INVALID_ADDRESS) {
     LLDB_LOGF(log,

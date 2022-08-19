@@ -14,7 +14,6 @@ int foo()
 
 int main (int argc, char const *argv[], char const *envp[])
 {          
-    foo();
-    return 0; //% self.expect("expression -- foo()", substrs = ['2'])
+    foo(); return 0; //% self.expect("expression -- foo()", substrs = ['2'])
 }
 

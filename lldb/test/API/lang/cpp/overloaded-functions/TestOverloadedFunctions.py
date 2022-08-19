@@ -15,8 +15,10 @@ class OverloadedFunctionsTestCase(TestBase):
         self.build()
         lldbutil.run_to_source_breakpoint(self, "// breakpoint", lldb.SBFileSpec("main.cpp"))
 
-        self.expect("expression -- Dump(myB)",
-                    startstr="(int) $0 = 2")
+        # self.expect("expression -- Dump(myB)",
+        #             startstr="(int) $0 = 2")
 
         self.expect("expression -- Static()",
                     startstr="(int) $1 = 1")
+
+        assert False

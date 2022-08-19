@@ -23,6 +23,7 @@ def has_rosetta_shared_cache(os_version):
     macos_device_support = os.path.join(os.path.expanduser("~"), 'Library',
                                         'Developer', 'Xcode',
                                         'macOS DeviceSupport')
+    print(os_version)
     for _, subdirs, _ in os.walk(macos_device_support):
         for subdir in subdirs:
             if os_version in subdir:

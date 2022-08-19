@@ -9,7 +9,13 @@ namespace std {
     // Pretend to be a std::vector template we need to instantiate
     // in LLDB.
     template<typename T>
-    struct vector { T i; int size() { return 2; } };
+    struct vector { T i;
+        int size() { return 2; }
+        T const& test(T const& t) const volatile && {
+            i = t;
+            return i;
+        }
+    };
   }
 }
 #else

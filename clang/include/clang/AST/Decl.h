@@ -3203,7 +3203,7 @@ public:
   // ASTContext::getTypedefType, ASTContext::getRecordType, etc. if you
   // already know the specific kind of node this is.
   const Type *getTypeForDecl() const { return TypeForDecl; }
-  void setTypeForDecl(const Type *TD) { TypeForDecl = TD; }
+  void setTypeForDecl(const Type *TD);
 
   SourceLocation getBeginLoc() const LLVM_READONLY { return LocStart; }
   void setLocStart(SourceLocation L) { LocStart = L; }

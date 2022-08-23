@@ -1583,7 +1583,7 @@ public:
 
     if (PrevDecl) {
       assert(PrevDecl->TypeForDecl && "previous decl has no TypeForDecl");
-      Decl->TypeForDecl = PrevDecl->TypeForDecl;
+      const_cast<TypeDecl*>(Decl)->setTypeForDecl(PrevDecl->TypeForDecl);
       return QualType(PrevDecl->TypeForDecl, 0);
     }
 

@@ -5109,9 +5109,9 @@ void TypeDecl::anchor() {}
 void TypeDecl::setTypeForDecl(const Type* TD) {
     //if (TD) TD->dump();
     auto name = getName();
-    llvm::errs() << "Setting TypeForDecl on " << name << '\n';
+    //llvm::errs() << "Setting TypeForDecl on " << name << '\n';
     if (name == "basic_string")
-      llvm::errs() << "BREAK\n";
+      llvm::errs() << "Placeholder\n";
 
     TypeForDecl = TD;
 }

@@ -328,9 +328,14 @@ public:
 
   bool FindExternalVisibleDeclsByName(const clang::DeclContext *DC,
                                       clang::DeclarationName Name) override {
-    for (size_t i = 0; i < Sources.size(); ++i)
+    for (size_t i = 0; i < Sources.size(); ++i) {
+      //llvm::errs() << "Searching for " << Name.getAsString() << '\n';
+      if (Name.getAsString() == "basic_string")
+        llvm::errs() << __func__ << "(" << Name.getAsString() << ")\n";
+
       if (Sources[i]->FindExternalVisibleDeclsByName(DC, Name))
         return true;
+    }
     return false;
   }
 

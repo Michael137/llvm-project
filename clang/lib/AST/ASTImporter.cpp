@@ -2791,6 +2791,9 @@ ExpectedDecl ASTNodeImporter::VisitEnumDecl(EnumDecl *D) {
 }
 
 ExpectedDecl ASTNodeImporter::VisitRecordDecl(RecordDecl *D) {
+  if (D->getName() == "basic_string")
+    llvm::errs() << __func__ << "(basic_string)\n";
+
   bool IsFriendTemplate = false;
   if (auto *DCXX = dyn_cast<CXXRecordDecl>(D)) {
     IsFriendTemplate =

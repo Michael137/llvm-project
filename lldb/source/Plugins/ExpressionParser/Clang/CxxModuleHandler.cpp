@@ -40,6 +40,7 @@ CxxModuleHandler::CxxModuleHandler(ASTImporter &importer, ASTContext *target)
       // utility
       "allocator",
       "pair",
+      "basic_string",
   };
   m_supported_templates.insert(supported_names.begin(), supported_names.end());
 }

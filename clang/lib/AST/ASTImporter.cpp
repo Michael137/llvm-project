@@ -2937,8 +2937,13 @@ ExpectedDecl ASTNodeImporter::VisitRecordDecl(RecordDecl *D) {
       if (GetImportedOrCreateDecl(D2CXX, D, Importer.getToContext(),
                                   D->getTagKind(), DC, *BeginLocOrErr, Loc,
                                   Name.getAsIdentifierInfo(),
-                                  cast_or_null<CXXRecordDecl>(PrevDecl)))
+                                  cast_or_null<CXXRecordDecl>(PrevDecl))) {
         return D2CXX;
+      }
+
+      // D2CXX->setTypeForDecl(nullptr);
+      // Importer.getToContext().getTypeDeclType(
+      //     D2CXX, D);
     }
 
     D2 = D2CXX;

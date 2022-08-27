@@ -40,7 +40,7 @@ CxxModuleHandler::CxxModuleHandler(ASTImporter &importer, ASTContext *target)
       // utility
       "allocator",
       "pair",
-      "basic_string",
+      //"basic_string",
   };
   m_supported_templates.insert(supported_names.begin(), supported_names.end());
 }
@@ -194,8 +194,8 @@ llvm::Optional<Decl *> CxxModuleHandler::tryInstantiateStdTemplate(Decl *d) {
     return llvm::None;
 
   // We have a list of supported template names.
-  if (!m_supported_templates.contains(td->getName()))
-    return llvm::None;
+  // if (!m_supported_templates.contains(td->getName()))
+  //   return llvm::None;
 
   // Early check if we even support instantiating this template. We do this
   // before we import anything into the target AST.

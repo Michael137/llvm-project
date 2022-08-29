@@ -50,3 +50,27 @@ add_llvm_external_project(clang-tools-extra extra)
 add_clang_subdirectory(libclang)
 
 add_clang_subdirectory(amdgpu-arch)
+
+add_clang_executable(astimporter-demo ASTImporterDemo.cpp)
+clang_target_link_libraries(astimporter-demo
+  PRIVATE
+  LLVMSupport
+  clangAST
+  clangASTMatchers
+  clangBasic
+  clangFrontend
+  clangSerialization
+  clangTooling
+  )
+
+add_clang_executable(astimporter-demo-crashing ASTImporterDemo-crashing.cpp)
+clang_target_link_libraries(astimporter-demo-crashing
+  PRIVATE
+  LLVMSupport
+  clangAST
+  clangASTMatchers
+  clangBasic
+  clangFrontend
+  clangSerialization
+  clangTooling
+  )

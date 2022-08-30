@@ -26,6 +26,7 @@ add_clang_library(clangAST
   ASTDiagnostic.cpp
   ASTDumper.cpp
   ASTImporter.cpp
+  ASTImporterCrash.cpp
   ASTImporterLookupTable.cpp
   ASTStructuralEquivalence.cpp
   ASTTypeTraits.cpp

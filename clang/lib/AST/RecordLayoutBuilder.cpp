@@ -410,6 +410,9 @@ EmptySubobjectMap::CanPlaceFieldSubobjectAtOffset(const CXXRecordDecl *RD,
     }
   }
 
+  if (RD->getName() == "SmallVectorBase")
+    llvm::errs() << "Laying out SmallVectorBase\n";
+
   // Traverse all member variables.
   unsigned FieldNo = 0;
   for (CXXRecordDecl::field_iterator I = RD->field_begin(), E = RD->field_end();

@@ -136,6 +136,8 @@ TypeSP DWARFASTParserClang::ParseTypeFromClangModule(const SymbolContext &sc,
   if (!clang_module_sp)
     return TypeSP();
 
+  //llvm::errs() << "Parsing " << die.GetName() << '\n';
+
   // If this type comes from a Clang module, recursively look in the
   // DWARF section of the .pcm file in the module cache. Clang
   // generates DWO skeleton units as breadcrumbs to find them.

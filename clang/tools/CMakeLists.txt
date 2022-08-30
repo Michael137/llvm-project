@@ -63,6 +63,30 @@ clang_target_link_libraries(astimporter-demo
   clangTooling
   )
 
+add_clang_executable(astimporter-demo-layout-crash ASTImporterDemo-layout-crash.cpp)
+clang_target_link_libraries(astimporter-demo-layout-crash
+  PRIVATE
+  LLVMSupport
+  clangAST
+  clangASTMatchers
+  clangBasic
+  clangFrontend
+  clangSerialization
+  clangTooling
+  )
+
+add_clang_executable(astcontext-demo ASTContext-crashing.cpp)
+clang_target_link_libraries(astcontext-demo
+  PRIVATE
+  LLVMSupport
+  clangAST
+  clangASTMatchers
+  clangBasic
+  clangFrontend
+  clangSerialization
+  clangTooling
+  )
+
 add_clang_executable(astimporter-demo-crashing ASTImporterDemo-crashing.cpp)
 clang_target_link_libraries(astimporter-demo-crashing
   PRIVATE
@@ -73,4 +97,5 @@ clang_target_link_libraries(astimporter-demo-crashing
   clangFrontend
   clangSerialization
   clangTooling
+  clangCrashDemo
   )

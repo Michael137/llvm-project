@@ -581,6 +581,10 @@ class TypeSourceInfo;
     static llvm::Optional<unsigned> getFieldIndex(Decl *F);
   };
 
+  struct TestContainsImporterState {                                                             
+    std::shared_ptr<clang::ASTImporterSharedState> SharedState = nullptr;
+    clang::ASTImporter::ImportPathTy m_path;                             
+  };
 } // namespace clang
 
 #endif // LLVM_CLANG_AST_ASTIMPORTER_H

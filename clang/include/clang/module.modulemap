@@ -25,6 +25,13 @@ module Clang_AST {
   module * { export * }
 }
 
+module Clang_CrashDemo {
+  requires cplusplus
+  umbrella "CrashDemo"
+
+  module * { export * }
+}
+
 module Clang_ASTMatchers { requires cplusplus umbrella "ASTMatchers" module * { export * } }
 
 module Clang_Basic {

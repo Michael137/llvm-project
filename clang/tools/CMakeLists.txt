@@ -123,4 +123,5 @@ clang_target_link_libraries(astcontext-crashing-reduced
   clangSerialization
   clangTooling
   clangCrashingContext
+  clangCrashingContext2
   )

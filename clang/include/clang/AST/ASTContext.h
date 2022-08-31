@@ -204,6 +204,10 @@ struct TypeInfoChars {
   }
 };
 
+class ASTContextCrashing {
+  mutable SmallVector<Type *, 0> Types;
+};
+
 /// Holds long-lived AST nodes (such as types and decls) that can be
 /// referred to throughout the semantic analysis of a file.
 class ASTContext : public RefCountedBase<ASTContext> {

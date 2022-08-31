@@ -39,6 +39,13 @@ module Clang_CrashingContext {
   module * { export * }
 }
 
+module Clang_CrashingContext2 {
+  requires cplusplus
+  umbrella "CrashingContext2"
+
+  module * { export * }
+}
+
 module Clang_ASTMatchers { requires cplusplus umbrella "ASTMatchers" module * { export * } }
 
 module Clang_Basic {

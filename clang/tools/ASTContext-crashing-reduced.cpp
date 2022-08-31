@@ -1,15 +1,17 @@
 #include "clang/CrashingContext/ASTContextCrash.h"
+#include "clang/CrashingContext2/ASTContextCrash2.h"
 
 int main() {
-  // Variable declaration order matters!
-  // TODO: copy ASTUnit and ASTContext into ASTContextCrash.h and reduce
+  // Non-reduced
+  // Module 1: Clang_FrontEnd
   //std::unique_ptr<clang::ASTUnit> FromUnit = nullptr;
+  // Module 1: Clang_AST
   //clang::ASTContext* ast = nullptr;
   
-  // TODO: with Crashing::ASTContext we don't crash
-  //       Reduce using ASTContext copy in clangAST module?
-  std::unique_ptr<clang::Crashing::ASTUnit> unit = nullptr;
-  clang::ASTContext* ast = nullptr;
-  //clang::Crashing::ASTContext* ast = nullptr;
+  // Reduced
+  // Module 1: Clang_ContextCrashing
+  clang::Crashing::ASTUnit unit;
+  // Module 1: Clang_ContextCrashing2
+  clang::Crashing2::ASTContextCrash2 ast;
   return 0;
 }

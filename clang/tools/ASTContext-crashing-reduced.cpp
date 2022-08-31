@@ -7,6 +7,7 @@ int main() {
   //clang::ASTContext* ast = nullptr;
   
   // TODO: with Crashing::ASTContext we don't crash
+  //       Reduce using ASTContext copy in clangAST module?
   std::unique_ptr<clang::Crashing::ASTUnit> unit = nullptr;
   clang::ASTContext* ast = nullptr;
   //clang::Crashing::ASTContext* ast = nullptr;

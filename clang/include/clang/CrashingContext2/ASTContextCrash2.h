@@ -6,8 +6,8 @@
 namespace clang {
 namespace Crashing2 {
 class ASTContextCrash2 {
-  //mutable llvm::SmallVector<clang::Type *, 0> Types; // Uncomment to crash in LayoutFields
-  mutable llvm::Crashing::SmallVector<clang::Type *, 0> Types; // Uncomment to crash in LayoutNonVirtualBases
+  //mutable llvm::SmallVector<clang::Type *, 0> Types;
+  mutable llvm::Crashing::SmallVector<clang::Type *, 0> Types;
 };
 } // namespace Crashing2
 } // namespace clang

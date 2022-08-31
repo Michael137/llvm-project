@@ -4,8 +4,8 @@
 namespace clang {
 namespace Crashing {
 class ASTUnit {
-  //SmallVector<StoredDiagnostic, 4> StoredDiagnostics; // Uncomment to crash in LayoutFields
-    llvm::Crashing::SmallVector<StoredDiagnostic, 4> StoredDiagnostics; // Uncomment to crash in LayoutNonVirtualBases
+  //SmallVector<StoredDiagnostic, 4> StoredDiagnostics;
+    llvm::Crashing::SmallVector<StoredDiagnostic, 4> StoredDiagnostics;
 };
 } // namespace Crashing
 } // namespace clang

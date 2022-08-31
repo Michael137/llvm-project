@@ -388,6 +388,15 @@ module LLVM_Transforms {
 
 extern module LLVM_Extern_Utils_DataTypes "module.extern.modulemap"
 
+module LLVM_CrashingVector {
+  module CrashingVectorSubModule {
+    requires cplusplus
+
+    umbrella "CrashingVector"
+    module * { export * }
+  }
+}
+
 // A module covering ADT/ and Support/. These are intertwined and
 // codependent, and notionally form a single module.
 module LLVM_Utils {

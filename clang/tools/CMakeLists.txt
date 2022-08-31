@@ -116,6 +116,7 @@ add_clang_executable(astcontext-crashing-reduced ASTContext-crashing-reduced.cpp
 clang_target_link_libraries(astcontext-crashing-reduced
   PRIVATE
   LLVMSupport
+  LLVMCrashingVector
   clangAST
   clangASTMatchers
   clangBasic

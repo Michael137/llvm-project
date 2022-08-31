@@ -12,6 +12,7 @@ add_clang_library(clangCrashingContext2
   clangAST
   clangBasic
   clangLex
+  LLVMCrashingVector
 
   DEPENDS
   ClangAttrDocTable

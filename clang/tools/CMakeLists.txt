@@ -99,3 +99,28 @@ clang_target_link_libraries(astimporter-demo-crashing
   clangTooling
   clangCrashDemo
   )
+
+add_clang_executable(astcontext-crashing ASTContext-crashing.cpp)
+clang_target_link_libraries(astcontext-crashing
+  PRIVATE
+  LLVMSupport
+  clangAST
+  clangASTMatchers
+  clangBasic
+  clangFrontend
+  clangSerialization
+  clangTooling
+  )
+
+add_clang_executable(astcontext-crashing-reduced ASTContext-crashing-reduced.cpp)
+clang_target_link_libraries(astcontext-crashing-reduced
+  PRIVATE
+  LLVMSupport
+  clangAST
+  clangASTMatchers
+  clangBasic
+  clangFrontend
+  clangSerialization
+  clangTooling
+  clangCrashingContext
+  )

@@ -21,7 +21,7 @@
 
 int main() {
   std::unique_ptr<clang::ASTUnit> FromUnit =
-      clang::tooling::buildASTFromCode("", "from.cc");
+      clang::tooling::buildASTFromCode("", "from.cc"); // <<< we don't crash if FromUnit is not in scope
   auto& FromContext = FromUnit->getASTContext();
   return 0;
 }

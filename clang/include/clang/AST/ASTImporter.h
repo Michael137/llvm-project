@@ -289,7 +289,6 @@ class TypeSourceInfo;
                 ASTContext &FromContext, FileManager &FromFileManager,
                 bool MinimalImport,
                 std::shared_ptr<ASTImporterSharedState> SharedState = nullptr);
-
     virtual ~ASTImporter();
 
     /// Whether the importer will perform a minimal import, creating

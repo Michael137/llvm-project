@@ -10025,7 +10025,6 @@ bool ASTImporter::IsStructurallyEquivalent(QualType From, QualType To,
       llvm::consumeError(ToFromOrErr.takeError());
     }
   }
-
   StructuralEquivalenceContext Ctx(FromContext, ToContext, NonEquivalentDecls,
                                    getStructuralEquivalenceKind(*this), false,
                                    Complain);

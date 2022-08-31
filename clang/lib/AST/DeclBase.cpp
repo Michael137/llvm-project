@@ -1562,6 +1562,7 @@ void DeclContext::addHiddenDecl(Decl *D) {
   if (FirstDecl) {
     LastDecl->NextInContextAndBits.setPointer(D);
     LastDecl = D;
+    // D->dump();
   } else {
     FirstDecl = LastDecl = D;
   }

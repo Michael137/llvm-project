@@ -1,16 +1,9 @@
 #include "clang/CrashDemo/Crash.h"
-#include "clang/AST/ASTImporter.h"
-#include "clang/Tooling/Tooling.h"
+#include "clang/Frontend/ASTUnit.h"
 
 int main() {
-  std::unique_ptr<clang::ASTUnit> ToUnit =
-      clang::tooling::buildASTFromCode("", "to.cc");
-  std::unique_ptr<clang::ASTUnit> FromUnit =
-      clang::tooling::buildASTFromCode("",
-                                       "from.cc");
-  clang::Crasher Importer(ToUnit->getASTContext(), ToUnit->getFileManager(),
-                              FromUnit->getASTContext(),
-                              FromUnit->getFileManager(),
-                              /*MinimalImport=*/true);
+  std::unique_ptr<clang::ASTUnit> ToUnit = nullptr;
+  std::unique_ptr<clang::ASTUnit> FromUnit = nullptr;
+  clang::Crasher Importer;
   return 0;
 }

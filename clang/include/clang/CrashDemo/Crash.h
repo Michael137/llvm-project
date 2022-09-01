@@ -11,24 +11,16 @@ class FileManager;
     };
     std::shared_ptr<ASTImporterSharedState> SharedState = nullptr;
     ImportPathTy ImportPath;
-    ASTContext &ToContext, &FromContext;
-    FileManager &ToFileManager, &FromFileManager;
+    ASTContext *ToContext;
+    ASTContext *FromContext;
+    FileManager *ToFileManager;
+    FileManager *FromFileManager;
     bool Minimal;
     ODRHandlingType ODRHandling;
     llvm::DenseMap<Decl *, Decl *> ImportedDecls;
   public:
-    Crasher(ASTContext &ToContext, FileManager &ToFileManager,
-                         ASTContext &FromContext, FileManager &FromFileManager,
-                         bool MinimalImport,
-                         std::shared_ptr<ASTImporterSharedState> SharedState = nullptr)
-    : SharedState(SharedState), ToContext(ToContext), FromContext(FromContext),
-      ToFileManager(ToFileManager), FromFileManager(FromFileManager),
-      Minimal(MinimalImport), ODRHandling(ODRHandlingType::Conservative) {}
-
-    //virtual ~Crasher() = default;
     template <typename ImportT>
-    [[nodiscard]] llvm::Error importInto(ImportT &To, const ImportT &From) {
-    }
+    [[nodiscard]] llvm::Error importInto(ImportT &To, const ImportT &From) {}
     llvm::Expected<ExprWithCleanups::CleanupObject>
     Import(ExprWithCleanups::CleanupObject From);
   };

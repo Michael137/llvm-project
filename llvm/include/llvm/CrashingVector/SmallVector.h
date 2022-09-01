@@ -2,12 +2,9 @@
 #include "llvm/Support/type_traits.h"
 #include <algorithm>
 namespace llvm {
-namespace Crashing {
+template <class Size_T> class ClassInMod3Base { void *BeginX; };
 
-template <class Size_T> class SmallVectorBase { void *BeginX; };
-
-template <typename T, unsigned N>
-class SmallVector : public SmallVectorBase<uint32_t> {};
-} // namespace Crashing
+template <typename T>
+class ClassInMod3 : public ClassInMod3Base<uint32_t> {};
 } // namespace llvm
 #endif // _H_IN

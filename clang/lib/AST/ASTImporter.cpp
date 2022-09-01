@@ -1854,6 +1854,10 @@ ASTNodeImporter::ImportDeclContext(DeclContext *FromDC, bool ForceImport) {
 
   Error ChildErrors = Error::success();
   for (auto *From : FromDC->decls()) {
+    FieldDecl *Tmp = dyn_cast_or_null<FieldDecl>(From);
+    if (Tmp) {
+        Tmp->dump();
+    }
     ExpectedDecl ImportedOrErr = import(From);
 
     // If we are in the process of ImportDefinition(...) for a RecordDecl we

@@ -1,12 +1,13 @@
 #ifndef LLVM_CLANG_CRASHINGCONTEXT_ASTCONTEXTCRASH_H
-#include "clang/Serialization/ASTReader.h"
 #include "llvm/CrashingVector/SmallVector.h"
 namespace clang {
-namespace Crashing {
-class ASTUnit {
-  //SmallVector<StoredDiagnostic, 4> StoredDiagnostics;
-    llvm::Crashing::SmallVector<StoredDiagnostic, 4> StoredDiagnostics;
+class ClassInMod2 {
+  //SmallVector<StoredDiagnostic, 1> StoredDiagnostics;
+    llvm::ClassInMod3<float> VecInMod2; // NOTE: the first template
+                                        // parameter has to be different
+                                        // from the one in ContextCrash2
+                                        // for the ItaniumRecordLayoutBuilder
+                                        // assertion to trigger
 };
-} // namespace Crashing
 } // namespace clang
 #endif // _H

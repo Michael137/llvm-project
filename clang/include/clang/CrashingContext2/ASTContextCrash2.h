@@ -1,4 +1,5 @@
 #ifndef LLVM_CLANG_CRASHINGCONTEXT2_ASTCONTEXTCRASH2_H
+#define LLVM_CLANG_CRASHINGCONTEXT2_ASTCONTEXTCRASH2_H
 #include "llvm/CrashingVector/SmallVector.h"
 
 namespace clang {

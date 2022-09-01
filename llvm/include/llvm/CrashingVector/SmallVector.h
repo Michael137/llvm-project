@@ -1,4 +1,5 @@
 #ifndef CLANG_CRASHING_CONTEXT_LLVM_VECTOR_H_IN
+#define CLANG_CRASHING_CONTEXT_LLVM_VECTOR_H_IN
 #include "llvm/Support/type_traits.h"
 #include <algorithm>
 namespace llvm {

@@ -18,10 +18,14 @@ class FileManager;
     llvm::DenseMap<Decl *, Decl *> ImportedDecls;
   public:
     Crasher(ASTContext &ToContext, FileManager &ToFileManager,
-                ASTContext &FromContext, FileManager &FromFileManager,
-                bool MinimalImport,
-                std::shared_ptr<ASTImporterSharedState> SharedState = nullptr);
-    virtual ~Crasher();
+                         ASTContext &FromContext, FileManager &FromFileManager,
+                         bool MinimalImport,
+                         std::shared_ptr<ASTImporterSharedState> SharedState = nullptr)
+    : SharedState(SharedState), ToContext(ToContext), FromContext(FromContext),
+      ToFileManager(ToFileManager), FromFileManager(FromFileManager),
+      Minimal(MinimalImport), ODRHandling(ODRHandlingType::Conservative) {}
+
+    //virtual ~Crasher() = default;
     template <typename ImportT>
     [[nodiscard]] llvm::Error importInto(ImportT &To, const ImportT &From) {
     }

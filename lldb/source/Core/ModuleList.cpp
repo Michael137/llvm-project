@@ -83,7 +83,7 @@ ModuleListProperties::ModuleListProperties() {
 
   llvm::SmallString<128> path;
   if (clang::driver::Driver::getDefaultModuleCachePath(path)) {
-    lldbassert(SetClangModulesCachePath(FileSpec(path)));
+    lldbassert(SetClangModulesCachePath(FileSpec(path))); // TODO: so in non-debug builds this setter isn't supposed to get called?!
   }
 
   path.clear();

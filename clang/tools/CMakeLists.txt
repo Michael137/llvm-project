@@ -98,6 +98,7 @@ clang_target_link_libraries(astimporter-demo-crashing
   clangSerialization
   clangTooling
   clangCrashDemo
+  clangCrashDemoASTUnit
   )
 
 add_clang_executable(astcontext-crashing ASTContext-crashing.cpp)

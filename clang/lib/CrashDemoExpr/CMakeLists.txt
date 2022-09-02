@@ -5,11 +5,13 @@ set(LLVM_LINK_COMPONENTS
   Support
   )
 
-add_clang_library(clangCrashDemo
-  Crash.cpp
+add_clang_library(clangCrashDemoExpr
+  Expr.cpp
 
   LINK_LIBS
-  clangCrashDemoExpr
+  clangAST
+  clangBasic
+  clangLex
 
   DEPENDS
   ClangAttrDocTable

@@ -69,16 +69,6 @@ private:
   std::shared_ptr<Preprocessor>           PP;
   IntrusiveRefCntPtr<ASTContext>          Ctx;
 
-  struct ASTWriterData {
-    SmallString<128> Buffer;
-    llvm::BitstreamWriter Stream;
-    ASTWriter Writer;
-  
-    ASTWriterData(InMemoryModuleCache &ModuleCache)
-        : Stream(Buffer), Writer(Stream, Buffer, ModuleCache, {}) {}
-  };
-  std::unique_ptr<ASTWriterData> WriterData;
-
   FileSystemOptions FileSystemOpts;
 
   /// The AST consumer that received information about the translation
@@ -104,18 +94,6 @@ private:
   /// Whether to capture any diagnostics produced.
   CaptureDiagsKind CaptureDiagnostics = CaptureDiagsKind::None;
 
-  /// Track whether the main file was loaded from an AST or not.
-  bool MainFileIsAST;
-
-  /// What kind of translation unit this AST represents.
-  TranslationUnitKind TUKind = TU_Complete;
-
-  /// Whether we should time each operation.
-  bool WantTiming;
-
-  /// Whether the ASTUnit should delete the remapped buffers.
-  bool OwnsRemappedFileBuffers = true;
-
   /// Track the top-level decls which appeared in an ASTUnit which was loaded
   /// from a source file.
   //
@@ -135,17 +113,6 @@ private:
 
   /// The name of the original source file used to generate this ASTUnit.
   std::string OriginalSourceFile;
-
-  /// The set of diagnostics produced when creating the preamble.
-  SmallVector<StandaloneDiagnostic, 4> PreambleDiagnostics;
-
-  /// The set of diagnostics produced when creating this
-  /// translation unit.
-  SmallVector<StoredDiagnostic, 4> StoredDiagnostics;
-
-  /// The set of diagnostics produced when failing to parse, e.g. due
-  /// to failure to load the PCH.
-  SmallVector<StoredDiagnostic, 4> FailedParseDiagnostics;
 };
 }
 } // namespace clang

@@ -85,6 +85,22 @@ namespace clang {
   using ExpectedSLoc = llvm::Expected<SourceLocation>;
   using ExpectedName = llvm::Expected<DeclarationName>;
 
+  static int VisitorCounter = 0;
+
+  struct Dumper {
+    Dumper(std::function<void(void)> const& callable) {
+        m_ctr = VisitorCounter++;
+        llvm::errs() << ">>>>>>" << m_ctr << '\n';
+        callable();
+    }
+
+    ~Dumper() {
+        llvm::errs() << "<<<<<<" << m_ctr << '\n';
+    }
+
+    int m_ctr = -100;
+  };
+
   std::string ASTImportError::toString() const {
     // FIXME: Improve error texts.
     switch (Error) {
@@ -1855,9 +1871,9 @@ ASTNodeImporter::ImportDeclContext(DeclContext *FromDC, bool ForceImport) {
   Error ChildErrors = Error::success();
   for (auto *From : FromDC->decls()) {
     FieldDecl *Tmp = dyn_cast_or_null<FieldDecl>(From);
-    if (Tmp) {
-        Tmp->dump();
-    }
+    // if (Tmp) {
+    //     Tmp->dump();
+    // }
     ExpectedDecl ImportedOrErr = import(From);
 
     // If we are in the process of ImportDefinition(...) for a RecordDecl we
@@ -2795,8 +2811,8 @@ ExpectedDecl ASTNodeImporter::VisitEnumDecl(EnumDecl *D) {
 }
 
 ExpectedDecl ASTNodeImporter::VisitRecordDecl(RecordDecl *D) {
-  if (D->getName() == "basic_string")
-    llvm::errs() << __func__ << "(basic_string)\n";
+  // if (D->getName() == "basic_string")
+  //   llvm::errs() << __func__ << "(basic_string)\n";
 
   bool IsFriendTemplate = false;
   if (auto *DCXX = dyn_cast<CXXRecordDecl>(D)) {
@@ -2815,6 +2831,17 @@ ExpectedDecl ASTNodeImporter::VisitRecordDecl(RecordDecl *D) {
     return std::move(Err);
   if (ToD)
     return ToD;
+
+  Dumper d([&, funcName = __func__] {
+      llvm::errs() << funcName << "(" << Name.getAsString() << " : " << D << ")\n";
+      llvm::errs() << "LexicalDC : " << LexicalDC << '\n';
+      llvm::errs() << "DC        : " << DC << '\n';
+      llvm::errs() << "D         : " << D << '\n';
+      D->dump();
+      });
+  //DC->dumpDeclContext();
+  //if (LexicalDC != DC)
+  //  LexicalDC->dumpDeclContext();
 
   // Figure out what structure name we're looking for.
   unsigned IDNS = Decl::IDNS_Tag;
@@ -3832,6 +3859,23 @@ ExpectedDecl ASTNodeImporter::VisitFieldDecl(FieldDecl *D) {
   if (ToD)
     return ToD;
 
+  //DC->dumpDeclContext();
+  //if (LexicalDC != DC)
+  //  LexicalDC->dumpDeclContext();
+  Dumper d([&, funcName = __func__] {
+      llvm::errs() << funcName << "(" << Name.getAsString() << " : " << D << ")\n";
+      llvm::errs() << "LexicalDC : " << LexicalDC << '\n';
+      llvm::errs() << "DC        : " << DC << '\n';
+      llvm::errs() << "D         : " << D << '\n';
+      D->dump();
+      });
+
+  if (Name.getAsString() == "VecInMod2")
+      assert(true && "BREAK HERE");
+
+  if (Name.getAsString() == "BeginX")
+      assert(true && "BREAK HERE");
+
   // Determine whether we've already imported this field.
   auto FoundDecls = Importer.findDeclsInToCtx(DC, Name);
   for (auto *FoundDecl : FoundDecls) {
@@ -3904,6 +3948,10 @@ ExpectedDecl ASTNodeImporter::VisitFieldDecl(FieldDecl *D) {
   ToField->setImplicit(D->isImplicit());
   if (ToCapturedVLAType)
     ToField->setCapturedVLAType(cast<VariableArrayType>(ToCapturedVLAType));
+
+  if (D->getName() == "BeginX")
+    assert(true && "BREAK HERE: adding to LexicalDC");
+
   LexicalDC->addDeclInternal(ToField);
   return ToField;
 }
@@ -5735,6 +5783,17 @@ ExpectedDecl ASTNodeImporter::VisitClassTemplateDecl(ClassTemplateDecl *D) {
   if (ToD)
     return ToD;
 
+  Dumper d([&, funcName = __func__] {
+      llvm::errs() << funcName << "(" << Name.getAsString() << " : " << D << ")\n";
+      llvm::errs() << "LexicalDC : " << LexicalDC << '\n';
+      llvm::errs() << "DC        : " << DC << '\n';
+      llvm::errs() << "D         : " << D << '\n';
+      D->dump();
+      });
+  //DC->dumpDeclContext();
+  //if (LexicalDC != DC)
+  //  LexicalDC->dumpDeclContext();
+
   ClassTemplateDecl *FoundByLookup = nullptr;
 
   // We may already have a template of the same name; try to find and match it.
@@ -5841,6 +5900,17 @@ ExpectedDecl ASTNodeImporter::VisitClassTemplateSpecializationDecl(
   if (Error Err = ImportDeclContext(D, DC, LexicalDC))
     return std::move(Err);
 
+  Dumper d([&, funcName = __func__] {
+      llvm::errs() << funcName << "(" << D->getName() << " : " << D << ")\n";
+      llvm::errs() << "LexicalDC : " << LexicalDC << '\n';
+      llvm::errs() << "DC        : " << DC << '\n';
+      llvm::errs() << "D         : " << D << '\n';
+      D->dump();
+      });
+  //DC->dumpDeclContext();
+  //if (LexicalDC != DC)
+  //  LexicalDC->dumpDeclContext();
+
   // Import template arguments.
   SmallVector<TemplateArgument, 2> TemplateArgs;
   if (Error Err = ImportTemplateArguments(
@@ -5864,10 +5934,17 @@ ExpectedDecl ASTNodeImporter::VisitClassTemplateSpecializationDecl(
     PrevDecl = ClassTemplate->findPartialSpecialization(TemplateArgs,
                                                         *ToTPListOrErr,
                                                         InsertPos);
-  } else
+  } else {
+    if (D->getName() == "ClassInMod3Base")
+      assert(true && "BREAK HERE");
+
     PrevDecl = ClassTemplate->findSpecialization(TemplateArgs, InsertPos);
+  }
 
   if (PrevDecl) {
+    if (D->getName() == "ClassInMod3Base")
+      assert(true && "BREAK HERE");
+
     if (IsStructuralMatch(D, PrevDecl)) {
       CXXRecordDecl *PrevDefinition = PrevDecl->getDefinition();
       if (D->isThisDeclarationADefinition() && PrevDefinition) {
@@ -8555,6 +8632,9 @@ ASTImporter::findDeclsInToCtx(DeclContext *DC, DeclarationName Name) {
   //   int A;
   // then the enum constant 'A' and the variable 'A' violates ODR.
   // We can diagnose this only if we search in the redecl context.
+  if(Name.getAsString() == "BeginX")
+      assert(true && "BREAK HERE");
+
   DeclContext *ReDC = DC->getRedeclContext();
   if (SharedState->getLookupTable()) {
     ASTImporterLookupTable::LookupResult LookupResult =

@@ -410,8 +410,8 @@ EmptySubobjectMap::CanPlaceFieldSubobjectAtOffset(const CXXRecordDecl *RD,
     }
   }
 
-  if (RD->getName() == "SmallVectorBase")
-    llvm::errs() << "Laying out SmallVectorBase\n";
+  if (RD->getName() == "ClassInMod3Base")
+    assert(true && "Laying out ClassInMod3Base\n");
 
   // Traverse all member variables.
   unsigned FieldNo = 0;

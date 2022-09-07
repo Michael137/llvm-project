@@ -5108,10 +5108,10 @@ SourceRange EnumConstantDecl::getSourceRange() const {
 void TypeDecl::anchor() {}
 void TypeDecl::setTypeForDecl(const Type* TD) {
     //if (TD) TD->dump();
-    auto name = getName();
+    //auto name = getName();
     //llvm::errs() << "Setting TypeForDecl on " << name << '\n';
-    if (name == "basic_string")
-      llvm::errs() << "Placeholder\n";
+    //if (name == "basic_string")
+    //  llvm::errs() << "Placeholder\n";
 
     TypeForDecl = TD;
 }

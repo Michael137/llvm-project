@@ -65,6 +65,7 @@
 #include "llvm/Support/Casting.h"
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/MemoryBuffer.h"
+#include "llvm/Support/raw_ostream.h"
 #include <algorithm>
 #include <cassert>
 #include <cstddef>
@@ -85,21 +86,59 @@ namespace clang {
   using ExpectedSLoc = llvm::Expected<SourceLocation>;
   using ExpectedName = llvm::Expected<DeclarationName>;
 
-  static int VisitorCounter = 0;
-
-  struct Dumper {
-    Dumper(std::function<void(void)> const& callable) {
+  struct DumperBase {
+    DumperBase(std::function<void(DumperBase&)> const& callable,
+           llvm::raw_ostream& os) : m_ostream(os) {
         m_ctr = VisitorCounter++;
-        llvm::errs() << ">>>>>>" << m_ctr << '\n';
-        callable();
+        m_ostream << ">>>>>>" << m_ctr << '\n';
+        callable(*this);
     }
 
-    ~Dumper() {
-        llvm::errs() << "<<<<<<" << m_ctr << '\n';
+    ~DumperBase() {
+        m_ostream << "<<<<<<" << m_ctr << '\n';
+    }
+    
+    llvm::raw_ostream& getStream() {
+        return m_ostream;
     }
 
+    template<typename T>
+    llvm::raw_ostream& operator<<(T&& t) {
+        return m_ostream << std::forward<T>(t);
+    }
+
+    static int VisitorCounter;
+    llvm::raw_ostream& m_ostream;
     int m_ctr = -100;
   };
+
+  int DumperBase::VisitorCounter = 0;
+
+  struct StderrDumper : public DumperBase {
+    StderrDumper(std::function<void(DumperBase&)> const& callable) :
+        DumperBase(callable, llvm::errs()) {}
+
+    ~StderrDumper() = default;
+  };
+
+  struct FileDumper : public DumperBase {
+    FileDumper(std::function<void(DumperBase&)> const& callable) :
+        DumperBase(callable, *m_fstream) {}
+
+    ~FileDumper() = default;
+
+    static std::string m_outFileName;
+    static std::error_code m_fstream_ec;
+    static std::unique_ptr<llvm::raw_fd_ostream> m_fstream;
+  };
+
+  std::string FileDumper::m_outFileName = "/Users/michaelbuch/FileDumper.log";
+  std::error_code FileDumper::m_fstream_ec{};
+  std::unique_ptr<llvm::raw_fd_ostream> FileDumper::m_fstream = [] {
+    return std::make_unique<llvm::raw_fd_ostream>(FileDumper::m_outFileName, FileDumper::m_fstream_ec);
+  }();
+
+  using CurrentDumper = FileDumper;
 
   std::string ASTImportError::toString() const {
     // FIXME: Improve error texts.
@@ -2832,12 +2871,12 @@ ExpectedDecl ASTNodeImporter::VisitRecordDecl(RecordDecl *D) {
   if (ToD)
     return ToD;
 
-  Dumper d([&, funcName = __func__] {
-      llvm::errs() << funcName << "(" << Name.getAsString() << " : " << D << ")\n";
-      llvm::errs() << "LexicalDC : " << LexicalDC << '\n';
-      llvm::errs() << "DC        : " << DC << '\n';
-      llvm::errs() << "D         : " << D << '\n';
-      D->dump();
+  CurrentDumper d([&, funcName = __func__](auto& dumper) {
+      dumper << funcName << "(" << Name.getAsString() << " : " << D << ")\n";
+      dumper << "LexicalDC : " << LexicalDC << '\n';
+      dumper << "DC        : " << DC << '\n';
+      dumper << "D         : " << D << '\n';
+      D->dump(dumper.getStream());
       });
   //DC->dumpDeclContext();
   //if (LexicalDC != DC)
@@ -3862,12 +3901,12 @@ ExpectedDecl ASTNodeImporter::VisitFieldDecl(FieldDecl *D) {
   //DC->dumpDeclContext();
   //if (LexicalDC != DC)
   //  LexicalDC->dumpDeclContext();
-  Dumper d([&, funcName = __func__] {
-      llvm::errs() << funcName << "(" << Name.getAsString() << " : " << D << ")\n";
-      llvm::errs() << "LexicalDC : " << LexicalDC << '\n';
-      llvm::errs() << "DC        : " << DC << '\n';
-      llvm::errs() << "D         : " << D << '\n';
-      D->dump();
+  CurrentDumper d([&, funcName = __func__](auto& dumper) {
+      dumper << funcName << "(" << Name.getAsString() << " : " << D << ")\n";
+      dumper << "LexicalDC : " << LexicalDC << '\n';
+      dumper << "DC        : " << DC << '\n';
+      dumper << "D         : " << D << '\n';
+      D->dump(dumper.getStream());
       });
 
   if (Name.getAsString() == "VecInMod2")
@@ -5783,12 +5822,12 @@ ExpectedDecl ASTNodeImporter::VisitClassTemplateDecl(ClassTemplateDecl *D) {
   if (ToD)
     return ToD;
 
-  Dumper d([&, funcName = __func__] {
-      llvm::errs() << funcName << "(" << Name.getAsString() << " : " << D << ")\n";
-      llvm::errs() << "LexicalDC : " << LexicalDC << '\n';
-      llvm::errs() << "DC        : " << DC << '\n';
-      llvm::errs() << "D         : " << D << '\n';
-      D->dump();
+  CurrentDumper d([&, funcName = __func__](auto& dumper) {
+      dumper << funcName << "(" << Name.getAsString() << " : " << D << ")\n";
+      dumper << "LexicalDC : " << LexicalDC << '\n';
+      dumper << "DC        : " << DC << '\n';
+      dumper << "D         : " << D << '\n';
+      D->dump(dumper.getStream());
       });
   //DC->dumpDeclContext();
   //if (LexicalDC != DC)
@@ -5900,12 +5939,12 @@ ExpectedDecl ASTNodeImporter::VisitClassTemplateSpecializationDecl(
   if (Error Err = ImportDeclContext(D, DC, LexicalDC))
     return std::move(Err);
 
-  Dumper d([&, funcName = __func__] {
-      llvm::errs() << funcName << "(" << D->getName() << " : " << D << ")\n";
-      llvm::errs() << "LexicalDC : " << LexicalDC << '\n';
-      llvm::errs() << "DC        : " << DC << '\n';
-      llvm::errs() << "D         : " << D << '\n';
-      D->dump();
+  CurrentDumper d([&, funcName = __func__](auto& dumper) {
+      dumper << funcName << "(" << D->getName() << " : " << D << ")\n";
+      dumper << "LexicalDC : " << LexicalDC << '\n';
+      dumper << "DC        : " << DC << '\n';
+      dumper << "D         : " << D << '\n';
+      D->dump(dumper.getStream());
       });
   //DC->dumpDeclContext();
   //if (LexicalDC != DC)

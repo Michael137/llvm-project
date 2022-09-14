@@ -220,8 +220,9 @@ std::string Module::getFullModuleName(bool AllowStringLiterals) const {
   SmallVector<StringRef, 2> Names;
 
   // Build up the set of module names (from innermost to outermost).
-  for (const Module *M = this; M; M = M->Parent)
+  for (const Module *M = this; M; M = M->Parent) {
     Names.push_back(M->Name);
+  }
 
   std::string Result;
 

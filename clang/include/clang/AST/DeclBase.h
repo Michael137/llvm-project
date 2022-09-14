@@ -667,8 +667,8 @@ public:
   /// Set the FromASTFile flag. This indicates that this declaration
   /// was deserialized and not parsed from source code and enables
   /// features such as module ownership information.
-  void setFromASTFile() {
-    FromASTFile = true;
+  void setFromASTFile(bool flag = true) {
+    FromASTFile = flag;
   }
 
   /// Set the owning module ID.  This may only be called for

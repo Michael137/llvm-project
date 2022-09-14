@@ -1,3 +1,4 @@
+#include "clang/AST/Type.h"
 #include "clang/CrashDemo/Crash.h"
 //#include "clang/Frontend/ASTUnit.h"
 #include "clang/CrashDemoASTUnit/ASTUnit.h"

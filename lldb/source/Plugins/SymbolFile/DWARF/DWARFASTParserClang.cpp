@@ -194,7 +194,7 @@ TypeSP DWARFASTParserClang::ParseTypeFromClangModule(const SymbolContext &sc,
   // ClangASTImporter::ASTImporterDelegate::ImportDefinitionTo(),
   // which does extra work for Objective-C classes. This would result
   // in only the forward declaration to be visible.
-  if (pcm_type.IsDefined())
+  if (pcm_type.IsDefined() /*|| type.IsCompleteType()*/)
     GetClangASTImporter().RequireCompleteType(ClangUtil::GetQualType(type));
 
   SymbolFileDWARF *dwarf = die.GetDWARF();
@@ -507,7 +507,7 @@ TypeSP DWARFASTParserClang::ParseTypeFromDWARF(const SymbolContext &sc,
   case DW_TAG_inlined_subroutine:
   case DW_TAG_subprogram:
   case DW_TAG_subroutine_type: {
-    type_sp = ParseSubroutine(die, attrs);
+    type_sp = ParseSubroutine(sc, die, attrs);
     break;
   }
   case DW_TAG_array_type: {
@@ -893,8 +893,9 @@ ConvertDWARFCallingConventionToClang(const ParsedDWARFTypeAttributes &attrs) {
   return clang::CC_C;
 }
 
-TypeSP DWARFASTParserClang::ParseSubroutine(const DWARFDIE &die,
-                           ParsedDWARFTypeAttributes &attrs) {
+TypeSP DWARFASTParserClang::ParseSubroutine(const lldb_private::SymbolContext &sc,
+                                            const DWARFDIE &die,
+                                            ParsedDWARFTypeAttributes &attrs) {
   Log *log = GetLog(DWARFLog::TypeCompletion | DWARFLog::Lookups);
 
   SymbolFileDWARF *dwarf = die.GetDWARF();
@@ -1069,10 +1070,15 @@ TypeSP DWARFASTParserClang::ParseSubroutine(const DWARFDIE &die,
             if (spec_clang_decl_ctx) {
               LinkDeclContextToDIE(spec_clang_decl_ctx, die);
             } else {
-              dwarf->GetObjectFile()->GetModule()->ReportWarning(
-                  "0x%8.8" PRIx64 ": DW_AT_specification(0x%8.8x"
-                  ") has no decl\n",
-                  die.GetID(), spec_die.GetOffset());
+              //auto owningClangModule = GetOwningClangModule(die);
+              //if (owningClangModule.HasValue()) {
+              //  return ParseTypeFromClangModule(sc, die, log);
+              //} else {
+                dwarf->GetObjectFile()->GetModule()->ReportWarning(
+                    "0x%8.8" PRIx64 ": DW_AT_specification(0x%8.8x"
+                    ") has no decl\n",
+                    die.GetID(), spec_die.GetOffset());
+              //}
             }
             type_handled = true;
           } else if (attrs.abstract_origin.IsValid()) {
@@ -1736,6 +1742,10 @@ DWARFASTParserClang::ParseStructureLikeDIE(const SymbolContext &sc,
           return TypeSP();
         }
 
+        std::string template_basename(attrs.name.GetCString());
+        if (template_param_infos.IsValid()) {
+          template_basename.erase(template_basename.find('<'));
+        }
         clang::ClassTemplateSpecializationDecl *class_specialization_decl =
             m_ast.CreateClassTemplateSpecializationDecl(
                 decl_ctx, GetOwningClangModule(die), class_template_decl,

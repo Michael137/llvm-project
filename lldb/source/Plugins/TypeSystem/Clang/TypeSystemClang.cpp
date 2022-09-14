@@ -335,6 +335,8 @@ void TypePayloadClang::SetOwningModule(OptionalClangModuleID id) {
 
 static void SetMemberOwningModule(clang::Decl *member,
                                   const clang::Decl *parent) {
+  //return;
+
   if (!member || !parent)
     return;
 
@@ -352,6 +354,7 @@ static void SetMemberOwningModule(clang::Decl *member,
       // called when searching for members.
       dc->setHasExternalLexicalStorage(true);
     }
+  //member->setFromASTFile(false);
 }
 
 char TypeSystemClang::ID;
@@ -1224,12 +1227,15 @@ CompilerType TypeSystemClang::GetTypeForDecl(ObjCInterfaceDecl *decl) {
 
 void TypeSystemClang::SetOwningModule(clang::Decl *decl,
                                       OptionalClangModuleID owning_module) {
+  //return;
+
   if (!decl || !owning_module.HasValue())
     return;
 
   decl->setFromASTFile();
   decl->setOwningModuleID(owning_module.GetValue());
   decl->setModuleOwnershipKind(clang::Decl::ModuleOwnershipKind::Visible);
+  //decl->setFromASTFile(false);
 }
 
 OptionalClangModuleID
@@ -1579,7 +1585,9 @@ ClassTemplateDecl *TypeSystemClang::CreateClassTemplateDecl(
 
   // Search the AST for an existing ClassTemplateDecl that could be reused.
   clang::DeclContext::lookup_result result = decl_ctx->lookup(decl_name);
+  llvm::errs() << "Looked up " << decl_name.getAsString() << '\n';
   for (NamedDecl *decl : result) {
+    llvm::errs() << "Found: " << decl->getName() << '\n';
     class_template_decl = dyn_cast<clang::ClassTemplateDecl>(decl);
     if (!class_template_decl)
       continue;
@@ -1602,7 +1610,7 @@ ClassTemplateDecl *TypeSystemClang::CreateClassTemplateDecl(
 
   CXXRecordDecl *template_cxx_decl = CXXRecordDecl::CreateDeserialized(ast, 0);
   template_cxx_decl->setTagKind(static_cast<TagDecl::TagKind>(kind));
-  // What decl context do we use here? TU? The actual decl context?
+  // TODO: What decl context do we use here? TU? The actual decl context?
   template_cxx_decl->setDeclContext(decl_ctx);
   template_cxx_decl->setDeclName(decl_name);
   SetOwningModule(template_cxx_decl, owning_module);

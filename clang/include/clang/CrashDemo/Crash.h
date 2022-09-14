@@ -1,6 +1,8 @@
 #ifndef LLVM_CLANG_CRASHDEMO_CRASH_H
 #define LLVM_CLANG_CRASHDEMO_CRASH_H
+#include "clang/AST/DeclCXX.h"
 #include "clang/AST/ExprCXX.h"
+#include "clang/AST/Type.h"
 //#include "clang/CrashDemoExpr/Expr.h"
 namespace clang {
   class Crasher {

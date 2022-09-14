@@ -75,6 +75,8 @@
 
 namespace clang {
 
+  static bool shouldBreakHack = false;
+
   using llvm::make_error;
   using llvm::Error;
   using llvm::Expected;
@@ -1913,6 +1915,10 @@ ASTNodeImporter::ImportDeclContext(DeclContext *FromDC, bool ForceImport) {
     // if (Tmp) {
     //     Tmp->dump();
     // }
+    if (Tmp && Tmp->getName() == "VecInMod2") {
+      shouldBreakHack = true;
+      assert(true && "BREAK HERE");
+    }
     ExpectedDecl ImportedOrErr = import(From);
 
     // If we are in the process of ImportDefinition(...) for a RecordDecl we
@@ -2063,6 +2069,8 @@ static Error setTypedefNameForAnonDecl(TagDecl *From, TagDecl *To,
 
 Error ASTNodeImporter::ImportDefinition(
     RecordDecl *From, RecordDecl *To, ImportDefinitionKind Kind) {
+
+  llvm::errs() << "ImportDefinition: " << From->getName() << " From=" << From << " To=" << To << '\n';
   auto DefinitionCompleter = [To]() {
     // There are cases in LLDB when we first import a class without its
     // members. The class will have DefinitionData, but no members. Then,
@@ -2124,6 +2132,7 @@ Error ASTNodeImporter::ImportDefinition(
     return Err;
 
   // Add base classes.
+  CXXRecordDecl *BaseClassDecl = nullptr;
   auto *ToCXX = dyn_cast<CXXRecordDecl>(To);
   auto *FromCXX = dyn_cast<CXXRecordDecl>(From);
   if (ToCXX && FromCXX && ToCXX->dataPtr() && FromCXX->dataPtr()) {
@@ -2173,15 +2182,30 @@ Error ASTNodeImporter::ImportDefinition(
               Base1.getAccessSpecifierAsWritten(),
               *TSIOrErr,
               EllipsisLoc));
+
+      BaseClassDecl = cast<CXXRecordDecl>(Base1.getType()->castAs<RecordType>()->getDecl());
     }
     if (!Bases.empty())
       ToCXX->setBases(Bases.data(), Bases.size());
+
+    if (From->getName() == "ClassInMod3Base")
+      assert(true && "BREAK HERE");
+
+    if (From->getName() == "ClassInMod2")
+      assert(true && "BREAK HERE");
+
   }
 
   if (shouldForceImportDeclContext(Kind)) {
     if (Error Err = ImportDeclContext(From, /*ForceImport=*/true))
       return Err;
   }
+
+  llvm::errs() << "Name: " << From->getName() << " From=" << From << " To=" << To << '\n';
+  if (BaseClassDecl)
+    llvm::errs() << "Base: " << BaseClassDecl->getName() << " " << BaseClassDecl << '\n';
+  llvm::errs() << "From: " << ((CXXRecordDecl*)From)->data().IsStandardLayout << '\n';
+  llvm::errs() << "To: "   << ((CXXRecordDecl*)To)->data().IsStandardLayout << '\n';
 
   return Error::success();
 }
@@ -2850,8 +2874,8 @@ ExpectedDecl ASTNodeImporter::VisitEnumDecl(EnumDecl *D) {
 }
 
 ExpectedDecl ASTNodeImporter::VisitRecordDecl(RecordDecl *D) {
-  // if (D->getName() == "basic_string")
-  //   llvm::errs() << __func__ << "(basic_string)\n";
+  if (D->getName() == "ClassInMod1")
+    assert(true && "BREAK HERE");
 
   bool IsFriendTemplate = false;
   if (auto *DCXX = dyn_cast<CXXRecordDecl>(D)) {
@@ -2871,11 +2895,17 @@ ExpectedDecl ASTNodeImporter::VisitRecordDecl(RecordDecl *D) {
   if (ToD)
     return ToD;
 
+  bool oldExternalVisibleStorage = DC->hasExternalVisibleStorage();
+  bool oldExternalLexicalStorage = DC->hasExternalLexicalStorage();
   CurrentDumper d([&, funcName = __func__](auto& dumper) {
       dumper << funcName << "(" << Name.getAsString() << " : " << D << ")\n";
       dumper << "LexicalDC : " << LexicalDC << '\n';
       dumper << "DC        : " << DC << '\n';
       dumper << "D         : " << D << '\n';
+      dumper << "old EVS   : " << oldExternalLexicalStorage << '\n';
+      dumper << "new EVS   : " << DC->hasExternalLexicalStorage() << '\n';
+      dumper << "old ELS   : " << oldExternalVisibleStorage << '\n';
+      dumper << "new ELS   : " << DC->hasExternalVisibleStorage() << '\n';
       D->dump(dumper.getStream());
       });
   //DC->dumpDeclContext();
@@ -3898,6 +3928,9 @@ ExpectedDecl ASTNodeImporter::VisitFieldDecl(FieldDecl *D) {
   if (ToD)
     return ToD;
 
+  bool oldExternalVisibleStorage = DC->hasExternalVisibleStorage();
+  bool oldExternalLexicalStorage = DC->hasExternalLexicalStorage();
+
   //DC->dumpDeclContext();
   //if (LexicalDC != DC)
   //  LexicalDC->dumpDeclContext();
@@ -3906,6 +3939,10 @@ ExpectedDecl ASTNodeImporter::VisitFieldDecl(FieldDecl *D) {
       dumper << "LexicalDC : " << LexicalDC << '\n';
       dumper << "DC        : " << DC << '\n';
       dumper << "D         : " << D << '\n';
+      dumper << "old EVS   : " << oldExternalLexicalStorage << '\n';
+      dumper << "new EVS   : " << DC->hasExternalLexicalStorage() << '\n';
+      dumper << "old ELS   : " << oldExternalVisibleStorage << '\n';
+      dumper << "new ELS   : " << DC->hasExternalVisibleStorage() << '\n';
       D->dump(dumper.getStream());
       });
 
@@ -3990,6 +4027,9 @@ ExpectedDecl ASTNodeImporter::VisitFieldDecl(FieldDecl *D) {
 
   if (D->getName() == "BeginX")
     assert(true && "BREAK HERE: adding to LexicalDC");
+
+  if (D->getName() == "VecInMod2" && shouldBreakHack)
+    shouldBreakHack = false;
 
   LexicalDC->addDeclInternal(ToField);
   return ToField;
@@ -5822,11 +5862,17 @@ ExpectedDecl ASTNodeImporter::VisitClassTemplateDecl(ClassTemplateDecl *D) {
   if (ToD)
     return ToD;
 
+  bool oldExternalVisibleStorage = DC->hasExternalVisibleStorage();
+  bool oldExternalLexicalStorage = DC->hasExternalLexicalStorage();
   CurrentDumper d([&, funcName = __func__](auto& dumper) {
       dumper << funcName << "(" << Name.getAsString() << " : " << D << ")\n";
       dumper << "LexicalDC : " << LexicalDC << '\n';
       dumper << "DC        : " << DC << '\n';
       dumper << "D         : " << D << '\n';
+      dumper << "old EVS   : " << oldExternalLexicalStorage << '\n';
+      dumper << "new EVS   : " << DC->hasExternalLexicalStorage() << '\n';
+      dumper << "old ELS   : " << oldExternalVisibleStorage << '\n';
+      dumper << "new ELS   : " << DC->hasExternalVisibleStorage() << '\n';
       D->dump(dumper.getStream());
       });
   //DC->dumpDeclContext();
@@ -5930,6 +5976,9 @@ ExpectedDecl ASTNodeImporter::VisitClassTemplateDecl(ClassTemplateDecl *D) {
 
 ExpectedDecl ASTNodeImporter::VisitClassTemplateSpecializationDecl(
                                           ClassTemplateSpecializationDecl *D) {
+  if (D->getName() == "ClassInMod3")
+    assert(true && "BREAK HERE");
+
   ClassTemplateDecl *ClassTemplate;
   if (Error Err = importInto(ClassTemplate, D->getSpecializedTemplate()))
     return std::move(Err);
@@ -5939,11 +5988,17 @@ ExpectedDecl ASTNodeImporter::VisitClassTemplateSpecializationDecl(
   if (Error Err = ImportDeclContext(D, DC, LexicalDC))
     return std::move(Err);
 
+  bool oldExternalVisibleStorage = DC->hasExternalVisibleStorage();
+  bool oldExternalLexicalStorage = DC->hasExternalLexicalStorage();
   CurrentDumper d([&, funcName = __func__](auto& dumper) {
       dumper << funcName << "(" << D->getName() << " : " << D << ")\n";
       dumper << "LexicalDC : " << LexicalDC << '\n';
       dumper << "DC        : " << DC << '\n';
       dumper << "D         : " << D << '\n';
+      dumper << "old EVS   : " << oldExternalLexicalStorage << '\n';
+      dumper << "new EVS   : " << DC->hasExternalLexicalStorage() << '\n';
+      dumper << "old ELS   : " << oldExternalVisibleStorage << '\n';
+      dumper << "new ELS   : " << DC->hasExternalVisibleStorage() << '\n';
       D->dump(dumper.getStream());
       });
   //DC->dumpDeclContext();

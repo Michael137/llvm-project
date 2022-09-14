@@ -21,6 +21,7 @@
 #include "lldb/Utility/LLDBLog.h"
 #include "lldb/Utility/Log.h"
 #include "clang/AST/ASTContext.h"
+#include "clang/AST/DeclBase.h"
 #include "clang/AST/RecordLayout.h"
 #include "clang/Basic/SourceManager.h"
 
@@ -481,6 +482,16 @@ void ClangASTSource::FindExternalLexicalDecls(
       }
 
       Decl *copied_decl = CopyDecl(decl);
+      //llvm::errs() << "Pre-visibilty check: \n";
+      //copied_decl->dump();
+      //if (NamedDecl* tmp = dyn_cast<NamedDecl>(copied_decl)) {
+      //  llvm::errs() << "Calling makeDeclVisibleInContext\n";
+      //  //decl_context->setHasExternalVisibleStorage();
+      //  //const_cast<DeclContext*>(decl_context)->makeDeclVisibleInContext(tmp);
+      //  //const_cast<DeclContext*>(decl_context)->setMustBuildLookupTable();
+      //  //const_cast<DeclContext*>(decl_context)->buildLookup();
+      //  //copied_decl->getDeclContext()->buildLookup();
+      //}
 
       if (!copied_decl)
         continue;

@@ -229,6 +229,9 @@ CXXRecordDecl::setBases(CXXBaseSpecifier const * const *Bases,
     auto *BaseClassDecl =
         cast<CXXRecordDecl>(BaseType->castAs<RecordType>()->getDecl());
 
+    llvm::errs() << "setBases(" << getName() << " " << this <<
+        ", " << BaseClassDecl->getName() << " " << BaseClassDecl << ")\n";
+
     // C++2a [class]p7:
     //   A standard-layout class is a class that:
     //    [...]
@@ -236,9 +239,11 @@ CXXRecordDecl::setBases(CXXBaseSpecifier const * const *Bases,
     //       its base classes first declared in the same class
     if (BaseClassDecl->data().HasBasesWithFields ||
         !BaseClassDecl->field_empty()) {
-      if (data().HasBasesWithFields)
+      if (data().HasBasesWithFields) {
         // Two bases have members or bit-fields: not standard-layout.
         data().IsStandardLayout = false;
+        llvm::errs() << __LINE__ << '\n';
+      }
       data().HasBasesWithFields = true;
     }
 
@@ -284,8 +289,10 @@ CXXRecordDecl::setBases(CXXBaseSpecifier const * const *Bases,
     // C++0x [class]p7:
     //   A standard-layout class is a class that: [...]
     //    -- has no non-standard-layout base classes
-    if (!BaseClassDecl->isStandardLayout())
+    if (!BaseClassDecl->isStandardLayout()) {
       data().IsStandardLayout = false;
+      llvm::errs() << __LINE__ << '\n';
+    }
     if (!BaseClassDecl->isCXX11StandardLayout())
       data().IsCXX11StandardLayout = false;
 
@@ -339,6 +346,7 @@ CXXRecordDecl::setBases(CXXBaseSpecifier const * const *Bases,
       //   A standard-layout class is a class that: [...]
       //    -- has [...] no virtual base classes
       data().IsStandardLayout = false;
+      llvm::errs() << __LINE__ << '\n';
       data().IsCXX11StandardLayout = false;
 
       // C++20 [dcl.constexpr]p3:
@@ -469,8 +477,10 @@ CXXRecordDecl::setBases(CXXBaseSpecifier const * const *Bases,
   // Note that we only need to check this for classes with more than one base
   // class. If there's only one base class, and it's standard layout, then
   // we know there are no repeated base classes.
-  if (data().IsStandardLayout && NumBases > 1 && hasRepeatedBaseClass(this))
+  if (data().IsStandardLayout && NumBases > 1 && hasRepeatedBaseClass(this)) {
     data().IsStandardLayout = false;
+    llvm::errs() << __LINE__ << '\n';
+  }
 
   if (VBases.empty()) {
     data().IsParsingBaseSpecifiers = false;
@@ -745,6 +755,7 @@ void CXXRecordDecl::addedMember(Decl *D) {
       //   A standard-layout class is a class that: [...]
       //    -- has no virtual functions
       data().IsStandardLayout = false;
+      llvm::errs() << __LINE__ << '\n';
       data().IsCXX11StandardLayout = false;
     }
   }
@@ -916,8 +927,10 @@ void CXXRecordDecl::addedMember(Decl *D) {
     //    [...]
     //    -- has all non-static data members and bit-fields in the class and
     //       its base classes first declared in the same class
-    if (data().HasBasesWithFields)
+    if (data().HasBasesWithFields) {
       data().IsStandardLayout = false;
+      llvm::errs() << __LINE__ << '\n';
+    }
 
     // C++ [class.bit]p2:
     //   A declaration for a bit-field that omits the identifier declares an
@@ -974,6 +987,7 @@ void CXXRecordDecl::addedMember(Decl *D) {
     if ((data().HasPrivateFields + data().HasProtectedFields +
          data().HasPublicFields) > 1) {
       data().IsStandardLayout = false;
+      llvm::errs() << __LINE__ << '\n';
       data().IsCXX11StandardLayout = false;
     }
 
@@ -1052,6 +1066,7 @@ void CXXRecordDecl::addedMember(Decl *D) {
       //   A standard-layout class is a class that:
       //    -- has no non-static data members of type [...] reference,
       data().IsStandardLayout = false;
+      llvm::errs() << __LINE__ << '\n';
       data().IsCXX11StandardLayout = false;
 
       // C++1z [class.copy.ctor]p10:
@@ -1223,8 +1238,10 @@ void CXXRecordDecl::addedMember(Decl *D) {
         //   A standard-layout class is a class that:
         //    -- has no non-static data members of type non-standard-layout
         //       class (or array of such types) [...]
-        if (!FieldRec->isStandardLayout())
+        if (!FieldRec->isStandardLayout()) {
           data().IsStandardLayout = false;
+          llvm::errs() << __LINE__ << '\n';
+        }
         if (!FieldRec->isCXX11StandardLayout())
           data().IsCXX11StandardLayout = false;
 
@@ -1234,8 +1251,10 @@ void CXXRecordDecl::addedMember(Decl *D) {
         //    -- has no element of the set M(S) of types as a base class.
         if (data().IsStandardLayout &&
             (isUnion() || IsFirstField || IsZeroSize) &&
-            hasSubobjectAtOffsetZeroOfEmptyBaseType(Context, FieldRec))
+            hasSubobjectAtOffsetZeroOfEmptyBaseType(Context, FieldRec)) {
           data().IsStandardLayout = false;
+          llvm::errs() << __LINE__ << '\n';
+        }
 
         // C++11 [class]p7:
         //   A standard-layout class is a class that:

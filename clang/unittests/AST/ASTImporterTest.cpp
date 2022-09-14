@@ -6072,6 +6072,48 @@ TEST_P(LLDBLookupTest, ImporterShouldFindInTransparentContext) {
   EXPECT_EQ(ImportedX->getCanonicalDecl(), ToX->getCanonicalDecl());
 }
 
+TEST_P(LLDBLookupTest, ImporterShouldFindInRedeclContext) {
+  TranslationUnitDecl *Mod3 = getTuDecl(
+      R"(
+        template<typename BT>
+        struct Base { void* BeginX; };
+
+        struct Derived : public Base<int> {};
+      )",
+      Lang_CXX03);
+  TranslationUnitDecl *Mod2 = getToTuDecl(
+      R"(
+        template<typename BT>
+        struct Base { void* BeginX; };
+
+        struct Derived : public Base<int> {};
+
+        class ClassInMod2 { Derived VecInMod2; };
+      )",
+      Lang_CXX03);
+  TranslationUnitDecl *Main = getTuDecl(
+      "class ClassInMod2;",
+      Lang_CXX03);
+
+  // Set up a stub external storage.
+  Mod2->setHasExternalLexicalStorage(true);
+  Mod2->setHasExternalVisibleStorage(true);
+
+  //Main->setHasExternalLexicalStorage(true);
+  //Main->setHasExternalVisibleStorage(true);
+
+  struct TestExternalASTSource : ExternalASTSource {};
+  Mod2->getASTContext().setExternalSource(new TestExternalASTSource());
+
+  auto *Derived = FirstDeclMatcher<CXXRecordDecl>().match(
+      Mod3, cxxRecordDecl(hasName("Derived")));
+
+  auto *ImportedDerived = Import(Derived, Lang_CXX03);
+  // The lookup must find the existing class definition in the LinkageSpecDecl.
+  // Then the importer renders the existing and the new decl into one chain.
+  //EXPECT_EQ(ImportedX->getCanonicalDecl(), ToX->getCanonicalDecl());
+}
+
 struct SVEBuiltins : ASTImporterOptionSpecificTestBase {};
 
 TEST_P(SVEBuiltins, ImportTypes) {

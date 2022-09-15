@@ -54,3 +54,11 @@ class TestBaseTemplateWithSameArg(TestBase):
                         ])
                     ])
             ])
+
+        self.filecheck("target module dump ast", __file__, '-check-prefix=AST-DUMP')
+        # AST-DUMP-SAME: a = 121
+        # AST-DUMP-SAME: a_ptr = {{[0-9]+}} -> 122
+        # AST-DUMP-SAME: i = 242
+        # AST-DUMP-SAME: i_ptr = {{[0-9]+}} -> 243
+        # AST-DUMP-SAME: h = 245
+        # AST-DUMP-SAME: k = 247

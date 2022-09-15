@@ -6072,49 +6072,76 @@ TEST_P(LLDBLookupTest, ImporterShouldFindInTransparentContext) {
   EXPECT_EQ(ImportedX->getCanonicalDecl(), ToX->getCanonicalDecl());
 }
 
+//TEST_P(LLDBLookupTest, ImporterShouldNotAddDuplicateFieldDecls) {
+//  auto *FromTU0 = getTuDecl(
+//      R"(
+//        struct Base { void* Member; };
+//      )",
+//      Lang_CXX03, "input0.cpp");
+//
+//  auto *FromTU1 = getTuDecl(
+//      R"(
+//        struct Base { void* Member; };
+//      )",
+//      Lang_CXX03, "input1.cpp");
+//
+//  auto *MainTU = getToTuDecl("", Lang_CXX03);
+//
+//  // Set up a stub external storage.
+//  MainTU->setHasExternalVisibleStorage(true);
+//  struct TestExternalASTSource : ExternalASTSource {};
+//  MainTU->getASTContext().setExternalSource(new TestExternalASTSource());
+//
+//  auto *FD0 =
+//      FirstDeclMatcher<FieldDecl>().match(FromTU0, fieldDecl(hasName("Member")));
+//  FD0->setFromASTFile();
+//  auto *Base0 =
+//      FirstDeclMatcher<RecordDecl>().match(FromTU0, recordDecl(hasName("Base")));
+//  Base0->setFromASTFile();
+//
+//  auto *FD1 =
+//      FirstDeclMatcher<FieldDecl>().match(FromTU1, fieldDecl(hasName("Member")));
+//  auto *Base1 =
+//      FirstDeclMatcher<RecordDecl>().match(FromTU1, recordDecl(hasName("Base")));
+//  Base1->setFromASTFile();
+//  Base1->setPreviousDecl(Base0);
+//  FD1->setFromASTFile();
+//  
+//  //FD1->setDeclContext(FD0->getDeclContext());
+//  //FD1->setLexicalDeclContext(FD0->getLexicalDeclContext());
+//
+//  Import(FD0, Lang_CXX03);
+//  Import(FD1, Lang_CXX03);
+//
+//  MainTU->dumpColor();
+//  assert(false);
+//}
+
 TEST_P(LLDBLookupTest, ImporterShouldNotAddDuplicateFieldDecls) {
-  auto *FromTU0 = getTuDecl(
-      R"(
-        struct Base { void* Member; };
-      )",
-      Lang_CXX03, "input0.cpp");
+  // Create an empty TU.
+  TranslationUnitDecl *FromTU0 = getTuDecl("", Lang_CXX03, "input0.cpp");
+  TranslationUnitDecl *FromTU1 = getTuDecl("", Lang_CXX03, "input1.cpp");
 
-  auto *FromTU1 = getTuDecl(
-      R"(
-        struct Base { void* Member; };
-      )",
-      Lang_CXX03, "input1.cpp");
+  // Create a dummy class by hand with external lexical storage.
+  clang::ASTContext &Context = FromTU0->getASTContext();
+  IdentifierInfo &Ident = Context.Idents.get("test_class");
+  auto *Record = CXXRecordDecl::Create(
+      Context, TTK_Class, FromTU0, SourceLocation(), SourceLocation(), &Ident);
+  auto *Field = FieldDecl::Create(
+      Context, Record, SourceLocation(), SourceLocation(), &Ident,
+      Context.VoidPtrTy, {}, nullptr, false, {});
+  Record->setHasExternalLexicalStorage();
+  Field->setFromASTFile();
+  Record->setFromASTFile();
+  Record->addDecl(Field);
+  FromTU0->addDecl(Record);
 
-  auto *MainTU = getToTuDecl("", Lang_CXX03);
+  //auto *MainTU = getToTuDecl("", Lang_CXX03);
+  //MainTU->setHasExternalVisibleStorage(true);
+  //struct TestExternalASTSource : ExternalASTSource {};
+  //MainTU->getASTContext().setExternalSource(new TestExternalASTSource());
 
-  // Set up a stub external storage.
-  MainTU->setHasExternalVisibleStorage(true);
-  struct TestExternalASTSource : ExternalASTSource {};
-  MainTU->getASTContext().setExternalSource(new TestExternalASTSource());
-
-  auto *FD0 =
-      FirstDeclMatcher<FieldDecl>().match(FromTU0, fieldDecl(hasName("Member")));
-  FD0->setFromASTFile();
-  auto *Base0 =
-      FirstDeclMatcher<RecordDecl>().match(FromTU0, recordDecl(hasName("Base")));
-  Base0->setFromASTFile();
-
-  auto *FD1 =
-      FirstDeclMatcher<FieldDecl>().match(FromTU1, fieldDecl(hasName("Member")));
-  auto *Base1 =
-      FirstDeclMatcher<RecordDecl>().match(FromTU1, recordDecl(hasName("Base")));
-  Base1->setFromASTFile();
-  Base1->setPreviousDecl(Base0);
-  FD1->setFromASTFile();
-  
-  //FD1->setDeclContext(FD0->getDeclContext());
-  //FD1->setLexicalDeclContext(FD0->getLexicalDeclContext());
-
-  Import(FD0, Lang_CXX03);
-  Import(FD1, Lang_CXX03);
-
-  MainTU->dumpColor();
-  assert(false);
+  //llvm::Error Err = findFromTU(Record)->Importer->ImportDefinition(Record);
 }
 
 struct SVEBuiltins : ASTImporterOptionSpecificTestBase {};

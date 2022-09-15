@@ -6073,65 +6073,45 @@ TEST_P(LLDBLookupTest, ImporterShouldFindInTransparentContext) {
 }
 
 TEST_P(LLDBLookupTest, ImporterShouldNotAddDuplicateFieldDecls) {
-  Decl *FromBase = getTuDecl(
+  auto *FromTU0 = getTuDecl(
       R"(
-        template<typename BT>
         struct Base { void* Member; };
-
-        struct Derived : public Base<int> {};
       )",
       Lang_CXX03, "input0.cpp");
 
-  Decl *FromTU1 = getTuDecl(
+  auto *FromTU1 = getTuDecl(
       R"(
-        template<typename BT>
         struct Base { void* Member; };
-
-        struct Derived : public Base<int> {};
-
-        class ClassInMod1 {
-            Derived derived;
-        };
       )",
       Lang_CXX03, "input1.cpp");
 
-  Decl *FromTU2 = getTuDecl(
-      R"(
-        template<typename BT>
-        struct Base { void* Member; };
-
-        struct Derived : public Base<int> {};
-
-        class ClassInMod2 {
-            Derived derived;
-        };
-      )",
-      Lang_CXX03, "input2.cpp");
-
-  auto *MainTU = getToTuDecl(
-      R"(
-        class ClassInMod1;
-        class ClassInMod2;
-
-        ClassInMod1 *cim1;
-        ClassInMod2 *cim2;
-      )",
-      Lang_CXX03);
+  auto *MainTU = getToTuDecl("", Lang_CXX03);
 
   // Set up a stub external storage.
   MainTU->setHasExternalVisibleStorage(true);
   struct TestExternalASTSource : ExternalASTSource {};
   MainTU->getASTContext().setExternalSource(new TestExternalASTSource());
 
-  auto *Base =
-      FirstDeclMatcher<RecordDecl>().match(FromBase, recordDecl(hasName("Derived")));
-  auto *CIM1 =
-      FirstDeclMatcher<RecordDecl>().match(FromTU1, recordDecl(hasName("ClassInMod1")));
-  auto *CIM2 =
-      FirstDeclMatcher<RecordDecl>().match(FromTU2, recordDecl(hasName("ClassInMod2")));
-  Import(Base, Lang_CXX03);
-  Import(CIM1, Lang_CXX03);
-  Import(CIM2, Lang_CXX03);
+  auto *FD0 =
+      FirstDeclMatcher<FieldDecl>().match(FromTU0, fieldDecl(hasName("Member")));
+  FD0->setFromASTFile();
+  auto *Base0 =
+      FirstDeclMatcher<RecordDecl>().match(FromTU0, recordDecl(hasName("Base")));
+  Base0->setFromASTFile();
+
+  auto *FD1 =
+      FirstDeclMatcher<FieldDecl>().match(FromTU1, fieldDecl(hasName("Member")));
+  auto *Base1 =
+      FirstDeclMatcher<RecordDecl>().match(FromTU1, recordDecl(hasName("Base")));
+  Base1->setFromASTFile();
+  Base1->setPreviousDecl(Base0);
+  FD1->setFromASTFile();
+  
+  //FD1->setDeclContext(FD0->getDeclContext());
+  //FD1->setLexicalDeclContext(FD0->getLexicalDeclContext());
+
+  Import(FD0, Lang_CXX03);
+  Import(FD1, Lang_CXX03);
 
   MainTU->dumpColor();
   assert(false);

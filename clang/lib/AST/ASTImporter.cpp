@@ -140,7 +140,7 @@ namespace clang {
     return std::make_unique<llvm::raw_fd_ostream>(FileDumper::m_outFileName, FileDumper::m_fstream_ec);
   }();
 
-  using CurrentDumper = FileDumper;
+  using CurrentDumper = StderrDumper;
 
   std::string ASTImportError::toString() const {
     // FIXME: Improve error texts.
@@ -8735,6 +8735,7 @@ ASTImporter::findDeclsInToCtx(DeclContext *DC, DeclarationName Name) {
         SharedState->getLookupTable()->lookup(ReDC, Name);
     return FoundDeclsTy(LookupResult.begin(), LookupResult.end());
   } else {
+    llvm::errs() << "DEBUGGING: performing noload_lookup\n";
     DeclContext::lookup_result NoloadLookupResult = ReDC->noload_lookup(Name);
     FoundDeclsTy Result(NoloadLookupResult.begin(), NoloadLookupResult.end());
     // We must search by the slow case of localUncachedLookup because that is

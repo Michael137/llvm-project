@@ -110,6 +110,7 @@ private:
     // Buffer for the context, must live in the test scope.
     std::string Code;
     std::string FileName;
+    std::shared_ptr<PCHContainerOperations> PCHContainerOperations;
     std::unique_ptr<ASTUnit> Unit;
     TranslationUnitDecl *TUDecl = nullptr;
     std::unique_ptr<ASTImporter> Importer;

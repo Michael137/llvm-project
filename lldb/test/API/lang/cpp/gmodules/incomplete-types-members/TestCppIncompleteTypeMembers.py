@@ -11,6 +11,8 @@ from lldbsuite.test import lldbutil
 
 class TestCppIncompleteTypeMembers(TestBase):
 
+    @add_test_categories(["gmodules"])
+    @expectedFailureAll
     def test(self):
         self.build()
         lldbutil.run_to_source_breakpoint(self, "// break here",

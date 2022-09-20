@@ -21,9 +21,9 @@ from . import configuration
 from . import test_categories
 from . import lldbtest_config
 from lldbsuite.support import funcutils
+from lldbsuite.support import gmodules
 from lldbsuite.test import lldbplatform
 from lldbsuite.test import lldbplatformutil
-
 
 class DecorateMode:
     Skip, Xfail = range(2)
@@ -390,6 +390,25 @@ def apple_simulator_test(platform):
 
     return skipTestIfFn(should_skip_simulator_test)
 
+def gmodules_test(func):
+    """
+    Use this decorator for 'gmodules'-specific tests. This decorator
+    makes sure we skip the test if 'gmodules' is unsupported on the
+    host platform and adds a single debug_info category to the test
+    so we don't run it multiple times (i.e., once for each debug_info variant).
+    """
+    def should_skip_gmodules_test(self):
+        supported_platforms = ["darwin", "macosx", "ios", "watchos", "tvos", "bridgeos"]
+        platform = lldbplatformutil.getHostPlatform()
+        compiler_path = self.getCompiler()
+        if platform not in supported_platforms:
+            return "Tests not supported on " % lldbplatformutil.getHostPlatform()
+        elif not gmodules.is_compiler_clang_with_gmodules(compiler_path):
+            return "-gmodules option is not supported on " % compiler_path
+        else:
+            return None
+
+    return skipTestIfFn(should_skip_gmodules_test)(add_test_categories(["dwarf"])(func))
 
 def debugserver_test(func):
     """Decorate the item as a debugserver test."""

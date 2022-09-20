@@ -2,16 +2,17 @@
 Test that Objective-C methods from the runtime work correctly.
 """
 
-
-
 import lldb
 from lldbsuite.test.decorators import *
 from lldbsuite.test.lldbtest import *
 from lldbsuite.test import lldbutil
 
-
 class RuntimeTypesTestCase(TestBase):
 
+    @gmodules_test
+    @expectedFailureAll(
+        oslist=["macosx"],
+        bugnumber="llvm.org/pr27862")
     def test_break(self):
         """Test setting objc breakpoints using '_regexp-break' and 'breakpoint set'."""
         self.build()

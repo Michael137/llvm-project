@@ -133,8 +133,6 @@ class Builder:
             return ["MAKE_DSYM=NO"]
         if debug_info == "dwo":
             return ["MAKE_DSYM=NO", "MAKE_DWO=YES"]
-        if debug_info == "gmodules":
-            return ["MAKE_DSYM=NO", "MAKE_GMODULES=YES"]
         return None
 
     def getBuildCommand(self, debug_info, architecture=None, compiler=None,

@@ -10,12 +10,8 @@ import sys
 
 # Third-party modules
 
-# LLDB modules
-from lldbsuite.support import gmodules
-
-
 debug_info_categories = [
-    'dwarf', 'dwo', 'dsym', 'gmodules'
+    'dwarf', 'dwo', 'dsym'
 ]
 
 all_categories = {
@@ -30,7 +26,6 @@ all_categories = {
     'expression': 'Tests related to the expression parser',
     'flakey': 'Flakey test cases, i.e. tests that do not reliably pass at each execution',
     'fork': 'Tests requiring the process plugin fork/vfork event support',
-    'gmodules': 'Tests that can be run with -gmodules debug information',
     'instrumentation-runtime': 'Tests for the instrumentation runtime plugins',
     'libc++': 'Test for libc++ data formatters',
     'libstdcxx': 'Test for libstdcxx data formatters',
@@ -62,11 +57,6 @@ def is_supported_on_platform(category, platform, compiler_path):
         return platform in ["linux", "freebsd"]
     elif category == "dsym":
         return platform in ["darwin", "macosx", "ios", "watchos", "tvos", "bridgeos"]
-    elif category == "gmodules":
-        # First, check to see if the platform can even support gmodules.
-        if platform not in ["darwin", "macosx", "ios", "watchos", "tvos", "bridgeos"]:
-            return False
-        return gmodules.is_compiler_clang_with_gmodules(compiler_path)
     return True
 
 

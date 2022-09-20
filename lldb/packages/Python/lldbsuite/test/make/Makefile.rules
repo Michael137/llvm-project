@@ -544,7 +544,9 @@ endif
 $(DSYM) : $(EXE)
 ifeq "$(OS)" "Darwin"
 ifneq "$(MAKE_DSYM)" "NO"
+ifneq "$(MAKE_GMODULES)" "YES"
 	"$(DS)" $(DSFLAGS) -o "$(DSYM)" "$(EXE)"
+endif
 else
 endif
 else
@@ -587,8 +589,10 @@ ifneq "$(CODESIGN)" ""
 	$(CODESIGN) -s - "$(DYLIB_FILENAME)"
 endif
 ifneq "$(MAKE_DSYM)" "NO"
+ifneq "$(MAKE_GMODULES)" "YES"
 ifneq "$(DS)" ""
 	"$(DS)" $(DSFLAGS) "$(DYLIB_FILENAME)"
+endif
 endif
 endif
 else

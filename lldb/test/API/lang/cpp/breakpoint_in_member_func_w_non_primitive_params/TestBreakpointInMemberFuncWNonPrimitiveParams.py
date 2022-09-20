@@ -14,7 +14,7 @@ from lldbsuite.test import lldbutil
 
 class TestBreakpointInMemberFuncWNonPrimitiveParams(TestBase):
 
-    @add_test_categories(["gmodules"])
+    @gmodules_test
     def test_breakpint_in_member_func_w_non_primitie_params(self):
         self.build()
         lldbutil.run_to_source_breakpoint(self, '// break here',

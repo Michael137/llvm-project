@@ -1,3 +1,4 @@
+MAKE_GMODULES = YES
 C_SOURCES := myModule.c
 
 OBJC_SOURCES := main.m

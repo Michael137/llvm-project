@@ -11,7 +11,7 @@ from lldbsuite.test import lldbutil
 class AbiTagLookupTestCase(TestBase):
 
     @skipIfWindows
-    @expectedFailureAll(debug_info=["dwarf", "gmodules", "dwo"])
+    @expectedFailureAll(debug_info=["dwarf", "dwo"])
     def test_abi_tag_lookup(self):
         self.build()
         lldbutil.run_to_source_breakpoint(self, 'Break here',

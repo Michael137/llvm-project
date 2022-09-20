@@ -10,7 +10,7 @@ from lldbsuite.test import lldbutil
 
 class TestClangModuleHashMismatch(TestBase):
 
-    @skipIf(debug_info=no_match(["gmodules"]))
+    @gmodules_test
     def test_expr(self):
         with open(self.getBuildArtifact("module.modulemap"), "w") as f:
             f.write("""

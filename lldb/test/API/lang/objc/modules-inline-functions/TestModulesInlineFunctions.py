@@ -11,7 +11,8 @@ from lldbsuite.test import lldbutil
 
 class ModulesInlineFunctionsTestCase(TestBase):
 
-    @skipIf(macos_version=["<", "10.12"], debug_info=no_match(["gmodules"]))
+    @skipIf(macos_version=["<", "10.12"])
+    @gmodules_test
     def test_expr(self):
         self.build()
         exe = self.getBuildArtifact("a.out")

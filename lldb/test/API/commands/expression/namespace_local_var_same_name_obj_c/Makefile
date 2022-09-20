@@ -1,3 +1,4 @@
+MAKE_GMODULES = YES
 OBJCXX_SOURCES := main.mm util.mm
 
 

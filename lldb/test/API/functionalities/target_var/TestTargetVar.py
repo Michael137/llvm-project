@@ -12,7 +12,6 @@ class targetCommandTestCase(TestBase):
 
     @skipUnlessDarwin
     @skipIfDarwinEmbedded           # needs x86_64
-    @skipIf(debug_info="gmodules")  # not relevant
     @skipIf(compiler="clang", compiler_version=['<', '7.0'])
     def testTargetVarExpr(self):
         self.build()

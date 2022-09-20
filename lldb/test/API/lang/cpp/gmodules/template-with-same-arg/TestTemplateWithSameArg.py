@@ -33,7 +33,7 @@ class TestTemplateWithSameArg(TestBase):
         self.build()
         self.main_source_file = lldb.SBFileSpec("main.cpp")
 
-    @add_test_categories(["gmodules"])
+    @gmodules_test
     def test_same_template_arg(self):
         lldbutil.run_to_source_breakpoint(self, "Break here", self.main_source_file)
 
@@ -49,7 +49,7 @@ class TestTemplateWithSameArg(TestBase):
                     ])
             ])
 
-    @add_test_categories(["gmodules"])
+    @gmodules_test
     def test_duplicate_decls(self):
         lldbutil.run_to_source_breakpoint(self, "Break here", self.main_source_file)
 

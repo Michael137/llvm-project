@@ -13,7 +13,8 @@ from lldbsuite.test import lldbutil
 class TestImportBuiltinFileID(TestBase):
 
     @skipIfDarwinEmbedded
-    @add_test_categories(["gmodules", "objc"])
+    @add_test_categories(["objc"])
+    @gmodules_test
     def test_import_builtin_fileid(self):
         self.build()
 

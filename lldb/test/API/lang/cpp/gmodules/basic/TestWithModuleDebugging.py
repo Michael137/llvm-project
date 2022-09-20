@@ -8,7 +8,7 @@ from lldbsuite.test import lldbutil
 class TestWithGmodulesDebugInfo(TestBase):
 
     @skipIf(bugnumber="llvm.org/pr36146", oslist=["linux"], archs=["i386"])
-    @add_test_categories(["gmodules"])
+    @gmodules_test
     def test_specialized_typedef_from_pch(self):
         self.build()
 

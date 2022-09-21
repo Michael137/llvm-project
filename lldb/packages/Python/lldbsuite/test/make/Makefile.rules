@@ -458,11 +458,11 @@ ifneq "$(strip $(DYLIB_CXX_SOURCES))" ""
 endif
 
 #----------------------------------------------------------------------
-# Check if we have a precompiled header
+# Check if we have a precompiled headers
 #----------------------------------------------------------------------
-ifneq "$(strip $(PCH_CXX_SOURCE))" ""
-	PCH_OUTPUT = $(PCH_CXX_SOURCE:.h=.h.pch)
-	PCHFLAGS = -include $(PCH_CXX_SOURCE)
+ifneq "$(strip $(PCH_CXX_SOURCES))" ""
+	PCH_OUTPUT = $(PCH_CXX_SOURCES:.h=.h.pch)
+	PCHFLAGS = $(addprefix -include-pch , $(PCH_OUTPUT))
 endif
 
 #----------------------------------------------------------------------
@@ -604,11 +604,11 @@ endif
 endif
 
 #----------------------------------------------------------------------
-# Make the precompiled header and compile C++ sources against it
+# Make the precompiled headers and compile C++ sources against it
 #----------------------------------------------------------------------
 
 ifneq "$(PCH_OUTPUT)" ""
-$(PCH_OUTPUT) : $(PCH_CXX_SOURCE)
+$(PCH_OUTPUT) : $(PCH_CXX_SOURCES)
 	$(CXX) $(CXXFLAGS) -x c++-header -o $@ $<
 endif
 

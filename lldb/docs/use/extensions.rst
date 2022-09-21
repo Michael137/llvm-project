@@ -133,3 +133,39 @@ Clang emits the Objective-C runtime version into the
 ``DW_TAG_compile_unit`` using the
 ``DW_AT_APPLE_major_runtime_version`` attribute. The value 2 stands
 for Objective-C 2.0.
+
+Writing ``-gmodules`` API Tests
+-------------------------------
+
+By default the LLDB API test-suite doesn't compile any debug-info
+variants with ``-gmodules`` support. If you want to explicitly test
+this feature you will have to add the ``@gmodules_test`` to your
+Python test cases and a ``MAKE_GMODULES = YES`` into the test Makefile
+(note that adding this flag will prevent ``dsymutil`` from getting
+run on your test sources).
+
+For example:
+
+Makefile
+
+::
+    MAKE_GMODULES = YES
+    CXX_SOURCES := main.cpp lib.cpp other.cpp
+
+    include Makefile.rules
+
+
+TestFile.py
+
+::
+    def TestFile(TestBase):
+        
+        @gmodules_test # Note that you can chain this with other decorators
+        def test_some_bug(self):
+            ...
+
+Running the API test-suite will now only run the ``TestFile.py`` test with the
+``DWARF`` debug-info variant but compile the sources with the required
+flags to build and use modules.
+
+More example ``gmodules`` tests can be found in ``lldb/test/API/lang/cpp/gmodules/``.

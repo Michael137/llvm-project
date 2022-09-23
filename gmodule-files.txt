@@ -1,0 +1,5 @@
+lldb/test/API/functionalities/limit-debug-info/TestLimitDebugInfo.py
+lldb/test/API/functionalities/data-formatter/data-formatter-stl/libcxx/span/TestDataFormatterLibcxxSpan.py
+lldb/test/API/functionalities/data-formatter/data-formatter-stl/libcxx/queue/TestDataFormatterLibcxxQueue.py
+lldb/test/API/functionalities/data-formatter/data-formatter-stl/libcxx/string/TestDataFormatterLibcxxString.py
+lldb/test/API/functionalities/data-formatter/data-formatter-stl/libcxx/string_view/TestDataFormatterLibcxxStringView.py

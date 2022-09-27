@@ -311,8 +311,6 @@ public:
       }
     };
 
-    void ImportDefinitionTo(clang::Decl *to, clang::Decl *from);
-
     void Imported(clang::Decl *from, clang::Decl *to) override;
 
     clang::Decl *GetOriginalDecl(clang::Decl *To) override;

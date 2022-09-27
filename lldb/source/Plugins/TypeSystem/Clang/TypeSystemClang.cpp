@@ -1214,20 +1214,20 @@ CompilerDeclContext TypeSystemClang::CreateDeclContext(DeclContext *ctx) {
   return CompilerDeclContext(this, ctx);
 }
 
-CompilerType TypeSystemClang::GetTypeForDecl(clang::NamedDecl *decl) {
-  if (clang::ObjCInterfaceDecl *interface_decl =
-      llvm::dyn_cast<clang::ObjCInterfaceDecl>(decl))
+CompilerType TypeSystemClang::GetTypeForDecl(const clang::NamedDecl *decl) {
+  if (const clang::ObjCInterfaceDecl *interface_decl =
+          llvm::dyn_cast<clang::ObjCInterfaceDecl>(decl))
     return GetTypeForDecl(interface_decl);
-  if (clang::TagDecl *tag_decl = llvm::dyn_cast<clang::TagDecl>(decl))
+  if (const clang::TagDecl *tag_decl = llvm::dyn_cast<clang::TagDecl>(decl))
     return GetTypeForDecl(tag_decl);
   return CompilerType();
 }
 
-CompilerType TypeSystemClang::GetTypeForDecl(TagDecl *decl) {
+CompilerType TypeSystemClang::GetTypeForDecl(const TagDecl *decl) {
   return GetType(getASTContext().getTagDeclType(decl));
 }
 
-CompilerType TypeSystemClang::GetTypeForDecl(ObjCInterfaceDecl *decl) {
+CompilerType TypeSystemClang::GetTypeForDecl(const ObjCInterfaceDecl *decl) {
   return GetType(getASTContext().getObjCInterfaceType(decl));
 }
 

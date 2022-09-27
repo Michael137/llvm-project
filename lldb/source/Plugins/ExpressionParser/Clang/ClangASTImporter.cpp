@@ -356,7 +356,7 @@ clang::Decl *ClangASTImporter::DeportDecl(clang::ASTContext *dst_ctx,
   return result;
 }
 
-bool ClangASTImporter::CanImport(Decl *d) {
+bool ClangASTImporter::CanImport(const Decl *d) {
   if (!d)
     return false;
   if (isa<TagDecl>(d))
@@ -539,12 +539,12 @@ bool ClangASTImporter::LayoutRecordType(
   return success;
 }
 
-void ClangASTImporter::SetRecordLayout(clang::RecordDecl *decl,
-                                        const LayoutInfo &layout) {
+void ClangASTImporter::SetRecordLayout(const clang::RecordDecl *decl,
+                                       const LayoutInfo &layout) {
   m_record_decl_to_layout_map.insert(std::make_pair(decl, layout));
 }
 
-bool ClangASTImporter::CompleteTagDecl(clang::TagDecl *decl) {
+bool ClangASTImporter::CompleteTagDecl(const clang::TagDecl *decl) {
   DeclOrigin decl_origin = GetDeclOrigin(decl);
 
   if (!decl_origin.Valid())
@@ -564,7 +564,7 @@ bool ClangASTImporter::CompleteTagDecl(clang::TagDecl *decl) {
   return true;
 }
 
-bool ClangASTImporter::CompleteTagDeclWithOrigin(clang::TagDecl *decl,
+bool ClangASTImporter::CompleteTagDeclWithOrigin(const clang::TagDecl *decl,
                                                  clang::TagDecl *origin_decl) {
   clang::ASTContext *origin_ast_ctx = &origin_decl->getASTContext();
 
@@ -584,7 +584,7 @@ bool ClangASTImporter::CompleteTagDeclWithOrigin(clang::TagDecl *decl,
 }
 
 bool ClangASTImporter::CompleteObjCInterfaceDecl(
-    clang::ObjCInterfaceDecl *interface_decl) {
+    const clang::ObjCInterfaceDecl *interface_decl) {
   DeclOrigin decl_origin = GetDeclOrigin(interface_decl);
 
   if (!decl_origin.Valid())

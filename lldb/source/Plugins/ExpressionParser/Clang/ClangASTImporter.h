@@ -116,7 +116,7 @@ public:
   ///
   /// \param decl The RecordDecl to set the layout for.
   /// \param layout The layout for the record.
-  void SetRecordLayout(clang::RecordDecl *decl, const LayoutInfo &layout);
+  void SetRecordLayout(const clang::RecordDecl *decl, const LayoutInfo &layout);
 
   bool LayoutRecordType(
       const clang::RecordDecl *record_decl, uint64_t &bit_size,
@@ -134,7 +134,7 @@ public:
   ///
   /// \see ClangASTImporter::Import
   bool CanImport(const CompilerType &type);
-  bool CanImport(clang::Decl *d);
+  bool CanImport(const clang::Decl *d);
 
   /// If the given type was copied from another TypeSystemClang then copy over
   /// all missing information (e.g., the definition of a 'class' type).
@@ -148,11 +148,13 @@ public:
 
   bool CompleteType(const CompilerType &compiler_type);
 
-  bool CompleteTagDecl(clang::TagDecl *decl);
+  bool CompleteTagDecl(const clang::TagDecl *decl);
 
-  bool CompleteTagDeclWithOrigin(clang::TagDecl *decl, clang::TagDecl *origin);
+  bool CompleteTagDeclWithOrigin(const clang::TagDecl *decl,
+                                 clang::TagDecl *origin);
 
-  bool CompleteObjCInterfaceDecl(clang::ObjCInterfaceDecl *interface_decl);
+  bool
+  CompleteObjCInterfaceDecl(const clang::ObjCInterfaceDecl *interface_decl);
 
   bool CompleteAndFetchChildren(clang::QualType type);
 

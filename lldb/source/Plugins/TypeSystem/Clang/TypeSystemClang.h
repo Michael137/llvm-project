@@ -244,11 +244,11 @@ public:
     return CompilerType(weak_from_this(), qt.getAsOpaquePtr());
   }
 
-  CompilerType GetTypeForDecl(clang::NamedDecl *decl);
+  CompilerType GetTypeForDecl(const clang::NamedDecl *decl);
 
-  CompilerType GetTypeForDecl(clang::TagDecl *decl);
+  CompilerType GetTypeForDecl(const clang::TagDecl *decl);
 
-  CompilerType GetTypeForDecl(clang::ObjCInterfaceDecl *objc_decl);
+  CompilerType GetTypeForDecl(const clang::ObjCInterfaceDecl *objc_decl);
 
   template <typename RecordDeclType>
   CompilerType

@@ -527,7 +527,10 @@ bool ClangASTImporter::CompleteTagDecl(const clang::TagDecl *decl) {
   if (!decl_origin.Valid())
     return false;
 
-  if (!TypeSystemClang::GetCompleteDecl(decl_origin.ctx, decl_origin.decl))
+  clang::TagDecl *origin_decl = llvm::cast<TagDecl>(decl_origin.decl);
+
+  origin_decl = origin_decl->getDefinition();
+  if (!origin_decl)
     return false;
 
   ImporterDelegateSP delegate_sp(
@@ -536,23 +539,38 @@ bool ClangASTImporter::CompleteTagDecl(const clang::TagDecl *decl) {
   ASTImporterDelegate::CxxModuleScope std_scope(*delegate_sp,
                                                 &decl->getASTContext());
 
+  // This is expected to pull in a definition for result_decl
+  llvm::Expected<Decl *> result = delegate_sp->Import(origin_decl);
+  if (!result) {
+    llvm::handleAllErrors(result.takeError(),
+                          [](const clang::ASTImportError &e) {
+                            llvm::errs() << "ERR: " << e.toString() << "\n";
+                          });
+    return false;
+  }
+
+  // Create redeclaration chain with the 'to' decls
+  TagDecl *result_decl = llvm::cast<TagDecl>(*result);
+  if (!decl->isThisDeclarationADefinition() && result_decl != decl) {
+    if (result_decl->getPreviousDecl() == nullptr) {
+      result_decl->setPreviousDecl(const_cast<TagDecl *>(decl));
+    }
+  }
+
   return true;
 }
 
 bool ClangASTImporter::CompleteTagDeclWithOrigin(const clang::TagDecl *decl,
                                                  clang::TagDecl *origin_decl) {
-  clang::ASTContext *origin_ast_ctx = &origin_decl->getASTContext();
-
-  if (!TypeSystemClang::GetCompleteDecl(origin_ast_ctx, origin_decl))
+  if (!origin_decl->getDefinition())
     return false;
+  origin_decl = origin_decl->getFirstDecl();
 
-  ImporterDelegateSP delegate_sp(
-      GetDelegate(&decl->getASTContext(), origin_ast_ctx));
-
+  clang::ASTContext *origin_ast_ctx = &origin_decl->getASTContext();
   ASTContextMetadataSP context_md = GetContextMetadata(&decl->getASTContext());
 
   context_md->setOrigin(decl, DeclOrigin(origin_ast_ctx, origin_decl));
-  return true;
+  return CompleteTagDecl(decl);
 }
 
 bool ClangASTImporter::CompleteObjCInterfaceDecl(
@@ -562,16 +580,24 @@ bool ClangASTImporter::CompleteObjCInterfaceDecl(
   if (!decl_origin.Valid())
     return false;
 
-  if (!TypeSystemClang::GetCompleteDecl(decl_origin.ctx, decl_origin.decl))
+  ObjCInterfaceDecl *origin_decl =
+      llvm::cast<ObjCInterfaceDecl>(decl_origin.decl);
+
+  origin_decl = origin_decl->getDefinition();
+  if (!origin_decl)
     return false;
 
   ImporterDelegateSP delegate_sp(
       GetDelegate(&interface_decl->getASTContext(), decl_origin.ctx));
 
-  if (ObjCInterfaceDecl *super_class = interface_decl->getSuperClass())
-    RequireCompleteType(clang::QualType(super_class->getTypeForDecl(), 0));
+  llvm::Expected<Decl *> result = delegate_sp->Import(origin_decl);
+  if (result)
+    return true;
 
-  return true;
+  llvm::handleAllErrors(result.takeError(),
+                        [](clang::ASTImportError &e) { abort(); });
+
+  return false;
 }
 
 bool ClangASTImporter::CompleteAndFetchChildren(clang::QualType type) {

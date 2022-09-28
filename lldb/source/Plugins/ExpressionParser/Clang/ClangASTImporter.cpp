@@ -490,6 +490,7 @@ bool ClangASTImporter::LayoutRecordType(
     uint64_t &alignment, ExternalASTSource::FieldOffsetMap &field_offsets,
     ExternalASTSource::BaseOffsetMap &base_offsets,
     ExternalASTSource::BaseOffsetMap &vbase_offsets) {
+  record_decl = static_cast<const RecordDecl *>(record_decl->getFirstDecl());
   RecordDeclToLayoutMap::iterator pos =
       m_record_decl_to_layout_map.find(record_decl);
   bool success = false;
@@ -513,6 +514,10 @@ bool ClangASTImporter::LayoutRecordType(
 
 void ClangASTImporter::SetRecordLayout(const clang::RecordDecl *decl,
                                        const LayoutInfo &layout) {
+  decl = static_cast<const RecordDecl *>(decl->getFirstDecl());
+
+  assert(m_record_decl_to_layout_map.count(decl) == 0 &&
+         "Trying to overwrite layout?");
   m_record_decl_to_layout_map.insert(std::make_pair(decl, layout));
 }
 

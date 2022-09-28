@@ -327,7 +327,20 @@ public:
                                 llvm::StringRef name, int kind,
                                 lldb::LanguageType language,
                                 ClangASTMetadata *metadata = nullptr,
-                                bool exports_symbols = false);
+                                bool exports_symbols = false) {
+    clang::NamedDecl *d =
+        CreateRecordDecl(decl_ctx, owning_module, access_type, name, kind,
+                         language, metadata, exports_symbols);
+    return GetTypeForDecl(d);
+  }
+
+  clang::NamedDecl *CreateRecordDecl(clang::DeclContext *decl_ctx,
+                                     OptionalClangModuleID owning_module,
+                                     lldb::AccessType access_type,
+                                     llvm::StringRef name, int kind,
+                                     lldb::LanguageType language,
+                                     ClangASTMetadata *metadata = nullptr,
+                                     bool exports_symbols = false);
 
   class TemplateParameterInfos {
   public:
@@ -455,7 +468,16 @@ public:
                                clang::DeclContext *decl_ctx,
                                OptionalClangModuleID owning_module,
                                bool isForwardDecl, bool isInternal,
-                               ClangASTMetadata *metadata = nullptr);
+                               ClangASTMetadata *metadata = nullptr) {
+    clang::ObjCInterfaceDecl *d = CreateObjCDecl(
+        name, decl_ctx, owning_module, isForwardDecl, isInternal, metadata);
+    return GetTypeForDecl(d);
+  }
+
+  clang::ObjCInterfaceDecl *
+  CreateObjCDecl(llvm::StringRef name, clang::DeclContext *decl_ctx,
+                 OptionalClangModuleID owning_module, bool isForwardDecl,
+                 bool isInternal, ClangASTMetadata *metadata = nullptr);
 
   // Returns a mask containing bits from the TypeSystemClang::eTypeXXX
   // enumerations

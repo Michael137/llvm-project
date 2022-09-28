@@ -1282,7 +1282,7 @@ TypeSystemClang::GetOrCreateClangModule(llvm::StringRef name,
   return ast_source->RegisterModule(module);
 }
 
-CompilerType TypeSystemClang::CreateRecordType(
+clang::NamedDecl *TypeSystemClang::CreateRecordDecl(
     clang::DeclContext *decl_ctx, OptionalClangModuleID owning_module,
     AccessType access_type, llvm::StringRef name, int kind,
     LanguageType language, ClangASTMetadata *metadata, bool exports_symbols) {
@@ -1291,12 +1291,14 @@ CompilerType TypeSystemClang::CreateRecordType(
   if (decl_ctx == nullptr)
     decl_ctx = ast.getTranslationUnitDecl();
 
+  decl_ctx = decl_ctx->getPrimaryContext();
+
   if (language == eLanguageTypeObjC ||
       language == eLanguageTypeObjC_plus_plus) {
     bool isForwardDecl = true;
     bool isInternal = false;
-    return CreateObjCClass(name, decl_ctx, owning_module, isForwardDecl,
-                           isInternal, metadata);
+    return CreateObjCDecl(name, decl_ctx, owning_module, isForwardDecl,
+                          isInternal, metadata);
   }
 
   // NOTE: Eventually CXXRecordDecl will be merged back into RecordDecl and
@@ -1351,7 +1353,7 @@ CompilerType TypeSystemClang::CreateRecordType(
   if (decl_ctx)
     decl_ctx->addDecl(decl);
 
-  return GetType(ast.getTagDeclType(decl));
+  return decl;
 }
 
 namespace {
@@ -1858,7 +1860,7 @@ bool TypeSystemClang::RecordHasFields(const RecordDecl *record_decl) {
 
 #pragma mark Objective-C Classes
 
-CompilerType TypeSystemClang::CreateObjCClass(
+clang::ObjCInterfaceDecl *TypeSystemClang::CreateObjCDecl(
     llvm::StringRef name, clang::DeclContext *decl_ctx,
     OptionalClangModuleID owning_module, bool isForwardDecl, bool isInternal,
     ClangASTMetadata *metadata) {
@@ -1877,7 +1879,7 @@ CompilerType TypeSystemClang::CreateObjCClass(
   if (metadata)
     SetMetadata(decl, *metadata);
 
-  return GetType(ast.getObjCInterfaceType(decl));
+  return decl;
 }
 
 bool TypeSystemClang::BaseSpecifierIsEmpty(const CXXBaseSpecifier *b) {

@@ -18,6 +18,7 @@
 #include "clang/AST/CharUnits.h"
 #include "clang/AST/Decl.h"
 #include "clang/AST/DeclCXX.h"
+#include "clang/AST/ExternalASTSource.h"
 #include "clang/Basic/FileManager.h"
 #include "clang/Basic/FileSystemOptions.h"
 
@@ -65,14 +66,11 @@ class ClangASTImporter {
 public:
   struct LayoutInfo {
     LayoutInfo() = default;
-    typedef llvm::DenseMap<const clang::CXXRecordDecl *, clang::CharUnits>
-        OffsetMap;
-
     uint64_t bit_size = 0;
     uint64_t alignment = 0;
-    llvm::DenseMap<const clang::FieldDecl *, uint64_t> field_offsets;
-    OffsetMap base_offsets;
-    OffsetMap vbase_offsets;
+    clang::ExternalASTSource::FieldOffsetMap field_offsets;
+    clang::ExternalASTSource::BaseOffsetMap base_offsets;
+    clang::ExternalASTSource::BaseOffsetMap vbase_offsets;
   };
 
   ClangASTImporter()
@@ -118,14 +116,11 @@ public:
   /// \param layout The layout for the record.
   void SetRecordLayout(clang::RecordDecl *decl, const LayoutInfo &layout);
 
-  bool LayoutRecordType(
-      const clang::RecordDecl *record_decl, uint64_t &bit_size,
-      uint64_t &alignment,
-      llvm::DenseMap<const clang::FieldDecl *, uint64_t> &field_offsets,
-      llvm::DenseMap<const clang::CXXRecordDecl *, clang::CharUnits>
-          &base_offsets,
-      llvm::DenseMap<const clang::CXXRecordDecl *, clang::CharUnits>
-          &vbase_offsets);
+  bool LayoutRecordType(const clang::RecordDecl *record_decl,
+                        uint64_t &bit_size, uint64_t &alignment,
+                        clang::ExternalASTSource::FieldOffsetMap &field_offsets,
+                        clang::ExternalASTSource::BaseOffsetMap &base_offsets,
+                        clang::ExternalASTSource::BaseOffsetMap &vbase_offsets);
 
   /// Returns true iff the given type was copied from another TypeSystemClang
   /// and the original type in this other TypeSystemClang might contain

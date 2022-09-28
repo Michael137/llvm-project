@@ -8,8 +8,10 @@
 
 #include "TypeSystemClang.h"
 
+#include "clang/AST/Decl.h"
 #include "clang/AST/DeclBase.h"
 #include "llvm/Support/Casting.h"
+#include "clang/AST/ExternalASTSource.h"
 #include "llvm/Support/FormatAdapters.h"
 #include "llvm/Support/FormatVariadic.h"
 
@@ -9445,12 +9447,9 @@ npdb::PdbAstBuilder *TypeSystemClang::GetNativePDBParser() {
 
 bool TypeSystemClang::LayoutRecordType(
     const clang::RecordDecl *record_decl, uint64_t &bit_size,
-    uint64_t &alignment,
-    llvm::DenseMap<const clang::FieldDecl *, uint64_t> &field_offsets,
-    llvm::DenseMap<const clang::CXXRecordDecl *, clang::CharUnits>
-        &base_offsets,
-    llvm::DenseMap<const clang::CXXRecordDecl *, clang::CharUnits>
-        &vbase_offsets) {
+    uint64_t &alignment, ExternalASTSource::FieldOffsetMap &field_offsets,
+    ExternalASTSource::BaseOffsetMap &base_offsets,
+    ExternalASTSource::BaseOffsetMap &vbase_offsets) {
   lldb_private::ClangASTImporter *importer = nullptr;
   if (m_dwarf_ast_parser_up)
     importer = &m_dwarf_ast_parser_up->GetClangASTImporter();

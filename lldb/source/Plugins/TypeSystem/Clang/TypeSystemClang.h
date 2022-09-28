@@ -525,13 +525,11 @@ public:
 
   void CompleteObjCInterfaceDecl(clang::ObjCInterfaceDecl *);
 
-  bool LayoutRecordType(
-      const clang::RecordDecl *record_decl, uint64_t &size, uint64_t &alignment,
-      llvm::DenseMap<const clang::FieldDecl *, uint64_t> &field_offsets,
-      llvm::DenseMap<const clang::CXXRecordDecl *, clang::CharUnits>
-          &base_offsets,
-      llvm::DenseMap<const clang::CXXRecordDecl *, clang::CharUnits>
-          &vbase_offsets);
+  bool LayoutRecordType(const clang::RecordDecl *record_decl, uint64_t &size,
+                        uint64_t &alignment,
+                        clang::ExternalASTSource::FieldOffsetMap &field_offsets,
+                        clang::ExternalASTSource::BaseOffsetMap &base_offsets,
+                        clang::ExternalASTSource::BaseOffsetMap &vbase_offsets);
 
   /// Creates a CompilerDecl from the given Decl with the current
   /// TypeSystemClang instance as its typesystem.

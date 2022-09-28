@@ -13,6 +13,7 @@
 #include "clang/AST/Decl.h"
 #include "clang/AST/DeclCXX.h"
 #include "clang/AST/DeclObjC.h"
+#include "clang/AST/ExternalASTSource.h"
 #include "clang/Sema/Lookup.h"
 #include "clang/Sema/Sema.h"
 #include "llvm/Support/raw_ostream.h"
@@ -519,12 +520,9 @@ bool ClangASTImporter::CompleteType(const CompilerType &compiler_type) {
 
 bool ClangASTImporter::LayoutRecordType(
     const clang::RecordDecl *record_decl, uint64_t &bit_size,
-    uint64_t &alignment,
-    llvm::DenseMap<const clang::FieldDecl *, uint64_t> &field_offsets,
-    llvm::DenseMap<const clang::CXXRecordDecl *, clang::CharUnits>
-        &base_offsets,
-    llvm::DenseMap<const clang::CXXRecordDecl *, clang::CharUnits>
-        &vbase_offsets) {
+    uint64_t &alignment, ExternalASTSource::FieldOffsetMap &field_offsets,
+    ExternalASTSource::BaseOffsetMap &base_offsets,
+    ExternalASTSource::BaseOffsetMap &vbase_offsets) {
   RecordDeclToLayoutMap::iterator pos =
       m_record_decl_to_layout_map.find(record_decl);
   bool success = false;

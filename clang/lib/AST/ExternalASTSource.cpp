@@ -60,11 +60,11 @@ void ExternalASTSource::StartTranslationUnit(ASTConsumer *Consumer) {}
 
 void ExternalASTSource::PrintStats() {}
 
-bool ExternalASTSource::layoutRecordType(
-    const RecordDecl *Record, uint64_t &Size, uint64_t &Alignment,
-    llvm::DenseMap<const FieldDecl *, uint64_t> &FieldOffsets,
-    llvm::DenseMap<const CXXRecordDecl *, CharUnits> &BaseOffsets,
-    llvm::DenseMap<const CXXRecordDecl *, CharUnits> &VirtualBaseOffsets) {
+bool ExternalASTSource::layoutRecordType(const RecordDecl *Record,
+                                         uint64_t &Size, uint64_t &Alignment,
+                                         FieldOffsetMap &FieldOffsets,
+                                         BaseOffsetMap &BaseOffsets,
+                                         BaseOffsetMap &VirtualBaseOffsets) {
   return false;
 }
 

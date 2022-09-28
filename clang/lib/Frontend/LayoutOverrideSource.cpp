@@ -151,13 +151,11 @@ LayoutOverrideSource::LayoutOverrideSource(StringRef Filename) {
     Layouts[CurrentType] = CurrentLayout;
 }
 
-bool
-LayoutOverrideSource::layoutRecordType(const RecordDecl *Record,
-  uint64_t &Size, uint64_t &Alignment,
-  llvm::DenseMap<const FieldDecl *, uint64_t> &FieldOffsets,
-  llvm::DenseMap<const CXXRecordDecl *, CharUnits> &BaseOffsets,
-  llvm::DenseMap<const CXXRecordDecl *, CharUnits> &VirtualBaseOffsets)
-{
+bool LayoutOverrideSource::layoutRecordType(const RecordDecl *Record,
+                                            uint64_t &Size, uint64_t &Alignment,
+                                            FieldOffsetMap &FieldOffsets,
+                                            BaseOffsetMap &BaseOffsets,
+                                            BaseOffsetMap &VirtualBaseOffsets) {
   // We can't override unnamed declarations.
   if (!Record->getIdentifier())
     return false;

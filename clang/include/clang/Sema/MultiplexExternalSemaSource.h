@@ -179,13 +179,10 @@ public:
   /// be laid out according to the ABI.
   ///
   /// \returns true if the record layout was provided, false otherwise.
-  bool
-  layoutRecordType(const RecordDecl *Record,
-                   uint64_t &Size, uint64_t &Alignment,
-                   llvm::DenseMap<const FieldDecl *, uint64_t> &FieldOffsets,
-                 llvm::DenseMap<const CXXRecordDecl *, CharUnits> &BaseOffsets,
-                 llvm::DenseMap<const CXXRecordDecl *,
-                                CharUnits> &VirtualBaseOffsets) override;
+  bool layoutRecordType(const RecordDecl *Record, uint64_t &Size,
+                        uint64_t &Alignment, FieldOffsetMap &FieldOffsets,
+                        BaseOffsetMap &BaseOffsets,
+                        BaseOffsetMap &VirtualBaseOffsets) override;
 
   /// Return the amount of memory used by memory buffers, breaking down
   /// by heap-backed versus mmap'ed memory.

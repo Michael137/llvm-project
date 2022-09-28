@@ -38,13 +38,10 @@ public:
 
   void CompleteType(clang::ObjCInterfaceDecl *objc_decl) override;
 
-  bool layoutRecordType(
-      const clang::RecordDecl *Record, uint64_t &Size, uint64_t &Alignment,
-      llvm::DenseMap<const clang::FieldDecl *, uint64_t> &FieldOffsets,
-      llvm::DenseMap<const clang::CXXRecordDecl *, clang::CharUnits>
-          &BaseOffsets,
-      llvm::DenseMap<const clang::CXXRecordDecl *, clang::CharUnits>
-          &VirtualBaseOffsets) override;
+  bool layoutRecordType(const clang::RecordDecl *Record, uint64_t &Size,
+                        uint64_t &Alignment, FieldOffsetMap &FieldOffsets,
+                        BaseOffsetMap &BaseOffsets,
+                        BaseOffsetMap &VirtualBaseOffsets) override;
 
   TypeSystemClang &GetTypeSystem() const { return m_ast; }
 

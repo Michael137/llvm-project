@@ -177,12 +177,10 @@ Module *MultiplexExternalSemaSource::getModule(unsigned ID) {
   return nullptr;
 }
 
-bool MultiplexExternalSemaSource::layoutRecordType(const RecordDecl *Record,
-                                                   uint64_t &Size,
-                                                   uint64_t &Alignment,
-                      llvm::DenseMap<const FieldDecl *, uint64_t> &FieldOffsets,
-                  llvm::DenseMap<const CXXRecordDecl *, CharUnits> &BaseOffsets,
-          llvm::DenseMap<const CXXRecordDecl *, CharUnits> &VirtualBaseOffsets){
+bool MultiplexExternalSemaSource::layoutRecordType(
+    const RecordDecl *Record, uint64_t &Size, uint64_t &Alignment,
+    FieldOffsetMap &FieldOffsets, BaseOffsetMap &BaseOffsets,
+    BaseOffsetMap &VirtualBaseOffsets) {
   for(size_t i = 0; i < Sources.size(); ++i)
     if (Sources[i]->layoutRecordType(Record, Size, Alignment, FieldOffsets,
                                      BaseOffsets, VirtualBaseOffsets))

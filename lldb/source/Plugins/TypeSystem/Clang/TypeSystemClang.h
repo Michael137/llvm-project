@@ -521,9 +521,9 @@ public:
   npdb::PdbAstBuilder *GetNativePDBParser() override;
 
   // TypeSystemClang callbacks for external source lookups.
-  void CompleteTagDecl(clang::TagDecl *);
+  void CompleteTagDecl(const clang::TagDecl *);
 
-  void CompleteObjCInterfaceDecl(clang::ObjCInterfaceDecl *);
+  void CompleteObjCInterfaceDecl(const clang::ObjCInterfaceDecl *);
 
   bool LayoutRecordType(
       const clang::RecordDecl *record_decl, uint64_t &size, uint64_t &alignment,

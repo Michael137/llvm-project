@@ -9415,7 +9415,7 @@ clang::ClassTemplateDecl *TypeSystemClang::ParseClassTemplateDecl(
   return nullptr;
 }
 
-void TypeSystemClang::CompleteTagDecl(clang::TagDecl *decl) {
+void TypeSystemClang::CompleteTagDecl(const clang::TagDecl *decl) {
   SymbolFile *sym_file = GetSymbolFile();
   if (sym_file) {
     CompilerType clang_type = GetTypeForDecl(decl);
@@ -9425,7 +9425,7 @@ void TypeSystemClang::CompleteTagDecl(clang::TagDecl *decl) {
 }
 
 void TypeSystemClang::CompleteObjCInterfaceDecl(
-    clang::ObjCInterfaceDecl *decl) {
+    const clang::ObjCInterfaceDecl *decl) {
   SymbolFile *sym_file = GetSymbolFile();
   if (sym_file) {
     CompilerType clang_type = GetTypeForDecl(decl);

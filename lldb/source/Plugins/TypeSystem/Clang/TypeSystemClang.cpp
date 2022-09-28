@@ -1224,11 +1224,15 @@ CompilerType TypeSystemClang::GetTypeForDecl(const clang::NamedDecl *decl) {
 }
 
 CompilerType TypeSystemClang::GetTypeForDecl(const TagDecl *decl) {
-  return GetType(getASTContext().getTagDeclType(decl));
+  assert(decl != nullptr);
+  return GetType(
+      getASTContext().getTypeDeclType(decl, decl->getPreviousDecl()));
 }
 
 CompilerType TypeSystemClang::GetTypeForDecl(const ObjCInterfaceDecl *decl) {
-  return GetType(getASTContext().getObjCInterfaceType(decl));
+  assert(decl != nullptr);
+  return GetType(getASTContext().getObjCInterfaceType(
+      decl, const_cast<ObjCInterfaceDecl *>(decl->getPreviousDecl())));
 }
 
 #pragma mark Structure, Unions, Classes

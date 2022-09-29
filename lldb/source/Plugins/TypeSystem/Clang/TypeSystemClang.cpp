@@ -1387,6 +1387,10 @@ void AddAccessSpecifierDecl(clang::CXXRecordDecl *cxx_record_decl,
                                SourceLocation(), SourceLocation()));
   }
 }
+
+static const clang::Decl *GetDeclForMetadataStorage(const clang::Decl *d) {
+  return ClangUtil::GetFirstDecl(d);
+}
 } // namespace
 
 static TemplateParameterList *CreateTemplateParameterList(
@@ -2620,7 +2624,7 @@ void TypeSystemClang::SetMetadataAsUserID(const clang::Type *type,
 
 void TypeSystemClang::SetMetadata(const clang::Decl *object,
                                   ClangASTMetadata &metadata) {
-  m_decl_metadata[object] = metadata;
+  m_decl_metadata[GetDeclForMetadataStorage(object)] = metadata;
 }
 
 void TypeSystemClang::SetMetadata(const clang::Type *object,
@@ -2629,7 +2633,7 @@ void TypeSystemClang::SetMetadata(const clang::Type *object,
 }
 
 ClangASTMetadata *TypeSystemClang::GetMetadata(const clang::Decl *object) {
-  auto It = m_decl_metadata.find(object);
+  auto It = m_decl_metadata.find(GetDeclForMetadataStorage(object));
   if (It != m_decl_metadata.end())
     return &It->second;
   return nullptr;

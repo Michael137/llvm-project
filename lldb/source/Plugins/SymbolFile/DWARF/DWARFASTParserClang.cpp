@@ -973,6 +973,10 @@ TypeSP DWARFASTParserClang::ParseSubroutine(const DWARFDIE &die,
   const clang::Decl::Kind containing_decl_kind =
       containing_decl_ctx->getDeclKind();
 
+  PrepareContextToReceiveMembers(m_ast, GetClangASTImporter(),
+                                 containing_decl_ctx, die,
+                                 attrs.name.GetCString());
+
   bool is_cxx_method = DeclKindIsCXXClass(containing_decl_kind);
   // Start off static. This will be set to false in
   // ParseChildParameters(...) if we find a "this" parameters as the
@@ -2239,10 +2243,6 @@ bool DWARFASTParserClang::CompleteTypeFromDWARF(const DWARFDIE &die,
 
   std::lock_guard<std::recursive_mutex> guard(
       dwarf->GetObjectFile()->GetModule()->GetMutex());
-
-  // Disable external storage for this type so we don't get anymore
-  // clang::ExternalASTSource queries for this type.
-  m_ast.SetHasExternalStorage(clang_type.GetOpaqueQualType(), false);
 
   if (!die)
     return false;

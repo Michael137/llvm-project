@@ -45,6 +45,8 @@ public:
 
   TypeSystemClang &GetTypeSystem() const { return m_ast; }
 
+  void bumpGeneration() { incrementGeneration(m_ast.getASTContext()); }
+
   void CompleteRedeclChain(const clang::Decl *D) override;
 
   /// Module-related methods.

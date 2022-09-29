@@ -468,6 +468,11 @@ public:
   CreateClassTemplateSpecializationType(clang::ClassTemplateSpecializationDecl *
                                             class_template_specialization_decl);
 
+  void BumpGenerationCounter() {
+    if (m_ast_up)
+      m_ast_up->getExternalSource()->incrementGeneration(*m_ast_up);
+  }
+
   static clang::DeclContext *
   GetAsDeclContext(clang::FunctionDecl *function_decl);
 

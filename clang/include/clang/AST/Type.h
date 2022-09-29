@@ -4838,6 +4838,8 @@ protected:
 public:
   TagDecl *getDecl() const;
 
+  TagDecl *getCanonicalDecl() const { return decl; }
+
   /// Determines whether this type is in the process of being defined.
   bool isBeingDefined() const;
 
@@ -4860,6 +4862,10 @@ protected:
 public:
   RecordDecl *getDecl() const {
     return reinterpret_cast<RecordDecl*>(TagType::getDecl());
+  }
+
+  RecordDecl *getCanonicalDecl() const {
+    return reinterpret_cast<RecordDecl *>(TagType::getCanonicalDecl());
   }
 
   /// Recursively check all fields in the record for const-ness. If any field

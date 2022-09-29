@@ -271,7 +271,7 @@ void TextNodeDumper::Visit(const Decl *D) {
   if (D->isImplicit())
     OS << " implicit";
 
-  if (D->isUsed())
+  if (/*REMOVE ME after D80878 */ false && D->isUsed())
     OS << " used";
   else if (D->isThisDeclarationReferenced())
     OS << " referenced";

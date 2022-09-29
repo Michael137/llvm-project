@@ -775,12 +775,15 @@ ClangASTImporter::ASTImporterDelegate::ImportImpl(Decl *From) {
   // the different decls that appear to come from different ASTContexts (even
   // though all these different source ASTContexts just got a copy from
   // one source AST).
-  if (origin.Valid()) {
-    auto R = m_main.CopyDecl(&getToContext(), origin.decl);
-    if (R) {
-      RegisterImportedDecl(From, R);
-      return R;
+  while (origin.Valid()) {
+    ImporterDelegateSP delegate =
+        m_main.GetDelegate(&this->getToContext(), origin.ctx);
+    if (clang::Decl *imported =
+            delegate->GetAlreadyImportedOrNull(origin.decl)) {
+      RegisterImportedDecl(From, imported);
+      return imported;
     }
+    origin = m_main.GetDeclOrigin(origin.decl);
   }
 
   // If we have a forcefully completed type, try to find an actual definition

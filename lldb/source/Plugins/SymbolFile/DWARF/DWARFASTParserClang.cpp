@@ -3494,6 +3494,13 @@ clang::DeclContext *DWARFASTParserClang::GetClangDeclContextContainingDIE(
 clang::DeclContext *
 DWARFASTParserClang::GetCachedClangDeclContextForDIE(const DWARFDIE &die) {
   if (die) {
+    DIEToRecordMap::iterator pos2 = m_die_to_record_map.find(die.GetDIE());
+    if (pos2 != m_die_to_record_map.end())
+      return pos2->second;
+    DIEToObjCInterfaceMap::iterator pos3 =
+        m_die_to_objc_interface_map.find(die.GetDIE());
+    if (pos3 != m_die_to_objc_interface_map.end())
+      return pos3->second;
     DIEToDeclContextMap::iterator pos = m_die_to_decl_ctx.find(die.GetDIE());
     if (pos != m_die_to_decl_ctx.end())
       return pos->second;

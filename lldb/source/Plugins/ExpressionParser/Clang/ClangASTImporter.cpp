@@ -475,14 +475,7 @@ bool ClangASTImporter::CompleteType(const CompilerType &compiler_type) {
   if (!CanImport(compiler_type))
     return false;
 
-  if (Import(compiler_type)) {
-    TypeSystemClang::CompleteTagDeclarationDefinition(compiler_type);
-    return true;
-  }
-
-  TypeSystemClang::SetHasExternalStorage(compiler_type.GetOpaqueQualType(),
-                                         false);
-  return false;
+  return Import(compiler_type);
 }
 
 bool ClangASTImporter::LayoutRecordType(

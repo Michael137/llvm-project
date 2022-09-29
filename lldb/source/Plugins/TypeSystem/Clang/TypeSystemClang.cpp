@@ -1426,6 +1426,7 @@ static TemplateParameterList *CreateTemplateParameterList(
     IdentifierInfo *identifier_info = nullptr;
     if (template_param_infos.HasPackName())
       identifier_info = &ast.Idents.get(template_param_infos.GetPackName());
+
     const bool parameter_pack_true = true;
 
     if (!template_param_infos.GetParameterPack().IsEmpty() &&

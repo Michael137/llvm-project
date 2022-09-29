@@ -351,10 +351,27 @@ public:
       assert(names.size() == args_in.size());
     }
 
-    TemplateParameterInfos(TemplateParameterInfos const &) = delete;
+    TemplateParameterInfos(const TemplateParameterInfos &o)
+        : names(o.names), args(o.args), pack_name(o.pack_name) {
+      if (o.packed_args)
+        packed_args = std::make_unique<TemplateParameterInfos>(*o.packed_args);
+    }
+
+    TemplateParameterInfos &operator=(const TemplateParameterInfos &o) {
+      auto tmp(o);
+      swap(tmp);
+      return *this;
+    }
+
+    void swap(TemplateParameterInfos &other) noexcept {
+      std::swap(names, other.names);
+      std::swap(args, other.args);
+      std::swap(pack_name, other.pack_name);
+      std::swap(packed_args, other.packed_args);
+    }
+
     TemplateParameterInfos(TemplateParameterInfos &&) = delete;
 
-    TemplateParameterInfos &operator=(TemplateParameterInfos const &) = delete;
     TemplateParameterInfos &operator=(TemplateParameterInfos &&) = delete;
 
     ~TemplateParameterInfos() = default;
@@ -403,14 +420,14 @@ public:
       return packed_args->GetArgs();
     }
 
-    bool HasPackName() const { return pack_name && pack_name[0]; }
+    bool HasPackName() const { return pack_name && !pack_name->empty(); }
 
     llvm::StringRef GetPackName() const {
       assert(HasPackName());
-      return pack_name;
+      return *pack_name;
     }
 
-    void SetPackName(char const *name) { pack_name = name; }
+    void SetPackName(std::string name) { pack_name.emplace(std::move(name)); }
 
     void SetParameterPack(std::unique_ptr<TemplateParameterInfos> args) {
       packed_args = std::move(args);
@@ -422,7 +439,7 @@ public:
     llvm::SmallVector<const char *, 2> names;
     llvm::SmallVector<clang::TemplateArgument, 2> args;
 
-    const char * pack_name = nullptr;
+    std::optional<std::string> pack_name;
     std::unique_ptr<TemplateParameterInfos> packed_args;
   };
 

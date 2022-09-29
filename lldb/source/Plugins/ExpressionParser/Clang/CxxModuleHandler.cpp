@@ -63,8 +63,10 @@ static void makeScopes(Sema &sema, DeclContext *ctxt,
         new Scope(result.back(), Scope::DeclScope, sema.getDiagnostics());
     scope->setEntity(ctxt);
     result.push_back(scope);
-  } else
+  } else {
+    assert(sema.TUScope != nullptr);
     result.push_back(sema.TUScope);
+  }
 }
 
 /// Uses the Sema to look up the given name in the given DeclContext.

@@ -2726,9 +2726,9 @@ TypeSystemClang::GetDeclContextForType(clang::QualType type) {
   return nullptr;
 }
 
-static bool GetCompleteQualType(clang::ASTContext *ast,
-                                clang::QualType qual_type,
-                                bool allow_completion = true) {
+static QualType GetCompleteQualType(clang::ASTContext *ast,
+                                    clang::QualType qual_type,
+                                    bool allow_completion = true) {
   qual_type = RemoveWrappingTypes(qual_type);
   const clang::Type::TypeClass type_class = qual_type->getTypeClass();
   switch (type_class) {
@@ -2744,33 +2744,10 @@ static bool GetCompleteQualType(clang::ASTContext *ast,
   } break;
   case clang::Type::Record: {
     clang::CXXRecordDecl *cxx_record_decl = qual_type->getAsCXXRecordDecl();
-    if (cxx_record_decl) {
-      if (cxx_record_decl->hasExternalLexicalStorage()) {
-        const bool is_complete = cxx_record_decl->isCompleteDefinition();
-        const bool fields_loaded =
-            cxx_record_decl->hasLoadedFieldsFromExternalStorage();
-        if (is_complete && fields_loaded)
-          return true;
-
-        if (!allow_completion)
-          return false;
-
-        // Call the field_begin() accessor to for it to use the external source
-        // to load the fields...
-        clang::ExternalASTSource *external_ast_source =
-            ast->getExternalSource();
-        if (external_ast_source) {
-          external_ast_source->CompleteType(cxx_record_decl);
-          if (cxx_record_decl->isCompleteDefinition()) {
-            cxx_record_decl->field_begin();
-            cxx_record_decl->setHasLoadedFieldsFromExternalStorage(true);
-          }
-        }
-      }
-    }
-    const clang::TagType *tag_type =
-        llvm::cast<clang::TagType>(qual_type.getTypePtr());
-    return !tag_type->isIncompleteType();
+    clang::CXXRecordDecl *def = cxx_record_decl->getDefinition();
+    if (!def)
+      return QualType();
+    return QualType(def->getTypeForDecl(), 0);
   } break;
 
   case clang::Type::Enum: {
@@ -2779,23 +2756,9 @@ static bool GetCompleteQualType(clang::ASTContext *ast,
     if (tag_type) {
       clang::TagDecl *tag_decl = tag_type->getDecl();
       if (tag_decl) {
-        if (tag_decl->getDefinition())
-          return true;
-
-        if (!allow_completion)
-          return false;
-
-        if (tag_decl->hasExternalLexicalStorage()) {
-          if (ast) {
-            clang::ExternalASTSource *external_ast_source =
-                ast->getExternalSource();
-            if (external_ast_source) {
-              external_ast_source->CompleteType(tag_decl);
-              return !tag_type->isIncompleteType();
-            }
-          }
-        }
-        return false;
+        if (clang::TagDecl *def = tag_decl->getDefinition())
+          return QualType(def->getTypeForDecl(), 0);
+        return QualType(tag_decl->getTypeForDecl(), 0);
       }
     }
 
@@ -2807,27 +2770,10 @@ static bool GetCompleteQualType(clang::ASTContext *ast,
     if (objc_class_type) {
       clang::ObjCInterfaceDecl *class_interface_decl =
           objc_class_type->getInterface();
-      // We currently can't complete objective C types through the newly added
-      // ASTContext because it only supports TagDecl objects right now...
-      if (class_interface_decl) {
-        if (class_interface_decl->getDefinition())
-          return true;
-
-        if (!allow_completion)
-          return false;
-
-        if (class_interface_decl->hasExternalLexicalStorage()) {
-          if (ast) {
-            clang::ExternalASTSource *external_ast_source =
-                ast->getExternalSource();
-            if (external_ast_source) {
-              external_ast_source->CompleteType(class_interface_decl);
-              return !objc_class_type->isIncompleteType();
-            }
-          }
-        }
-        return false;
-      }
+      if (!class_interface_decl)
+        return qual_type;
+      if (clang::ObjCInterfaceDecl *def = class_interface_decl->getDefinition())
+        return QualType(def->getTypeForDecl(), 0);
     }
   } break;
 
@@ -2840,7 +2786,7 @@ static bool GetCompleteQualType(clang::ASTContext *ast,
     break;
   }
 
-  return true;
+  return qual_type;
 }
 
 static clang::ObjCIvarDecl::AccessControl
@@ -3046,8 +2992,9 @@ bool TypeSystemClang::IsCompleteType(lldb::opaque_compiler_type_t type) {
   // the current (internal) completeness state of the type and most users don't
   // care (or even know) about this behavior.
   const bool allow_completion = true;
-  return GetCompleteQualType(&getASTContext(), GetQualType(type),
-                             allow_completion);
+  return !GetCompleteQualType(&getASTContext(), GetQualType(type),
+                              allow_completion)
+              .isNull();
 }
 
 bool TypeSystemClang::IsConst(lldb::opaque_compiler_type_t type) {
@@ -3823,8 +3770,9 @@ bool TypeSystemClang::GetCompleteType(lldb::opaque_compiler_type_t type) {
   if (!type)
     return false;
   const bool allow_completion = true;
-  return GetCompleteQualType(&getASTContext(), GetQualType(type),
-                             allow_completion);
+  return !GetCompleteQualType(&getASTContext(), GetQualType(type),
+                              allow_completion)
+              .isNull();
 }
 
 ConstString TypeSystemClang::GetTypeName(lldb::opaque_compiler_type_t type,
@@ -4418,7 +4366,8 @@ TypeSystemClang::GetNumMemberFunctions(lldb::opaque_compiler_type_t type) {
     clang::QualType qual_type = RemoveWrappingTypes(GetCanonicalQualType(type));
     switch (qual_type->getTypeClass()) {
     case clang::Type::Record:
-      if (GetCompleteQualType(&getASTContext(), qual_type)) {
+      qual_type = GetCompleteQualType(&getASTContext(), qual_type);
+      if (!qual_type.isNull()) {
         const clang::RecordType *record_type =
             llvm::cast<clang::RecordType>(qual_type.getTypePtr());
         const clang::RecordDecl *record_decl = record_type->getDecl();
@@ -4482,7 +4431,8 @@ TypeSystemClang::GetMemberFunctionAtIndex(lldb::opaque_compiler_type_t type,
     clang::QualType qual_type = RemoveWrappingTypes(GetCanonicalQualType(type));
     switch (qual_type->getTypeClass()) {
     case clang::Type::Record:
-      if (GetCompleteQualType(&getASTContext(), qual_type)) {
+      qual_type = GetCompleteQualType(&getASTContext(), qual_type);
+      if (!qual_type.isNull()) {
         const clang::RecordType *record_type =
             llvm::cast<clang::RecordType>(qual_type.getTypePtr());
         const clang::RecordDecl *record_decl = record_type->getDecl();
@@ -5423,7 +5373,8 @@ uint32_t TypeSystemClang::GetNumChildren(lldb::opaque_compiler_type_t type,
   case clang::Type::Complex:
     return 0;
   case clang::Type::Record:
-    if (GetCompleteQualType(&getASTContext(), qual_type)) {
+    qual_type = GetCompleteQualType(&getASTContext(), qual_type);
+    if (!qual_type.isNull()) {
       const clang::RecordType *record_type =
           llvm::cast<clang::RecordType>(qual_type.getTypePtr());
       const clang::RecordDecl *record_decl = record_type->getDecl();
@@ -5467,7 +5418,8 @@ uint32_t TypeSystemClang::GetNumChildren(lldb::opaque_compiler_type_t type,
 
   case clang::Type::ObjCObject:
   case clang::Type::ObjCInterface:
-    if (GetCompleteQualType(&getASTContext(), qual_type)) {
+    qual_type = GetCompleteQualType(&getASTContext(), qual_type);
+    if (!qual_type.isNull()) {
       const clang::ObjCObjectType *objc_class_type =
           llvm::dyn_cast<clang::ObjCObjectType>(qual_type.getTypePtr());
       assert(objc_class_type);

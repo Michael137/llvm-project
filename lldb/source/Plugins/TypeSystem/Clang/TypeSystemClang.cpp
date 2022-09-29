@@ -1619,6 +1619,8 @@ ClassTemplateDecl *TypeSystemClang::CreateClassTemplateDecl(
   if (decl_ctx == nullptr)
     decl_ctx = ast.getTranslationUnitDecl();
 
+  decl_ctx = decl_ctx->getPrimaryContext();
+
   IdentifierInfo &identifier_info = ast.Idents.get(class_name);
   DeclarationName decl_name(&identifier_info);
 
@@ -1710,6 +1712,7 @@ TypeSystemClang::CreateClassTemplateSpecializationDecl(
     DeclContext *decl_ctx, OptionalClangModuleID owning_module,
     ClassTemplateDecl *class_template_decl, int kind,
     const TemplateParameterInfos &template_param_infos) {
+  decl_ctx = decl_ctx->getPrimaryContext();
   ASTContext &ast = getASTContext();
   llvm::SmallVector<clang::TemplateArgument, 2> args(
       template_param_infos.Size() +

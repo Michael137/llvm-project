@@ -3463,7 +3463,7 @@ bool TypeSystemClang::IsDefined(lldb::opaque_compiler_type_t type) {
   if (tag_type) {
     clang::TagDecl *tag_decl = tag_type->getDecl();
     if (tag_decl)
-      return tag_decl->isCompleteDefinition();
+      return tag_decl->getDefinition() != nullptr;
     return false;
   } else {
     const clang::ObjCObjectType *objc_class_type =

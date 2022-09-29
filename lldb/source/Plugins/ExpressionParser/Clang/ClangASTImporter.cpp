@@ -820,27 +820,6 @@ ClangASTImporter::ASTImporterDelegate::ImportImpl(Decl *From) {
   return ASTImporter::ImportImpl(From);
 }
 
-/// Takes a CXXMethodDecl and completes the return type if necessary. This
-/// is currently only necessary for virtual functions with covariant return
-/// types where Clang's CodeGen expects that the underlying records are already
-/// completed.
-static void MaybeCompleteReturnType(ClangASTImporter &importer,
-                                        CXXMethodDecl *to_method) {
-  if (!to_method->isVirtual())
-    return;
-  QualType return_type = to_method->getReturnType();
-  if (!return_type->isPointerType() && !return_type->isReferenceType())
-    return;
-
-  clang::RecordDecl *rd = return_type->getPointeeType()->getAsRecordDecl();
-  if (!rd)
-    return;
-  if (rd->getDefinition())
-    return;
-
-  importer.CompleteTagDecl(rd);
-}
-
 /// Recreate a module with its parents in \p to_source and return its id.
 static OptionalClangModuleID
 RemapModule(OptionalClangModuleID from_id,
@@ -986,9 +965,6 @@ void ClangASTImporter::ASTImporterDelegate::Imported(clang::Decl *from,
       }
     }
   }
-
-  if (clang::CXXMethodDecl *to_method = dyn_cast<CXXMethodDecl>(to))
-    MaybeCompleteReturnType(m_main, to_method);
 }
 
 clang::Decl *

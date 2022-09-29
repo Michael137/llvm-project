@@ -5594,17 +5594,22 @@ void TypeSystemClang::ForEachEnumerator(
       llvm::dyn_cast<clang::EnumType>(GetCanonicalQualType(type));
   if (enum_type) {
     const clang::EnumDecl *enum_decl = enum_type->getDecl();
-    if (enum_decl) {
-      CompilerType integer_type = GetType(enum_decl->getIntegerType());
 
-      clang::EnumDecl::enumerator_iterator enum_pos, enum_end_pos;
-      for (enum_pos = enum_decl->enumerator_begin(),
-          enum_end_pos = enum_decl->enumerator_end();
-           enum_pos != enum_end_pos; ++enum_pos) {
-        ConstString name(enum_pos->getNameAsString().c_str());
-        if (!callback(integer_type, name, enum_pos->getInitVal()))
-          break;
-      }
+    if (enum_decl)
+      enum_decl = enum_decl->getDefinition();
+
+    if (!enum_decl)
+      return;
+
+    CompilerType integer_type = GetType(enum_decl->getIntegerType());
+
+    clang::EnumDecl::enumerator_iterator enum_pos, enum_end_pos;
+    for (enum_pos = enum_decl->enumerator_begin(),
+        enum_end_pos = enum_decl->enumerator_end();
+         enum_pos != enum_end_pos; ++enum_pos) {
+      ConstString name(enum_pos->getNameAsString().c_str());
+      if (!callback(integer_type, name, enum_pos->getInitVal()))
+        break;
     }
   }
 }
@@ -7672,6 +7677,9 @@ clang::CXXMethodDecl *TypeSystemClang::AddMethodToCXXRecordType(
   clang::CXXRecordDecl *cxx_record_decl =
       record_qual_type->getAsCXXRecordDecl();
 
+  if (cxx_record_decl)
+    cxx_record_decl = cxx_record_decl->getDefinition();
+
   if (cxx_record_decl == nullptr)
     return nullptr;
 
@@ -8145,6 +8153,9 @@ clang::ObjCMethodDecl *TypeSystemClang::AddMethodToObjCObjectType(
     return nullptr;
 
   clang::ObjCInterfaceDecl *class_interface_decl = GetAsObjCInterfaceDecl(type);
+
+  if (class_interface_decl)
+    class_interface_decl = class_interface_decl->getDefinition();
 
   if (class_interface_decl == nullptr)
     return nullptr;
@@ -8739,7 +8750,10 @@ void TypeSystemClang::DumpValue(
       const clang::EnumType *enutype =
           llvm::cast<clang::EnumType>(qual_type.getTypePtr());
       const clang::EnumDecl *enum_decl = enutype->getDecl();
-      assert(enum_decl);
+      assert(enum_decl != nullptr);
+      enum_decl = enum_decl->getDefinition();
+      assert(enum_decl != nullptr);
+
       clang::EnumDecl::enumerator_iterator enum_pos, enum_end_pos;
       lldb::offset_t offset = data_byte_offset;
       const int64_t enum_value = data.GetMaxU64Bitfield(
@@ -8954,7 +8968,7 @@ static bool DumpEnumValue(const clang::QualType &qual_type, Stream *s,
                           uint32_t bitfield_bit_size) {
   const clang::EnumType *enutype =
       llvm::cast<clang::EnumType>(qual_type.getTypePtr());
-  const clang::EnumDecl *enum_decl = enutype->getDecl();
+  const clang::EnumDecl *enum_decl = enutype->getDecl()->getDefinition();
   assert(enum_decl);
   lldb::offset_t offset = byte_offset;
   const uint64_t enum_svalue = data.GetMaxS64Bitfield(
@@ -9233,7 +9247,7 @@ void TypeSystemClang::DumpTypeDescription(lldb::opaque_compiler_type_t type,
       if (!objc_class_type)
         break;
       clang::ObjCInterfaceDecl *class_interface_decl =
-            objc_class_type->getInterface();
+          objc_class_type->getInterface()->getDefinition();
       if (!class_interface_decl)
         break;
       if (level == eDescriptionLevelVerbose)

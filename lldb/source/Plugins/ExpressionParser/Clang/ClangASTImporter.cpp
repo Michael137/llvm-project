@@ -783,6 +783,16 @@ ClangASTImporter::ASTImporterDelegate::ImportImpl(Decl *From) {
     origin = m_main.GetDeclOrigin(origin.decl);
   }
 
+  if (clang::TagDecl *td = dyn_cast<TagDecl>(From))
+    if (clang::ExternalASTSource *s = getToContext().getExternalSource())
+      if (!td->isThisDeclarationADefinition())
+        s->incrementGeneration(getToContext());
+
+  if (clang::ObjCInterfaceDecl *td = dyn_cast<ObjCInterfaceDecl>(From))
+    if (clang::ExternalASTSource *s = getToContext().getExternalSource())
+      if (!td->isThisDeclarationADefinition())
+        s->incrementGeneration(getToContext());
+
   // If we have a forcefully completed type, try to find an actual definition
   // for it in other modules.
   const ClangASTMetadata *md = m_main.GetDeclMetadata(From);

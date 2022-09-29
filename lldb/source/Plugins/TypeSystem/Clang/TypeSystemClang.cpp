@@ -8339,7 +8339,8 @@ bool TypeSystemClang::StartTagDeclarationDefinition(const CompilerType &type) {
     if (tag_type) {
       clang::TagDecl *tag_decl = tag_type->getDecl();
       if (tag_decl) {
-        tag_decl->startDefinition();
+        clang::TagDecl *def = tag_decl->getMostRecentDecl();
+        def->startDefinition();
         return true;
       }
     }
@@ -8349,7 +8350,8 @@ bool TypeSystemClang::StartTagDeclarationDefinition(const CompilerType &type) {
     if (object_type) {
       clang::ObjCInterfaceDecl *interface_decl = object_type->getInterface();
       if (interface_decl) {
-        interface_decl->startDefinition();
+        clang::ObjCInterfaceDecl *def = interface_decl->getMostRecentDecl();
+        def->startDefinition();
         return true;
       }
     }

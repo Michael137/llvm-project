@@ -805,11 +805,14 @@ ClangASTImporter::ASTImporterDelegate::ImportImpl(Decl *From) {
     DeclContext *dc = *dc_or_err;
     DeclContext::lookup_result lr = dc->lookup(*dn_or_err);
     for (clang::Decl *candidate : lr) {
-      if (candidate->getKind() == From->getKind()) {
-        RegisterImportedDecl(From, candidate);
-        m_decls_to_ignore.insert(candidate);
-        return candidate;
-      }
+      clang::TagDecl *to_td = dyn_cast<TagDecl>(candidate);
+      if (!to_td)
+        continue;
+      if (!to_td->getDefinition())
+        continue;
+      RegisterImportedDecl(From, candidate);
+      m_decls_to_ignore.insert(candidate);
+      return candidate;
     }
     LLDB_LOG(log, "[ClangASTImporter] Complete definition not found");
   }

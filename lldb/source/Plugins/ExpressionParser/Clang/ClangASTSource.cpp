@@ -1560,8 +1560,8 @@ bool ClangASTSource::layoutRecordType(const RecordDecl *record, uint64_t &size,
 
   int field_idx = 0, field_count = record_layout.getFieldCount();
 
-  for (RecordDecl::field_iterator fi = origin_record->field_begin(),
-                                  fe = origin_record->field_end();
+  for (RecordDecl::field_iterator fi = definition->field_begin(),
+                                  fe = definition->field_end();
        fi != fe; ++fi) {
     if (field_idx >= field_count)
       return false; // Layout didn't go well.  Bail out.

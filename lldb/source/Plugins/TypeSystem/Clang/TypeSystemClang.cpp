@@ -9459,6 +9459,55 @@ bool TypeSystemClang::LayoutRecordType(
                                     field_offsets, base_offsets, vbase_offsets);
 }
 
+CompilerType TypeSystemClang::RedeclTagDecl(CompilerType ct) {
+
+  if (clang::TagDecl *d = ClangUtil::GetAsTagDecl(ct)) {
+    if (clang::EnumDecl *e = dyn_cast<EnumDecl>(d)) {
+      Declaration decl;
+      CompilerType ct = CreateEnumerationType(
+          e->getNameAsString().c_str(), d->getDeclContext()->getRedeclContext(),
+          OptionalClangModuleID(), decl, GetType(e->getIntegerType()),
+          e->isScoped());
+      clang::TagDecl *def = ClangUtil::GetAsTagDecl(ct);
+      def->setPreviousDecl(e);
+      return GetTypeForDecl(def);
+    }
+    if (auto *c = dyn_cast<ClassTemplateSpecializationDecl>(d)) {
+      auto redecl_info = m_class_template_redecl_infos.find(c);
+      assert(redecl_info != m_class_template_redecl_infos.end());
+      TemplateParameterInfos template_infos =
+          redecl_info->second.m_template_args;
+      auto *ctd = CreateClassTemplateSpecializationDecl(
+          d->getDeclContext()->getRedeclContext(), OptionalClangModuleID(),
+          c->getSpecializedTemplate(), d->getTagKind(), template_infos);
+      ctd->setPreviousDecl(c);
+      return CompilerType(
+          weak_from_this(), clang::QualType(ctd->getTypeForDecl(), 0U).getAsOpaquePtr());
+    }
+    clang::NamedDecl *res = CreateRecordDecl(
+        d->getDeclContext()->getRedeclContext(), OptionalClangModuleID(),
+        lldb::eAccessPublic, d->getName(), d->getTagKind(),
+        eLanguageTypeC_plus_plus, nullptr);
+    clang::TagDecl *td = llvm::cast<TagDecl>(res);
+    td->setPreviousDecl(d);
+    CompilerType actual_res = GetTypeForDecl(td);
+    assert(d->getTypeForDecl() == td->getTypeForDecl());
+    return actual_res;
+  }
+  if (clang::ObjCInterfaceDecl *d = ClangUtil::GetAsObjCDecl(ct)) {
+    clang::NamedDecl *res = CreateRecordDecl(
+        d->getDeclContext()->getRedeclContext(), OptionalClangModuleID(),
+        lldb::eAccessPublic, d->getName(), /*tag_kind=*/0, eLanguageTypeObjC,
+        nullptr);
+    clang::ObjCInterfaceDecl *td = llvm::cast<ObjCInterfaceDecl>(res);
+    td->setPreviousDecl(d);
+    CompilerType actual_res = GetTypeForDecl(td);
+    assert(d->getTypeForDecl() == td->getTypeForDecl());
+    return actual_res;
+  }
+  return ct;
+}
+
 // CompilerDecl override functions
 
 ConstString TypeSystemClang::DeclGetName(void *opaque_decl) {

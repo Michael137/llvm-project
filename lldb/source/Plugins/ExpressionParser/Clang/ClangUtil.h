@@ -36,6 +36,8 @@ struct ClangUtil {
 
   static clang::TagDecl *GetAsTagDecl(const CompilerType &type);
 
+  static clang::ObjCInterfaceDecl *GetAsObjCDecl(const CompilerType &type);
+
   static clang::Decl *GetFirstDecl(clang::Decl *d);
 
   static const clang::Decl *GetFirstDecl(const clang::Decl *d) {

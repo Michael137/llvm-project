@@ -564,6 +564,10 @@ public:
 
   void CompleteObjCInterfaceDecl(const clang::ObjCInterfaceDecl *);
 
+  // Creates redeclaration link between forward decl and definition
+  // for the specified 'ct'. Returns the type linked to the definition.
+  CompilerType RedeclTagDecl(CompilerType ct);
+
   bool LayoutRecordType(const clang::RecordDecl *record_decl, uint64_t &size,
                         uint64_t &alignment,
                         clang::ExternalASTSource::FieldOffsetMap &field_offsets,

@@ -1741,6 +1741,11 @@ TypeSystemClang::CreateClassTemplateSpecializationDecl(
   class_template_specialization_decl->setSpecializationKind(
       TSK_ExplicitSpecialization);
 
+  ClassTemplateRedeclInfo redecl_info;
+  redecl_info.m_template_args = template_param_infos;
+  m_class_template_redecl_infos[class_template_specialization_decl] =
+      redecl_info;
+
   return class_template_specialization_decl;
 }
 

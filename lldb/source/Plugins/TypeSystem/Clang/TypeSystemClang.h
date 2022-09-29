@@ -1222,6 +1222,14 @@ private:
   /// Maps Types to their associated ClangASTMetadata.
   TypeMetadataMap m_type_metadata;
 
+  struct ClassTemplateRedeclInfo {
+    TemplateParameterInfos m_template_args;
+  };
+
+  using ClassTemplateRedeclInfoMap =
+      llvm::DenseMap<const clang::Decl *, ClassTemplateRedeclInfo>;
+  ClassTemplateRedeclInfoMap m_class_template_redecl_infos;
+
   typedef llvm::DenseMap<const clang::CXXRecordDecl *, clang::AccessSpecifier>
       CXXRecordDeclAccessMap;
   /// Maps CXXRecordDecl to their most recent added method/field's

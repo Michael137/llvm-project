@@ -122,6 +122,8 @@ public:
                         clang::ExternalASTSource::BaseOffsetMap &base_offsets,
                         clang::ExternalASTSource::BaseOffsetMap &vbase_offsets);
 
+  bool HasRecordLayout(const clang::RecordDecl *decl);
+
   /// Returns true iff the given type was copied from another TypeSystemClang
   /// and the original type in this other TypeSystemClang might contain
   /// additional information (e.g., the definition of a 'class' type) that could

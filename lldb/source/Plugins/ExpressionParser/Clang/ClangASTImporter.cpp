@@ -495,7 +495,6 @@ bool ClangASTImporter::LayoutRecordType(
     field_offsets.swap(pos->second.field_offsets);
     base_offsets.swap(pos->second.base_offsets);
     vbase_offsets.swap(pos->second.vbase_offsets);
-    m_record_decl_to_layout_map.erase(pos);
     success = true;
   } else {
     bit_size = 0;
@@ -512,6 +511,11 @@ void ClangASTImporter::SetRecordLayout(const clang::RecordDecl *decl,
   assert(m_record_decl_to_layout_map.count(decl) == 0 &&
          "Trying to overwrite layout?");
   m_record_decl_to_layout_map.insert(std::make_pair(decl, layout));
+}
+
+bool ClangASTImporter::HasRecordLayout(const RecordDecl *decl) {
+  decl = static_cast<const RecordDecl *>(decl->getFirstDecl());
+  return m_record_decl_to_layout_map.count(decl);
 }
 
 bool ClangASTImporter::CompleteTagDecl(const clang::TagDecl *decl) {

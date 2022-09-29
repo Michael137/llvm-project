@@ -2583,23 +2583,22 @@ bool TypeSystemClang::GetCompleteDecl(clang::ASTContext *ast,
     if (tag_decl->isCompleteDefinition())
       return true;
 
-    if (!tag_decl->hasExternalLexicalStorage())
-      return false;
-
     ast_source->CompleteType(tag_decl);
 
-    return !tag_decl->getTypeForDecl()->isIncompleteType();
+    tag_decl = tag_decl->getDefinition();
+
+    return tag_decl && !tag_decl->getTypeForDecl()->isIncompleteType();
   } else if (clang::ObjCInterfaceDecl *objc_interface_decl =
                  llvm::dyn_cast<clang::ObjCInterfaceDecl>(decl)) {
     if (objc_interface_decl->getDefinition())
       return true;
 
-    if (!objc_interface_decl->hasExternalLexicalStorage())
-      return false;
-
     ast_source->CompleteType(objc_interface_decl);
 
-    return !objc_interface_decl->getTypeForDecl()->isIncompleteType();
+    objc_interface_decl = objc_interface_decl->getDefinition();
+
+    return objc_interface_decl &&
+           !objc_interface_decl->getTypeForDecl()->isIncompleteType();
   } else {
     return false;
   }

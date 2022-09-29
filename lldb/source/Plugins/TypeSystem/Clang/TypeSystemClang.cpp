@@ -8397,9 +8397,6 @@ bool TypeSystemClang::CompleteTagDeclarationDefinition(
 
       if (!cxx_record_decl->isCompleteDefinition())
         cxx_record_decl->completeDefinition();
-      cxx_record_decl->setHasLoadedFieldsFromExternalStorage(true);
-      cxx_record_decl->setHasExternalLexicalStorage(false);
-      cxx_record_decl->setHasExternalVisibleStorage(false);
       lldb_ast->SetCXXRecordDeclAccess(cxx_record_decl,
                                        clang::AccessSpecifier::AS_none);
       return true;

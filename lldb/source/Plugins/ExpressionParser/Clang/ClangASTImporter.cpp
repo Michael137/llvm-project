@@ -966,45 +966,23 @@ void ClangASTImporter::ASTImporterDelegate::Imported(clang::Decl *from,
              from, m_source_ctx, &to->getASTContext());
   }
 
-  if (auto *to_tag_decl = dyn_cast<TagDecl>(to)) {
-    to_tag_decl->setHasExternalLexicalStorage();
-    to_tag_decl->getPrimaryContext()->setMustBuildLookupTable();
-    auto from_tag_decl = cast<TagDecl>(from);
-
-    LLDB_LOG(
-        log,
-        "    [ClangASTImporter] To is a TagDecl - attributes {0}{1} [{2}->{3}]",
-        (to_tag_decl->hasExternalLexicalStorage() ? " Lexical" : ""),
-        (to_tag_decl->hasExternalVisibleStorage() ? " Visible" : ""),
-        (from_tag_decl->isCompleteDefinition() ? "complete" : "incomplete"),
-        (to_tag_decl->isCompleteDefinition() ? "complete" : "incomplete"));
-  }
-
   if (auto *to_namespace_decl = dyn_cast<NamespaceDecl>(to)) {
     m_main.BuildNamespaceMap(to_namespace_decl);
     to_namespace_decl->setHasExternalVisibleStorage();
   }
 
   if (auto *to_container_decl = dyn_cast<ObjCContainerDecl>(to)) {
-    to_container_decl->setHasExternalLexicalStorage();
-    to_container_decl->setHasExternalVisibleStorage();
-
     if (log) {
       if (ObjCInterfaceDecl *to_interface_decl =
               llvm::dyn_cast<ObjCInterfaceDecl>(to_container_decl)) {
         LLDB_LOG(
             log,
             "    [ClangASTImporter] To is an ObjCInterfaceDecl - attributes "
-            "{0}{1}{2}",
-            (to_interface_decl->hasExternalLexicalStorage() ? " Lexical" : ""),
-            (to_interface_decl->hasExternalVisibleStorage() ? " Visible" : ""),
+            "{0}",
             (to_interface_decl->hasDefinition() ? " HasDefinition" : ""));
       } else {
-        LLDB_LOG(
-            log, "    [ClangASTImporter] To is an {0}Decl - attributes {1}{2}",
-            ((Decl *)to_container_decl)->getDeclKindName(),
-            (to_container_decl->hasExternalLexicalStorage() ? " Lexical" : ""),
-            (to_container_decl->hasExternalVisibleStorage() ? " Visible" : ""));
+        LLDB_LOG(log, "    [ClangASTImporter] To is an {0}Decl",
+                 ((Decl *)to_container_decl)->getDeclKindName());
       }
     }
   }

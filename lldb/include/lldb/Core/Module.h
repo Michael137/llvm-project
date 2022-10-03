@@ -58,6 +58,14 @@ class TypeList;
 class TypeMap;
 class VariableList;
 
+struct TestDumper {
+    static std::mutex m;
+    static int counter;
+
+    TestDumper(std::function<void(void)> f);
+    ~TestDumper();
+};
+
 /// Options used by Module::FindFunctions. This cannot be a nested class
 /// because it must be forward-declared in ModuleList.h.
 struct ModuleFunctionSearchOptions {

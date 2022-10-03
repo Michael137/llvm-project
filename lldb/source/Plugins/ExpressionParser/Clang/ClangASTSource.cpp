@@ -186,6 +186,9 @@ bool ClangASTSource::FindExternalVisibleDeclsByName(
 TagDecl *ClangASTSource::FindCompleteType(const TagDecl *decl) {
   Log *log = GetLog(LLDBLog::Expressions);
 
+  TestDumper d([pname=std::string(__PRETTY_FUNCTION__)] { llvm::errs() << pname << ":\n"; });
+  decl->dump();
+
   if (const NamespaceDecl *namespace_context =
           dyn_cast<NamespaceDecl>(decl->getDeclContext())) {
     ClangASTImporter::NamespaceMapSP namespace_map =
@@ -280,6 +283,9 @@ TagDecl *ClangASTSource::FindCompleteType(const TagDecl *decl) {
 
 void ClangASTSource::CompleteType(TagDecl *tag_decl) {
   Log *log = GetLog(LLDBLog::Expressions);
+
+  TestDumper d([pname=std::string(__PRETTY_FUNCTION__)] { llvm::errs() << pname << ":\n"; });
+  tag_decl->dump();
 
   if (log) {
     LLDB_LOG(log,

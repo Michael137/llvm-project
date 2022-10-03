@@ -570,6 +570,7 @@ void ModuleList::FindTypes(Module *search_first, ConstString name,
                            bool name_is_fully_qualified, size_t max_matches,
                            llvm::DenseSet<SymbolFile *> &searched_symbol_files,
                            TypeList &types) const {
+  TestDumper d([pname=std::string(__PRETTY_FUNCTION__)] { llvm::errs() << pname << '\n'; });
   std::lock_guard<std::recursive_mutex> guard(m_modules_mutex);
 
   collection::const_iterator pos, end = m_modules.end();

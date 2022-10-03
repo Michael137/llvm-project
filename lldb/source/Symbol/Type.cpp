@@ -470,6 +470,7 @@ bool Type::WriteToMemory(ExecutionContext *exe_ctx, lldb::addr_t addr,
 const Declaration &Type::GetDeclaration() const { return m_decl; }
 
 bool Type::ResolveCompilerType(ResolveState compiler_type_resolve_state) {
+  TestDumper d([pname = std::string(__PRETTY_FUNCTION__)] { llvm::errs() << pname << '\n'; });
   // TODO: This needs to consider the correct type system to use.
   Type *encoding_type = nullptr;
   if (!m_compiler_type.IsValid()) {
@@ -643,16 +644,19 @@ uint32_t Type::GetEncodingMask() {
 }
 
 CompilerType Type::GetFullCompilerType() {
+  TestDumper d([pname=std::string(__PRETTY_FUNCTION__)] { llvm::errs() << pname << '\n'; });
   ResolveCompilerType(ResolveState::Full);
   return m_compiler_type;
 }
 
 CompilerType Type::GetLayoutCompilerType() {
+  TestDumper d([pname=std::string(__PRETTY_FUNCTION__)] { llvm::errs() << pname << '\n'; });
   ResolveCompilerType(ResolveState::Layout);
   return m_compiler_type;
 }
 
 CompilerType Type::GetForwardCompilerType() {
+  TestDumper d([pname=std::string(__PRETTY_FUNCTION__)] { llvm::errs() << pname << '\n'; });
   ResolveCompilerType(ResolveState::Forward);
   return m_compiler_type;
 }

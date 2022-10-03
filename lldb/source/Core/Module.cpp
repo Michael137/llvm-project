@@ -83,6 +83,19 @@ class VariableList;
 using namespace lldb;
 using namespace lldb_private;
 
+int TestDumper::counter = 0;
+std::mutex TestDumper::m;
+TestDumper::TestDumper(std::function<void(void)> f) {
+    std::scoped_lock lck(m);
+    for (int i = 0; i < counter; ++i)
+      llvm::errs() << "~> ";
+
+    f();
+    counter++;
+}
+
+TestDumper::~TestDumper() { counter--; }
+
 // Shared pointers to modules track module lifetimes in targets and in the
 // global module, but this collection will track all module objects that are
 // still alive
@@ -988,6 +1001,7 @@ void Module::FindTypes(
     ConstString name, bool exact_match, size_t max_matches,
     llvm::DenseSet<lldb_private::SymbolFile *> &searched_symbol_files,
     TypeList &types) {
+  TestDumper d([pname=std::string(__PRETTY_FUNCTION__)] { llvm::errs() << pname << '\n'; });
   const char *type_name_cstr = name.GetCString();
   llvm::StringRef type_scope;
   llvm::StringRef type_basename;

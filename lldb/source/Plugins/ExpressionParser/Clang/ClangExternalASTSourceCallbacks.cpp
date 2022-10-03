@@ -6,6 +6,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "lldb/Core/Module.h"
 #include "Plugins/ExpressionParser/Clang/ClangExternalASTSourceCallbacks.h"
 #include "Plugins/TypeSystem/Clang/TypeSystemClang.h"
 
@@ -17,6 +18,7 @@ using namespace lldb_private;
 char ClangExternalASTSourceCallbacks::ID;
 
 void ClangExternalASTSourceCallbacks::CompleteType(clang::TagDecl *tag_decl) {
+  TestDumper d([pname=std::string(__PRETTY_FUNCTION__)] { llvm::errs() << pname << '\n'; });
   m_ast.CompleteTagDecl(tag_decl);
 }
 

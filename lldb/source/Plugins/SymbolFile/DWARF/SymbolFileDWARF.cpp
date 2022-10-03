@@ -1568,6 +1568,8 @@ bool SymbolFileDWARF::HasForwardDeclForClangType(
 }
 
 bool SymbolFileDWARF::CompleteType(CompilerType &compiler_type) {
+  TestDumper d([pname=std::string(__PRETTY_FUNCTION__)] { llvm::errs() << pname << ":\n"; });
+  compiler_type.dump();
   std::lock_guard<std::recursive_mutex> guard(GetModuleMutex());
 
   TypeSystemClang *clang_type_system =
@@ -1617,6 +1619,7 @@ Type *SymbolFileDWARF::ResolveType(const DWARFDIE &die,
                                    bool assert_not_being_parsed,
                                    bool resolve_function_context) {
   if (die) {
+    TestDumper d([pname=std::string(__PRETTY_FUNCTION__), &die] { llvm::errs() << pname << ": " << die.GetName() << '\n'; });
     Type *type = GetTypeForDIE(die, resolve_function_context).get();
 
     if (assert_not_being_parsed) {
@@ -3009,6 +3012,8 @@ TypeSP SymbolFileDWARF::ParseType(const SymbolContext &sc, const DWARFDIE &die,
                                   bool *type_is_new_ptr) {
   if (!die)
     return {};
+
+  TestDumper d([pname=std::string(__PRETTY_FUNCTION__), &die] { llvm::errs() << pname << ": " << die.GetName() << '\n'; });
 
   auto type_system_or_err = GetTypeSystemForLanguage(GetLanguage(*die.GetCU()));
   if (auto err = type_system_or_err.takeError()) {

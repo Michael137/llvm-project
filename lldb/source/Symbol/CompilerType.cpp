@@ -9,6 +9,7 @@
 #include "lldb/Symbol/CompilerType.h"
 
 #include "lldb/Core/Debugger.h"
+#include "lldb/Core/Module.h"
 #include "lldb/Core/StreamFile.h"
 #include "lldb/Symbol/Type.h"
 #include "lldb/Target/ExecutionContext.h"
@@ -262,6 +263,7 @@ bool CompilerType::IsBeingDefined() const {
 // Type Completion
 
 bool CompilerType::GetCompleteType() const {
+  TestDumper d([pname=std::string(__PRETTY_FUNCTION__)] { llvm::errs() << pname << '\n'; });
   if (!IsValid())
     return false;
   return m_type_system->GetCompleteType(m_type);

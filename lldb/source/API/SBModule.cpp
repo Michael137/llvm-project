@@ -475,6 +475,7 @@ lldb::SBType SBModule::GetBasicType(lldb::BasicType type) {
 }
 
 lldb::SBTypeList SBModule::FindTypes(const char *type) {
+  TestDumper d([pname=std::string(__PRETTY_FUNCTION__)] { llvm::errs() << pname << '\n'; });
   LLDB_INSTRUMENT_VA(this, type);
 
   SBTypeList retval;

@@ -2505,6 +2505,7 @@ bool TypeSystemClang::DeclsAreEquivalent(clang::Decl *lhs_decl,
 }
 bool TypeSystemClang::GetCompleteDecl(clang::ASTContext *ast,
                                       clang::Decl *decl) {
+  TestDumper d([pname=std::string(__PRETTY_FUNCTION__)] { llvm::errs() << pname << '\n'; });
   if (!decl)
     return false;
 
@@ -2660,6 +2661,7 @@ TypeSystemClang::GetDeclContextForType(clang::QualType type) {
 static bool GetCompleteQualType(clang::ASTContext *ast,
                                 clang::QualType qual_type,
                                 bool allow_completion = true) {
+  TestDumper d([pname=std::string(__PRETTY_FUNCTION__)] { llvm::errs() << pname << '\n'; });
   qual_type = RemoveWrappingTypes(qual_type);
   const clang::Type::TypeClass type_class = qual_type->getTypeClass();
   switch (type_class) {
@@ -3758,6 +3760,7 @@ bool TypeSystemClang::IsObjCObjectPointerType(const CompilerType &type,
 // Type Completion
 
 bool TypeSystemClang::GetCompleteType(lldb::opaque_compiler_type_t type) {
+  TestDumper d([pname=std::string(__PRETTY_FUNCTION__)] { llvm::errs() << pname << '\n'; });
   if (!type)
     return false;
   const bool allow_completion = true;
@@ -7290,6 +7293,7 @@ clang::RecordDecl *TypeSystemClang::GetAsRecordDecl(const CompilerType &type) {
 }
 
 clang::TagDecl *TypeSystemClang::GetAsTagDecl(const CompilerType &type) {
+  TestDumper d([pname=std::string(__PRETTY_FUNCTION__)] { llvm::errs() << pname << '\n'; });
   return ClangUtil::GetAsTagDecl(type);
 }
 
@@ -8265,6 +8269,7 @@ bool TypeSystemClang::SetHasExternalStorage(lldb::opaque_compiler_type_t type,
 #pragma mark TagDecl
 
 bool TypeSystemClang::StartTagDeclarationDefinition(const CompilerType &type) {
+  TestDumper d([pname=std::string(__PRETTY_FUNCTION__)] { llvm::errs() << pname << '\n'; });
   clang::QualType qual_type(ClangUtil::GetQualType(type));
   if (!qual_type.isNull()) {
     const clang::TagType *tag_type = qual_type->getAs<clang::TagType>();
@@ -8291,6 +8296,7 @@ bool TypeSystemClang::StartTagDeclarationDefinition(const CompilerType &type) {
 
 bool TypeSystemClang::CompleteTagDeclarationDefinition(
     const CompilerType &type) {
+  TestDumper d([pname=std::string(__PRETTY_FUNCTION__)] { llvm::errs() << pname << '\n'; });
   clang::QualType qual_type(ClangUtil::GetQualType(type));
   if (qual_type.isNull())
     return false;
@@ -9335,6 +9341,7 @@ clang::ClassTemplateDecl *TypeSystemClang::ParseClassTemplateDecl(
 }
 
 void TypeSystemClang::CompleteTagDecl(clang::TagDecl *decl) {
+  TestDumper d([pname=std::string(__PRETTY_FUNCTION__)] { llvm::errs() << pname << '\n'; });
   SymbolFile *sym_file = GetSymbolFile();
   if (sym_file) {
     CompilerType clang_type = GetTypeForDecl(decl);

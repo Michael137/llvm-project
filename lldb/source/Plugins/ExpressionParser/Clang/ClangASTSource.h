@@ -11,6 +11,7 @@
 
 #include <set>
 
+#include "lldb/Core/Module.h"
 #include "Plugins/ExpressionParser/Clang/ClangASTImporter.h"
 #include "Plugins/ExpressionParser/Clang/NameSearchContext.h"
 #include "lldb/Symbol/CompilerType.h"
@@ -224,6 +225,7 @@ public:
     }
 
     void CompleteType(clang::TagDecl *Tag) override {
+      TestDumper d([pname=std::string(__PRETTY_FUNCTION__)] { llvm::errs() << pname << '\n'; });
       return m_original.CompleteType(Tag);
     }
 

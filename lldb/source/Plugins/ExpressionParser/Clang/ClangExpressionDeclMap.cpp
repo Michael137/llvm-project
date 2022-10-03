@@ -205,6 +205,7 @@ ClangExpressionDeclMap::TargetInfo ClangExpressionDeclMap::GetTargetInfo() {
 TypeFromUser ClangExpressionDeclMap::DeportType(TypeSystemClang &target,
                                                 TypeSystemClang &source,
                                                 TypeFromParser parser_type) {
+  TestDumper d([pname=std::string(__PRETTY_FUNCTION__)] { llvm::errs() << pname << '\n'; });
   assert(&target == GetScratchContext(*m_target));
   assert((TypeSystem *)&source == parser_type.GetTypeSystem());
   assert(&source.getASTContext() == m_ast_context);
@@ -672,6 +673,7 @@ void ClangExpressionDeclMap::FindExternalVisibleDecls(
   assert(m_ast_context);
 
   const ConstString name(context.m_decl_name.getAsString().c_str());
+  TestDumper d([pname=std::string(__PRETTY_FUNCTION__), &name] { llvm::errs() << pname << ": " << name << '\n'; });
 
   Log *log = GetLog(LLDBLog::Expressions);
 
@@ -785,6 +787,7 @@ void ClangExpressionDeclMap::SearchPersistenDecls(NameSearchContext &context,
 void ClangExpressionDeclMap::LookUpLldbClass(NameSearchContext &context) {
   Log *log = GetLog(LLDBLog::Expressions);
 
+  TestDumper d([pname=std::string(__PRETTY_FUNCTION__)] { llvm::errs() << pname << '\n'; });
   StackFrame *frame = m_parser_vars->m_exe_ctx.GetFramePtr();
   SymbolContext sym_ctx;
   if (frame != nullptr)
@@ -1063,6 +1066,7 @@ void ClangExpressionDeclMap::LookupInModulesDeclVendor(
 bool ClangExpressionDeclMap::LookupLocalVariable(
     NameSearchContext &context, ConstString name, SymbolContext &sym_ctx,
     const CompilerDeclContext &namespace_decl) {
+  TestDumper d([pname=std::string(__PRETTY_FUNCTION__), &name] { llvm::errs() << pname << ": " << name << '\n'; });
   if (sym_ctx.block == nullptr)
     return false;
 
@@ -1229,6 +1233,7 @@ SymbolContextList ClangExpressionDeclMap::SearchFunctionsInSymbolContexts(
 void ClangExpressionDeclMap::LookupFunction(
     NameSearchContext &context, lldb::ModuleSP module_sp, ConstString name,
     const CompilerDeclContext &namespace_decl) {
+  TestDumper d([pname=std::string(__PRETTY_FUNCTION__), &name] { llvm::errs() << pname << ": " << name << '\n'; });
   if (!m_parser_vars)
     return;
 
@@ -1359,6 +1364,7 @@ void ClangExpressionDeclMap::FindExternalVisibleDecls(
   Log *log = GetLog(LLDBLog::Expressions);
 
   const ConstString name(context.m_decl_name.getAsString().c_str());
+  TestDumper d([pname=std::string(__PRETTY_FUNCTION__), &name] { llvm::errs() << pname << ": " << name << '\n'; });
   if (IgnoreName(name, false))
     return;
 
@@ -1980,6 +1986,7 @@ void ClangExpressionDeclMap::AddOneFunction(NameSearchContext &context,
 
 void ClangExpressionDeclMap::AddContextClassType(NameSearchContext &context,
                                                  const TypeFromUser &ut) {
+  TestDumper d([pname=std::string(__PRETTY_FUNCTION__)] { llvm::errs() << pname << '\n'; });
   CompilerType copied_clang_type = GuardedCopyType(ut);
 
   Log *log = GetLog(LLDBLog::Expressions);

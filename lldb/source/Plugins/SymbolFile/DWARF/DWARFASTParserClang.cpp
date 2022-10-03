@@ -219,6 +219,7 @@ TypeSP DWARFASTParserClang::ParseTypeFromClangModule(const SymbolContext &sc,
 }
 
 static void ForcefullyCompleteType(CompilerType type) {
+  TestDumper d([pname=std::string(__PRETTY_FUNCTION__)] { llvm::errs() << pname << '\n'; });
   bool started = TypeSystemClang::StartTagDeclarationDefinition(type);
   lldbassert(started && "Unable to start a class type definition.");
   TypeSystemClang::CompleteTagDeclarationDefinition(type);
@@ -232,6 +233,7 @@ static void ForcefullyCompleteType(CompilerType type) {
 /// in contexts where the usual C++ rules require a type to be complete (base
 /// class, member, etc.).
 static void RequireCompleteType(CompilerType type) {
+  TestDumper d([pname=std::string(__PRETTY_FUNCTION__)] { llvm::errs() << pname << '\n'; });
   // Technically, enums can be incomplete too, but we don't handle those as they
   // are emitted even under -flimit-debug-info.
   if (!TypeSystemClang::IsCXXClassType(type))
@@ -257,6 +259,7 @@ static void PrepareContextToReceiveMembers(TypeSystemClang &ast,
                                            clang::DeclContext *decl_ctx,
                                            DWARFDIE die,
                                            const char *type_name_cstr) {
+  TestDumper d([pname=std::string(__PRETTY_FUNCTION__), &die] { llvm::errs() << pname << ": " << die.GetName() << '\n'; });
   auto *tag_decl_ctx = clang::dyn_cast<clang::TagDecl>(decl_ctx);
   if (!tag_decl_ctx)
     return; // Non-tag context are always ready.
@@ -431,6 +434,7 @@ static std::string GetUnitName(const DWARFDIE &die) {
 TypeSP DWARFASTParserClang::ParseTypeFromDWARF(const SymbolContext &sc,
                                                const DWARFDIE &die,
                                                bool *type_is_new_ptr) {
+  TestDumper d([pname=std::string(__PRETTY_FUNCTION__), &die] { llvm::errs() << pname << ": " << die.GetName() << '\n'; });
   if (type_is_new_ptr)
     *type_is_new_ptr = false;
 
@@ -1527,6 +1531,7 @@ TypeSP
 DWARFASTParserClang::ParseStructureLikeDIE(const SymbolContext &sc,
                                            const DWARFDIE &die,
                                            ParsedDWARFTypeAttributes &attrs) {
+  TestDumper d([pname=std::string(__PRETTY_FUNCTION__), &die] { llvm::errs() << pname << ": " << die.GetName() << '\n'; });
   TypeSP type_sp;
   CompilerType clang_type;
   const dw_tag_t tag = die.Tag();
@@ -2066,6 +2071,7 @@ bool DWARFASTParserClang::ParseTemplateParameterInfos(
 bool DWARFASTParserClang::CompleteRecordType(const DWARFDIE &die,
                                              lldb_private::Type *type,
                                              CompilerType &clang_type) {
+  TestDumper d([pname=std::string(__PRETTY_FUNCTION__), &die] { llvm::errs() << pname << ": " << die.GetName() << '\n'; });
   const dw_tag_t tag = die.Tag();
   SymbolFileDWARF *dwarf = die.GetDWARF();
 
@@ -2154,6 +2160,7 @@ bool DWARFASTParserClang::CompleteRecordType(const DWARFDIE &die,
 bool DWARFASTParserClang::CompleteEnumType(const DWARFDIE &die,
                                            lldb_private::Type *type,
                                            CompilerType &clang_type) {
+  TestDumper d([pname=std::string(__PRETTY_FUNCTION__), &die] { llvm::errs() << pname << ": " << die.GetName() << '\n'; });
   if (TypeSystemClang::StartTagDeclarationDefinition(clang_type)) {
     if (die.HasChildren()) {
       bool is_signed = false;
@@ -2169,6 +2176,7 @@ bool DWARFASTParserClang::CompleteEnumType(const DWARFDIE &die,
 bool DWARFASTParserClang::CompleteTypeFromDWARF(const DWARFDIE &die,
                                                 lldb_private::Type *type,
                                                 CompilerType &clang_type) {
+  TestDumper d([pname=std::string(__PRETTY_FUNCTION__), &die] { llvm::errs() << pname << ": " << die.GetName() << '\n'; });
   SymbolFileDWARF *dwarf = die.GetDWARF();
 
   std::lock_guard<std::recursive_mutex> guard(

@@ -8,6 +8,7 @@
 // types and decls.
 //===----------------------------------------------------------------------===//
 
+#include "lldb/Core/Module.h"
 #include "Plugins/ExpressionParser/Clang/ClangUtil.h"
 #include "Plugins/TypeSystem/Clang/TypeSystemClang.h"
 
@@ -58,6 +59,7 @@ CompilerType ClangUtil::RemoveFastQualifiers(const CompilerType &ct) {
 }
 
 clang::TagDecl *ClangUtil::GetAsTagDecl(const CompilerType &type) {
+  TestDumper d([pname=std::string(__PRETTY_FUNCTION__)] { llvm::errs() << pname << '\n'; });
   clang::QualType qual_type = ClangUtil::GetCanonicalQualType(type);
   if (qual_type.isNull())
     return nullptr;

@@ -430,6 +430,7 @@ bool ClangASTImporter::CanImport(const CompilerType &type) {
 }
 
 bool ClangASTImporter::Import(const CompilerType &type) {
+  TestDumper d([pname=std::string(__PRETTY_FUNCTION__)] { llvm::errs() << pname << '\n'; });
   if (!ClangUtil::IsClangType(type))
     return false;
 
@@ -503,6 +504,7 @@ bool ClangASTImporter::Import(const CompilerType &type) {
 }
 
 bool ClangASTImporter::CompleteType(const CompilerType &compiler_type) {
+  TestDumper d([pname=std::string(__PRETTY_FUNCTION__)] { llvm::errs() << pname << '\n'; });
   if (!CanImport(compiler_type))
     return false;
 
@@ -524,6 +526,7 @@ bool ClangASTImporter::LayoutRecordType(
         &base_offsets,
     llvm::DenseMap<const clang::CXXRecordDecl *, clang::CharUnits>
         &vbase_offsets) {
+  TestDumper d([pname=std::string(__PRETTY_FUNCTION__)] { llvm::errs() << pname << '\n'; });
   RecordDeclToLayoutMap::iterator pos =
       m_record_decl_to_layout_map.find(record_decl);
   bool success = false;
@@ -551,6 +554,7 @@ void ClangASTImporter::SetRecordLayout(clang::RecordDecl *decl,
 }
 
 bool ClangASTImporter::CompleteTagDecl(clang::TagDecl *decl) {
+  TestDumper d([pname=std::string(__PRETTY_FUNCTION__)] { llvm::errs() << pname << '\n'; });
   DeclOrigin decl_origin = GetDeclOrigin(decl);
 
   if (!decl_origin.Valid())
@@ -572,6 +576,7 @@ bool ClangASTImporter::CompleteTagDecl(clang::TagDecl *decl) {
 
 bool ClangASTImporter::CompleteTagDeclWithOrigin(clang::TagDecl *decl,
                                                  clang::TagDecl *origin_decl) {
+  TestDumper d([pname=std::string(__PRETTY_FUNCTION__)] { llvm::errs() << pname << '\n'; });
   clang::ASTContext *origin_ast_ctx = &origin_decl->getASTContext();
 
   if (!TypeSystemClang::GetCompleteDecl(origin_ast_ctx, origin_decl))
@@ -612,6 +617,7 @@ bool ClangASTImporter::CompleteObjCInterfaceDecl(
 }
 
 bool ClangASTImporter::CompleteAndFetchChildren(clang::QualType type) {
+  TestDumper d([pname=std::string(__PRETTY_FUNCTION__)] { llvm::errs() << pname << '\n'; });
   if (!RequireCompleteType(type))
     return false;
 
@@ -682,6 +688,7 @@ bool ClangASTImporter::CompleteAndFetchChildren(clang::QualType type) {
 }
 
 bool ClangASTImporter::RequireCompleteType(clang::QualType type) {
+  TestDumper d([pname=std::string(__PRETTY_FUNCTION__)] { llvm::errs() << pname << '\n'; });
   if (type.isNull())
     return false;
 
@@ -893,6 +900,7 @@ ClangASTImporter::ASTImporterDelegate::ImportImpl(Decl *From) {
 
 void ClangASTImporter::ASTImporterDelegate::ImportDefinitionTo(
     clang::Decl *to, clang::Decl *from) {
+  TestDumper d([pname=std::string(__PRETTY_FUNCTION__)] { llvm::errs() << pname << '\n'; });
   // We might have a forward declaration from a shared library that we
   // gave external lexical storage so that Clang asks us about the full
   // definition when it needs it. In this case the ASTImporter isn't aware

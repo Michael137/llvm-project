@@ -1799,6 +1799,7 @@ SBType SBTarget::GetBasicType(lldb::BasicType type) {
 }
 
 lldb::SBTypeList SBTarget::FindTypes(const char *typename_cstr) {
+  TestDumper d([pname=std::string(__PRETTY_FUNCTION__)] { llvm::errs() << pname << '\n'; });
   LLDB_INSTRUMENT_VA(this, typename_cstr);
 
   SBTypeList sb_type_list;

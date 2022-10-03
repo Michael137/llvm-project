@@ -9,6 +9,7 @@
 #ifndef LLDB_SOURCE_PLUGINS_EXPRESSIONPARSER_CLANG_ASTUTILS_H
 #define LLDB_SOURCE_PLUGINS_EXPRESSIONPARSER_CLANG_ASTUTILS_H
 
+#include "lldb/Core/Module.h"
 #include "clang/Basic/Module.h"
 #include "clang/Sema/Lookup.h"
 #include "clang/Sema/MultiplexExternalSemaSource.h"
@@ -95,10 +96,12 @@ public:
   }
 
   void CompleteRedeclChain(const clang::Decl *D) override {
+    TestDumper d([pname=std::string(__PRETTY_FUNCTION__)] { llvm::errs() << pname << '\n'; });
     m_Source->CompleteRedeclChain(D);
   }
 
   void CompleteType(clang::TagDecl *Tag) override {
+    TestDumper d([pname=std::string(__PRETTY_FUNCTION__)] { llvm::errs() << pname << '\n'; });
     m_Source->CompleteType(Tag);
   }
 
@@ -273,6 +276,7 @@ public:
   }
 
   void CompleteRedeclChain(const clang::Decl *D) override {
+    TestDumper d([pname=std::string(__PRETTY_FUNCTION__)] { llvm::errs() << pname << '\n'; });
     for (size_t i = 0; i < Sources.size(); ++i)
       Sources[i]->CompleteRedeclChain(D);
   }

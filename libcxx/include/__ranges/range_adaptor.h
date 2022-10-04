@@ -50,7 +50,7 @@ struct __range_adaptor_closure {
     template <ranges::viewable_range _View, _RangeAdaptorClosure _Closure>
         requires same_as<_Tp, remove_cvref_t<_Closure>> &&
                  invocable<_Closure, _View>
-    [[nodiscard]] _LIBCPP_HIDE_FROM_ABI
+    [[nodiscard]] [[gnu::artificial]] _LIBCPP_HIDE_FROM_ABI
     friend constexpr decltype(auto) operator|(_View&& __view, _Closure&& __closure)
         noexcept(is_nothrow_invocable_v<_Closure, _View>)
     { return std::invoke(std::forward<_Closure>(__closure), std::forward<_View>(__view)); }
@@ -59,7 +59,7 @@ struct __range_adaptor_closure {
         requires same_as<_Tp, remove_cvref_t<_Closure>> &&
                  constructible_from<decay_t<_Closure>, _Closure> &&
                  constructible_from<decay_t<_OtherClosure>, _OtherClosure>
-    [[nodiscard]] _LIBCPP_HIDE_FROM_ABI
+    [[nodiscard]] [[gnu::artificial]] _LIBCPP_HIDE_FROM_ABI
     friend constexpr auto operator|(_Closure&& __c1, _OtherClosure&& __c2)
         noexcept(is_nothrow_constructible_v<decay_t<_Closure>, _Closure> &&
                  is_nothrow_constructible_v<decay_t<_OtherClosure>, _OtherClosure>)

@@ -134,7 +134,7 @@ def GlobalVar : SubsetSubject<Var,
                              [{S->hasGlobalStorage()}], "global variables">;
 
 def InlineFunction : SubsetSubject<Function,
-                             [{S->isInlineSpecified()}], "inline functions">;
+                             [{S->isInlined()}], "inline functions">;
 
 def FunctionTmpl
     : SubsetSubject<Function, [{S->getTemplatedKind() ==

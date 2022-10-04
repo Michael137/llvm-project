@@ -8,6 +8,7 @@
 
 #include "lldb/Target/ThreadPlanShouldStopHere.h"
 #include "lldb/Symbol/Symbol.h"
+#include "lldb/Symbol/Function.h"
 #include "lldb/Target/RegisterContext.h"
 #include "lldb/Target/Thread.h"
 #include "lldb/Utility/LLDBLog.h"
@@ -83,9 +84,15 @@ bool ThreadPlanShouldStopHere::DefaultShouldStopHereCallback(
   // that the StepFromHere can use.
   if (frame) {
     SymbolContext sc;
-    sc = frame->GetSymbolContext(eSymbolContextLineEntry);
+    sc = frame->GetSymbolContext(eSymbolContextLineEntry | eSymbolContextFunction);
     if (sc.line_entry.line == 0)
       should_stop_here = false;
+
+    // Test for [[gnu::artificial]] attribute
+    if (sc.function) {
+        sc.function->GetCompilerType().dump();
+        assert(false);
+    }
   }
 
   return should_stop_here;

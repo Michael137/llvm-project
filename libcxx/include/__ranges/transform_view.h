@@ -420,7 +420,7 @@ namespace __transform {
 
     template<class _Fn>
       requires constructible_from<decay_t<_Fn>, _Fn>
-    [[nodiscard]] _LIBCPP_HIDE_FROM_ABI
+    [[nodiscard]] [[gnu::artificial]] _LIBCPP_HIDE_FROM_ABI
     constexpr auto operator()(_Fn&& __f) const
       noexcept(is_nothrow_constructible_v<decay_t<_Fn>, _Fn>)
     { return __range_adaptor_closure_t(std::__bind_back(*this, std::forward<_Fn>(__f))); }

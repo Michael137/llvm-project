@@ -8,6 +8,7 @@
 
 #ifndef LLDB_CORE_MANGLED_H
 #define LLDB_CORE_MANGLED_H
+#include "llvm/Support/ErrorHandling.h"
 #if defined(__cplusplus)
 
 #include "lldb/lldb-enumerations.h"
@@ -249,6 +250,9 @@ public:
   ///     True on success, false otherwise.
   bool GetRichManglingInfo(RichManglingContext &context,
                            SkipMangledNameFn *skip_mangled_name);
+
+  bool GetRichManglingInfoItanium(RichManglingContext &context,
+                                  SkipMangledNameFn *skip_mangled_name) const;
 
   /// Try to identify the mangling scheme used.
   /// \param[in] name

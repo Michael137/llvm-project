@@ -109,6 +109,19 @@ llvm::StringRef RichManglingContext::processIPDStrResult(char *ipd_res,
   return llvm::StringRef(m_ipd_buf, res_size - 1);
 }
 
+llvm::StringRef RichManglingContext::ParseFunctionName() {
+  assert(m_provider != None && "Initialize a provider first");
+  switch (m_provider) {
+  case ItaniumPartialDemangler: {
+    auto n = m_ipd_buf_size;
+    auto* buf = m_ipd.getFunctionName(m_ipd_buf, &n);
+    return processIPDStrResult(buf, n);
+  } break;
+  default:
+    llvm_unreachable("Fully covered switch above!");
+  }
+}
+
 llvm::StringRef RichManglingContext::ParseFunctionBaseName() {
   assert(m_provider != None && "Initialize a provider first");
   switch (m_provider) {

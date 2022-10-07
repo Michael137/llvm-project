@@ -49,6 +49,7 @@ public:
   /// Get the context name for a function. For "a::b::c", this function returns
   /// "a::b".
   llvm::StringRef ParseFunctionDeclContextName();
+  llvm::StringRef ParseFunctionName();
 
   /// Get the entire demangled name.
   llvm::StringRef ParseFullName();

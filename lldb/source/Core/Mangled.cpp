@@ -193,6 +193,29 @@ static char *GetDLangDemangledStr(const char *M) {
   return demangled_cstr;
 }
 
+bool Mangled::GetRichManglingInfoItanium(RichManglingContext &context,
+                                         SkipMangledNameFn *skip_mangled_name) const {
+    // Others are not meant to arrive here. ObjC names or C's main() for example
+    // have their names stored in m_demangled, while m_mangled is empty.
+    assert(m_mangled);
+
+    // Check whether or not we are interested in this name at all.
+    ManglingScheme scheme = GetManglingScheme(m_mangled.GetStringRef());
+    if (skip_mangled_name && skip_mangled_name(m_mangled.GetStringRef(), scheme))
+      return false;
+
+    switch (scheme) {
+    case eManglingSchemeItanium:
+      // We want the rich mangling info here, so we don't care whether or not
+      // there is a demangled string in the pool already.
+      return context.FromItaniumName(m_mangled);
+    default:
+      return false;
+    }
+
+    llvm_unreachable("invalid mangling scheme");
+}
+
 // Explicit demangling for scheduled requests during batch processing. This
 // makes use of ItaniumPartialDemangler's rich demangle info
 bool Mangled::GetRichManglingInfo(RichManglingContext &context,

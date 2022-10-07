@@ -27,9 +27,6 @@ class CPlusPlusLanguage : public Language {
 public:
   class MethodName {
   public:
-    MethodName()
-        : m_full(), m_basename(), m_context(), m_arguments(), m_qualifiers() {}
-
     MethodName(ConstString s)
         : m_full(s), m_basename(), m_context(), m_arguments(), m_qualifiers(),
           m_parsed(false), m_parse_error(false) {}

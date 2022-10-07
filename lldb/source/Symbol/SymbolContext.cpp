@@ -11,6 +11,7 @@
 #include "lldb/Core/Debugger.h"
 #include "lldb/Core/Module.h"
 #include "lldb/Core/ModuleSpec.h"
+#include "lldb/Core/RichManglingContext.h"
 #include "lldb/Host/Host.h"
 #include "lldb/Symbol/Block.h"
 #include "lldb/Symbol/CompileUnit.h"
@@ -23,6 +24,7 @@
 #include "lldb/Utility/LLDBLog.h"
 #include "lldb/Utility/Log.h"
 #include "lldb/Utility/StreamString.h"
+#include "lldb/lldb-forward.h"
 
 using namespace lldb;
 using namespace lldb_private;
@@ -659,7 +661,13 @@ SymbolContext::GetFunctionName(Mangled::NamePreference preference) const {
           return inline_info->GetName();
       }
     }
-    return function->GetMangled().GetName(preference);
+    Mangled const& mangled = function->GetMangled();
+    RichManglingContext ctx;
+    if (!mangled.GetMangledName().IsEmpty() && mangled.GetRichManglingInfoItanium(ctx, nullptr)) {
+      return ConstString(ctx.ParseFunctionName());
+    }
+
+    return mangled.GetName(preference);
   } else if (symbol && symbol->ValueIsAddress()) {
     return symbol->GetMangled().GetName(preference);
   } else {

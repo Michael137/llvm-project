@@ -108,6 +108,7 @@ std::shared_ptr<ClangASTImporter>
 ClangPersistentVariables::GetClangASTImporter() {
   if (!m_ast_importer_sp) {
     m_ast_importer_sp = std::make_shared<ClangASTImporter>();
+    llvm::errs() << "Created ClangPersistentVariables::ClangASTImporter " << m_ast_importer_sp.get() << '\n';
   }
   return m_ast_importer_sp;
 }

@@ -79,6 +79,8 @@ public:
       : m_file_manager(clang::FileSystemOptions(),
                        FileSystem::Instance().GetVirtualFileSystem()) {}
 
+  ~ClangASTImporter();
+
   /// Copies the given type and the respective declarations to the destination
   /// type system.
   ///
@@ -363,16 +365,20 @@ public:
       assert(&decl->getASTContext() != origin.ctx &&
              "Trying to set decl origin to its own ASTContext?");
       assert(decl != origin.decl && "Trying to set decl origin to itself?");
+      llvm::errs() << "m_origins[" << decl << "] = " << " { decl: " << origin.decl << ", ctx : " << origin.ctx << " }\n";
       m_origins[decl] = origin;
     }
 
     /// Removes any tracked DeclOrigin for the given decl.
-    void removeOrigin(const clang::Decl *decl) { m_origins.erase(decl); }
+    void removeOrigin(const clang::Decl *decl) {
+        llvm::errs() << "Removing origin: " << decl << '\n';
+        m_origins.erase(decl); }
 
     /// Remove all DeclOrigin entries that point to the given ASTContext.
     /// Useful when an ASTContext is about to be deleted and all the dangling
     /// pointers to it need to be removed.
     void removeOriginsWithContext(clang::ASTContext *ctx) {
+      llvm::errs() << "Removing origins with ctx: " << ctx << '\n';
       for (OriginMap::iterator iter = m_origins.begin();
            iter != m_origins.end();) {
         if (iter->second.ctx == ctx)

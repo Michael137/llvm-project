@@ -34,7 +34,9 @@ class ClangPersistentVariables : public PersistentExpressionState {
 public:
   ClangPersistentVariables(std::shared_ptr<Target> target_sp);
 
-  ~ClangPersistentVariables() override = default;
+  ~ClangPersistentVariables() override {
+    llvm::errs() << "~ClangPersistentVariables(" << this << "): m_ast_importer_sp : " << m_ast_importer_sp.get() << "\n";
+  }
 
   // llvm casting support
   static bool classof(const PersistentExpressionState *pv) {

@@ -249,6 +249,10 @@ public:
       NamedDecl *decl = m_decls_to_complete.pop_back_val();
       m_decls_already_completed.insert(decl);
 
+      if (NamedDecl *to_named_decl = dyn_cast<NamedDecl>(decl)) {
+          llvm::errs() << "Completing " << to_named_decl->getNameAsString() << '\n';
+      }
+
       // The decl that should be completed has to be imported into the target
       // context from some other context.
       assert(to_context_md->hasOrigin(decl));
@@ -303,6 +307,7 @@ public:
 
 CompilerType ClangASTImporter::DeportType(TypeSystemClang &dst,
                                           const CompilerType &src_type) {
+  llvm::errs() << "Deporting type using ClangASTImporter(" << this << ")\n";
   Log *log = GetLog(LLDBLog::Expressions);
 
   TypeSystemClang *src_ctxt =
@@ -548,6 +553,10 @@ bool ClangASTImporter::LayoutRecordType(
 void ClangASTImporter::SetRecordLayout(clang::RecordDecl *decl,
                                         const LayoutInfo &layout) {
   m_record_decl_to_layout_map.insert(std::make_pair(decl, layout));
+}
+
+ClangASTImporter::~ClangASTImporter() {
+    llvm::errs() << "Destroying ClangASTImporter: " << this << '\n';
 }
 
 bool ClangASTImporter::CompleteTagDecl(clang::TagDecl *decl) {
@@ -1026,8 +1035,20 @@ void ClangASTImporter::ASTImporterDelegate::Imported(clang::Decl *from,
 
   // Some decls shouldn't be tracked here because they were not created by
   // copying 'from' to 'to'. Just exit early for those.
-  if (m_decls_to_ignore.count(to))
+  if (m_decls_to_ignore.count(to)) {
+    if (m_new_decl_listener) {
+      if (NamedDecl *from_named_decl = dyn_cast<clang::NamedDecl>(from)) {
+        llvm::errs() << "Ignoring decl: " << from_named_decl->getNameAsString() << '\n';
+      }
+    }
     return clang::ASTImporter::Imported(from, to);
+  }
+
+  if (m_new_decl_listener) {
+    if (NamedDecl *from_named_decl = dyn_cast<clang::NamedDecl>(from)) {
+      llvm::errs() << "Not ignoring decl: " << from_named_decl->getNameAsString() << '\n';
+    }
+  }
 
   // Transfer module ownership information.
   auto *from_source = llvm::dyn_cast_or_null<ClangExternalASTSourceCallbacks>(
@@ -1055,6 +1076,9 @@ void ClangASTImporter::ASTImporterDelegate::Imported(clang::Decl *from,
       from_named_decl->printName(name_stream);
       name_stream.flush();
 
+      if (name_string == "vector_long")
+        assert(true && "BREAK HERE");
+
       LLDB_LOG(log,
                "    [ClangASTImporter] Imported ({0}Decl*){1}, named {2} (from "
                "(Decl*){3}), metadata {4}",
@@ -1074,8 +1098,12 @@ void ClangASTImporter::ASTImporterDelegate::Imported(clang::Decl *from,
 
   if (from_context_md) {
     DeclOrigin origin = from_context_md->getOrigin(from);
+    llvm::errs() << "Maybe propagating origin\n";
 
     if (origin.Valid()) {
+      if (m_new_decl_listener)
+        llvm::errs() << "Origin is valid\n";
+
       if (origin.ctx != &to->getASTContext()) {
         if (!to_context_md->hasOrigin(to) || user_id != LLDB_INVALID_UID)
           to_context_md->setOrigin(to, origin);
@@ -1086,6 +1114,7 @@ void ClangASTImporter::ASTImporterDelegate::Imported(clang::Decl *from,
         if (direct_completer.get() != this)
           direct_completer->ASTImporter::Imported(origin.decl, to);
 
+        llvm::errs() << "Propagated origin\n";
         LLDB_LOG(log,
                  "    [ClangASTImporter] Propagated origin "
                  "(Decl*){0}/(ASTContext*){1} from (ASTContext*){2} to "
@@ -1120,6 +1149,7 @@ void ClangASTImporter::ASTImporterDelegate::Imported(clang::Decl *from,
     }
   } else {
     to_context_md->setOrigin(to, DeclOrigin(m_source_ctx, from));
+    llvm::errs() << "Sourced origin\n";
 
     LLDB_LOG(log,
              "    [ClangASTImporter] Sourced origin "
@@ -1176,5 +1206,7 @@ void ClangASTImporter::ASTImporterDelegate::Imported(clang::Decl *from,
 
 clang::Decl *
 ClangASTImporter::ASTImporterDelegate::GetOriginalDecl(clang::Decl *To) {
-  return m_main.GetDeclOrigin(To).decl;
+  auto origin = m_main.GetDeclOrigin(To);
+  llvm::errs() << "Delegate(" << this << "): Getting DeclOrigin(" << To << ") on ClangASTImporter(" << &m_main << ") => decl : " << origin.decl << " ctx : " << origin.ctx << '\n';
+  return origin.decl;
 }

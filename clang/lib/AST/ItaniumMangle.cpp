@@ -775,16 +775,25 @@ void CXXNameMangler::mangle(GlobalDecl GD) {
   //            ::= <data name>
   //            ::= <special-name>
   Out << "_Z";
-  if (isa<FunctionDecl>(GD.getDecl()))
+  if (isa<FunctionDecl>(GD.getDecl())) {
+    llvm::errs() << "Mangling function: " << dyn_cast<FunctionDecl>(GD.getDecl())->getName() << '\n';
     mangleFunctionEncoding(GD);
-  else if (isa<VarDecl, FieldDecl, MSGuidDecl, TemplateParamObjectDecl,
-               BindingDecl>(GD.getDecl()))
+  } else if (isa<VarDecl, FieldDecl, MSGuidDecl, TemplateParamObjectDecl,
+               BindingDecl>(GD.getDecl())) {
+    if (auto const* fd = dyn_cast<FieldDecl>(GD.getDecl()))
+      llvm::errs() << "Mangling field: " << fd->getName() << '\n';
+    else if (auto const* fd = dyn_cast<TemplateParamObjectDecl>(GD.getDecl()))
+      llvm::errs() << "Mangling tmpl: " << fd->getName() << '\n';
+    else
+      llvm::errs() << "Mangling something else\n";
     mangleName(GD);
-  else if (const IndirectFieldDecl *IFD =
-               dyn_cast<IndirectFieldDecl>(GD.getDecl()))
+  } else if (const IndirectFieldDecl *IFD =
+               dyn_cast<IndirectFieldDecl>(GD.getDecl())) {
+    llvm::errs() << "Mangling IndirectFieldDecl\n";
     mangleName(IFD->getAnonField());
-  else
+  } else {
     llvm_unreachable("unexpected kind of global decl");
+  }
 }
 
 void CXXNameMangler::mangleFunctionEncoding(GlobalDecl GD) {
@@ -4198,6 +4207,7 @@ void CXXNameMangler::mangleExpression(const Expr *E, unsigned Arity,
     switch (D->getKind()) {
     default:
       //  <expr-primary> ::= L <mangled-name> E # external name
+      llvm::errs() << "Mangling <expr-primary> for: " << D->getNameAsString() << '\n';
       Out << 'L';
       mangle(D);
       Out << 'E';
@@ -4889,6 +4899,7 @@ recurse:
     goto recurse;
 
   case Expr::ConceptSpecializationExprClass: {
+    llvm::errs() << "Mangling ConceptSpecializationExprClass\n";
     //  <expr-primary> ::= L <mangled-name> E # external name
     Out << "L_Z";
     auto *CSE = cast<ConceptSpecializationExpr>(E);

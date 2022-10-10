@@ -1030,7 +1030,10 @@ void ASTContext::cleanup() {
   ModuleInitializers.clear();
 }
 
-ASTContext::~ASTContext() { cleanup(); }
+ASTContext::~ASTContext() {
+    llvm::errs() << "Destroying ASTContext: " << this << '\n';
+    cleanup();
+}
 
 void ASTContext::setTraversalScope(const std::vector<Decl *> &TopLevelDecls) {
   TraversalScope = TopLevelDecls;

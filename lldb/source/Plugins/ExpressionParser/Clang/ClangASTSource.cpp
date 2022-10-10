@@ -68,6 +68,7 @@ void ClangASTSource::InstallASTContext(TypeSystemClang &clang_ast_context) {
 }
 
 ClangASTSource::~ClangASTSource() {
+  llvm::errs() << "~ClangASTSource(" << this << "): forgetting source: " << m_ast_context << '\n';
   m_ast_importer_sp->ForgetDestination(m_ast_context);
 
   if (!m_target)
@@ -86,6 +87,9 @@ ClangASTSource::~ClangASTSource() {
 
   ScratchTypeSystemClang *default_scratch_ast =
       llvm::cast<ScratchTypeSystemClang>(scratch_ast);
+
+  llvm::errs() << "~ClangASTSource(" << this << "): forgetting destination: " << m_ast_context << " " << m_ast_importer_sp.get() << '\n';
+
   // Unregister from the default scratch AST (and all sub-ASTs).
   default_scratch_ast->ForgetSource(m_ast_context, *m_ast_importer_sp);
 }
@@ -603,6 +607,7 @@ void ClangASTSource::FindExternalVisibleDecls(
   SymbolContextList sc_list;
 
   const ConstString name(context.m_decl_name.getAsString().c_str());
+  llvm::errs() << __func__ << "(" << name << ")\n";
   if (IgnoreName(name, true))
     return;
 

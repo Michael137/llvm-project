@@ -1962,6 +1962,7 @@ ASTNodeImporter::ImportDeclContext(DeclContext *FromDC, bool ForceImport) {
 
 Error ASTNodeImporter::ImportDeclContext(
     Decl *FromD, DeclContext *&ToDC, DeclContext *&ToLexicalDC) {
+  llvm::errs() << "ImportDeclContext(from = " << FromD << ", FromDC = " << FromD->getDeclContext() << ")\n";
   auto ToDCOrErr = Importer.ImportContext(FromD->getDeclContext());
   if (!ToDCOrErr)
     return ToDCOrErr.takeError();
@@ -2829,6 +2830,7 @@ ExpectedDecl ASTNodeImporter::VisitRecordDecl(RecordDecl *D) {
     SmallVector<NamedDecl *, 4> ConflictingDecls;
     auto FoundDecls =
         Importer.findDeclsInToCtx(DC, SearchName);
+    llvm::errs() << "Performing findDeclsInToCtx(" << DC << ", " << SearchName.getAsString() << ")\n";
     if (!FoundDecls.empty()) {
       // We're going to have to compare D against potentially conflicting Decls,
       // so complete it.
@@ -8517,7 +8519,9 @@ ASTImporter::ASTImporter(ASTContext &ToContext, FileManager &ToFileManager,
       ToContext.getTranslationUnitDecl();
 }
 
-ASTImporter::~ASTImporter() = default;
+ASTImporter::~ASTImporter() {
+    llvm::errs() << "Destroying ASTImporter " << this << '\n';
+}
 
 Optional<unsigned> ASTImporter::getFieldIndex(Decl *F) {
   assert(F && (isa<FieldDecl>(*F) || isa<IndirectFieldDecl>(*F)) &&
@@ -8616,8 +8620,11 @@ ExpectedTypePtr ASTImporter::Import(const Type *FromT) {
   if (!ToTOrErr)
     return ToTOrErr.takeError();
 
+  auto* unwrapped = ToTOrErr->getTypePtr();
   // Record the imported type.
-  ImportedTypes[FromT] = ToTOrErr->getTypePtr();
+  llvm::errs() << "Inserting into ImportedTypes in " << this << ": " << FromT->getTypeClassName()
+      << "(" << FromT << ")" << " -> " << "(" << unwrapped->getTypeClassName() << ")" << unwrapped << "\n";
+  ImportedTypes[FromT] = unwrapped;
 
   return ToTOrErr->getTypePtr();
 }

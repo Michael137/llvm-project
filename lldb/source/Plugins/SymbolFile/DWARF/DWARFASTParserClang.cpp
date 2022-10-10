@@ -79,6 +79,7 @@ static bool DeclKindIsCXXClass(clang::Decl::Kind decl_kind) {
 ClangASTImporter &DWARFASTParserClang::GetClangASTImporter() {
   if (!m_clang_ast_importer_up) {
     m_clang_ast_importer_up = std::make_unique<ClangASTImporter>();
+    llvm::errs() << "Created DWARFASTParserClang::ClangASTImporter " << m_clang_ast_importer_up.get() << '\n';
   }
   return *m_clang_ast_importer_up;
 }

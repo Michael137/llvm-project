@@ -46,7 +46,9 @@ class CxxModuleHandler {
   llvm::Optional<clang::Decl *> tryInstantiateStdTemplate(clang::Decl *d);
 
 public:
-  CxxModuleHandler() = default;
+  CxxModuleHandler() {
+    llvm::errs() << "Constructing CxxModuleHandler (default): m_sema == nullptr\n";
+  }
   CxxModuleHandler(clang::ASTImporter &importer, clang::ASTContext *target);
 
   /// Attempts to import the given decl into the target ASTContext by

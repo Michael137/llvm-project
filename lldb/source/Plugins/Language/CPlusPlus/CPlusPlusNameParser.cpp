@@ -441,6 +441,7 @@ bool CPlusPlusNameParser::ConsumeBuiltinType() {
     case tok::kw_bool:
     case tok::kw_char16_t:
     case tok::kw_char32_t:
+    //case tok::kw_auto:
       result = true;
       Advance();
       break;

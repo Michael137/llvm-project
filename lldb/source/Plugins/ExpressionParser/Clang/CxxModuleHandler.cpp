@@ -21,6 +21,8 @@ CxxModuleHandler::CxxModuleHandler(ASTImporter &importer, ASTContext *target)
     : m_importer(&importer),
       m_sema(TypeSystemClang::GetASTContext(target)->getSema()) {
 
+  llvm::errs() << "Constructing CxxModuleHandler: m_sema == " << m_sema << '\n';
+
   std::initializer_list<const char *> supported_names = {
       // containers
       "array",
@@ -291,5 +293,15 @@ llvm::Optional<Decl *> CxxModuleHandler::Import(Decl *d) {
   if (!isValid())
     return {};
 
-  return tryInstantiateStdTemplate(d);
+  if (NamedDecl *nd = llvm::dyn_cast<NamedDecl>(d))
+    llvm::errs() << "Importing from CxxModuleHandler: " << nd->getNameAsString() << '\n';
+
+  auto ret = tryInstantiateStdTemplate(d);
+
+  if (ret.has_value()) {
+    Decl *tmp = ret.getValue();
+    assert(tmp != nullptr);
+  }
+
+  return ret;
 }

@@ -247,6 +247,11 @@ bool ClangExpressionDeclMap::AddPersistentVariable(const NamedDecl *decl,
     if (!clang_ast_context)
       return false;
 
+    llvm::errs() << "Getting ScratchASTContext " << clang_ast_context << " for target: " << target << '\n';
+    //clang_ast_context->Dump(llvm::errs());
+    llvm::errs() << "AST for ParserType: " << ast << '\n';
+    //ast->Dump(llvm::errs());
+
     TypeFromUser user_type = DeportType(*clang_ast_context, *ast, parser_type);
 
     uint32_t offset = m_parser_vars->m_materializer->AddResultVariable(

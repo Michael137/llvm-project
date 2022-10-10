@@ -573,7 +573,7 @@ TypeSystemClang::TypeSystemClang(llvm::StringRef name,
 
 // Destructor
 TypeSystemClang::~TypeSystemClang() {
-    llvm::errs() << "~TypeSystemClang(" << this << "): " /*<< ((m_ast_owned) ? "owning" : "non-owning")*/ << "\n";
+    llvm::errs() << "~TypeSystemClang(" << this << "): m_ast_(s|u)p : " << m_ast_sp.get() /*<< ((m_ast_owned) ? "owning" : "non-owning")*/ << "\n";
     Finalize();
 }
 

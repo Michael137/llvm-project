@@ -704,6 +704,8 @@ ClangExpressionParser::ClangExpressionParser(
   m_ast_context = std::make_unique<TypeSystemClang>(
       "Expression ASTContext for '" + m_filename + "'", ast_context);
 
+  llvm::errs() << "Creating AST context for ClangExpressionParser " << m_ast_context.get() << '\n';
+
   std::string module_name("$__lldb_module");
 
   m_llvm_context = std::make_unique<LLVMContext>();

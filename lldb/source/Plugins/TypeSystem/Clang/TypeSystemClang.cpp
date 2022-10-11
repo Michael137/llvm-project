@@ -567,13 +567,13 @@ TypeSystemClang::TypeSystemClang(llvm::StringRef name,
   m_display_name = name.str();
   SetTargetTriple(existing_ctxt.getTargetInfo().getTriple().str());
 
-  m_ast_sp.reset(&existing_ctxt);
+  m_ast_up.reset(&existing_ctxt);
   GetASTMap().Insert(&existing_ctxt, this);
 }
 
 // Destructor
 TypeSystemClang::~TypeSystemClang() {
-    llvm::errs() << "~TypeSystemClang(" << this << "): m_ast_(s|u)p : " << m_ast_sp.get() /*<< ((m_ast_owned) ? "owning" : "non-owning")*/ << "\n";
+    llvm::errs() << "~TypeSystemClang(" << this << "): m_ast_(s|u)p : " << m_ast_up.get() << ((m_ast_owned) ? " owning" : " non-owning") << "\n";
     Finalize();
 }
 
@@ -656,8 +656,10 @@ void TypeSystemClang::Terminate() {
 }
 
 void TypeSystemClang::Finalize() {
-  assert(m_ast_sp);
-  GetASTMap().Erase(m_ast_sp.get());
+  assert(m_ast_up);
+  GetASTMap().Erase(m_ast_up.get());
+  if (!m_ast_owned)
+    m_ast_up.release();
 
   m_builtins_up.reset();
   m_selector_table_up.reset();
@@ -671,7 +673,7 @@ void TypeSystemClang::Finalize() {
 
 void TypeSystemClang::setSema(Sema *s) {
   // Ensure that the new sema actually belongs to our ASTContext.
-  assert(s == nullptr || &s->getASTContext() == m_ast_sp.get());
+  assert(s == nullptr || &s->getASTContext() == m_ast_up.get());
   m_sema = s;
   llvm::errs() << "Setting sema " << s << '\n';
 }
@@ -692,8 +694,8 @@ void TypeSystemClang::SetExternalSource(
 }
 
 ASTContext &TypeSystemClang::getASTContext() {
-  assert(m_ast_sp);
-  return *m_ast_sp;
+  assert(m_ast_up);
+  return *m_ast_up;
 }
 
 class NullDiagnosticConsumer : public DiagnosticConsumer {
@@ -719,7 +721,8 @@ private:
 };
 
 void TypeSystemClang::CreateASTContext() {
-  assert(!m_ast_sp);
+  assert(!m_ast_up);
+  m_ast_owned = true;
 
   m_language_options_up = std::make_unique<LangOptions>();
   ParseLangArgs(*m_language_options_up, clang::Language::ObjCXX,
@@ -741,21 +744,21 @@ void TypeSystemClang::CreateASTContext() {
 
   m_source_manager_up = std::make_unique<clang::SourceManager>(
       *m_diagnostics_engine_up, *m_file_manager_up);
-  m_ast_sp = std::make_shared<ASTContext>(
+  m_ast_up = std::make_unique<ASTContext>(
       *m_language_options_up, *m_source_manager_up, *m_identifier_table_up,
       *m_selector_table_up, *m_builtins_up, TU_Complete);
 
   m_diagnostic_consumer_up = std::make_unique<NullDiagnosticConsumer>();
-  m_ast_sp->getDiagnostics().setClient(m_diagnostic_consumer_up.get(), false);
+  m_ast_up->getDiagnostics().setClient(m_diagnostic_consumer_up.get(), false);
 
   // This can be NULL if we don't know anything about the architecture or if
   // the target for an architecture isn't enabled in the llvm/clang that we
   // built
   TargetInfo *target_info = getTargetInfo();
   if (target_info)
-    m_ast_sp->InitBuiltinTypes(*target_info);
+    m_ast_up->InitBuiltinTypes(*target_info);
 
-  GetASTMap().Insert(m_ast_sp.get(), this);
+  GetASTMap().Insert(m_ast_up.get(), this);
 
   llvm::IntrusiveRefCntPtr<clang::ExternalASTSource> ast_source_up(
       new ClangExternalASTSourceCallbacks(*this));
@@ -2239,7 +2242,7 @@ void TypeSystemClang::SetFunctionParameters(
 
 CompilerType
 TypeSystemClang::CreateBlockPointerType(const CompilerType &function_type) {
-  QualType block_type = m_ast_sp->getBlockPointerType(
+  QualType block_type = m_ast_up->getBlockPointerType(
       clang::QualType::getFromOpaquePtr(function_type.GetOpaqueQualType()));
 
   return GetType(block_type);
@@ -3185,7 +3188,7 @@ bool TypeSystemClang::IsBlockPointerType(
         const clang::BlockPointerType *block_pointer_type =
             qual_type->castAs<clang::BlockPointerType>();
         QualType pointee_type = block_pointer_type->getPointeeType();
-        QualType function_pointer_type = m_ast_sp->getPointerType(pointee_type);
+        QualType function_pointer_type = m_ast_up->getPointerType(pointee_type);
         *function_pointer_type_ptr =
             CompilerType(this, function_pointer_type.getAsOpaquePtr());
       }

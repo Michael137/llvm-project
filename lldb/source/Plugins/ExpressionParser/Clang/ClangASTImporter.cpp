@@ -835,6 +835,8 @@ ClangASTImporter::ASTImporterDelegate::ImportImpl(Decl *From) {
   // Check which ASTContext this declaration originally came from.
   DeclOrigin origin = m_main.GetDeclOrigin(From);
 
+  llvm::errs() << "Finding origin for From(" << From << ") with ASTContext(" << &From->getASTContext() << ") => " << (origin.Valid() ? "valid" : "invalid") << '\n';
+
   // Prevent infinite recursion when the origin tracking contains a cycle.
   assert(origin.decl != From && "Origin points to itself?");
 
@@ -862,6 +864,7 @@ ClangASTImporter::ASTImporterDelegate::ImportImpl(Decl *From) {
   // though all these different source ASTContexts just got a copy from
   // one source AST).
   if (origin.Valid()) {
+    llvm::errs() << llvm::formatv("Calling CopyDecl({0}, {1})\n", &getToContext(), origin.decl);
     auto R = m_main.CopyDecl(&getToContext(), origin.decl);
     if (R) {
       RegisterImportedDecl(From, R);
@@ -909,6 +912,7 @@ void ClangASTImporter::ASTImporterDelegate::ImportDefinitionTo(
   // target but would create a second declaration that would then be defined.
   // We want that 'to' is actually complete after this function so let's
   // tell the ASTImporter that 'to' was imported from 'from'.
+  llvm::errs() << llvm::formatv("MapImported: {0} -> {1}\n", from, to);
   MapImported(from, to);
   ASTImporter::Imported(from, to);
 

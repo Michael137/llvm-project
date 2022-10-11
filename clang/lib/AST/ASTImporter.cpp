@@ -1840,6 +1840,7 @@ ASTNodeImporter::ImportDeclarationNameLoc(
 Error
 ASTNodeImporter::ImportDeclContext(DeclContext *FromDC, bool ForceImport) {
   if (Importer.isMinimalImport() && !ForceImport) {
+    llvm::errs() << "Doing a minimal import for " << FromDC << '\n';
     auto ToDCOrErr = Importer.ImportContext(FromDC);
     return ToDCOrErr.takeError();
   }
@@ -1962,7 +1963,7 @@ ASTNodeImporter::ImportDeclContext(DeclContext *FromDC, bool ForceImport) {
 
 Error ASTNodeImporter::ImportDeclContext(
     Decl *FromD, DeclContext *&ToDC, DeclContext *&ToLexicalDC) {
-  llvm::errs() << "ImportDeclContext(from = " << FromD << ", FromDC = " << FromD->getDeclContext() << ")\n";
+  llvm::errs() << "ImportDeclContext(from = " << FromD << ", (importing) FromDC = " << FromD->getDeclContext() << "), FromDCDecl = " << cast<Decl>(FromD->getDeclContext()) << '\n';
   auto ToDCOrErr = Importer.ImportContext(FromD->getDeclContext());
   if (!ToDCOrErr)
     return ToDCOrErr.takeError();
@@ -2277,6 +2278,7 @@ ExpectedDecl ASTNodeImporter::VisitTranslationUnitDecl(TranslationUnitDecl *D) {
   TranslationUnitDecl *ToD =
     Importer.getToContext().getTranslationUnitDecl();
 
+  llvm::errs() << "VisitTranslationUnitDecl~>MapImported: " << D << " -> " << ToD << '\n';
   Importer.MapImported(D, ToD);
 
   return ToD;
@@ -2439,6 +2441,7 @@ ExpectedDecl ASTNodeImporter::VisitNamespaceDecl(NamespaceDecl *D) {
         cast<NamespaceDecl>(DC)->setAnonymousNamespace(ToNamespace);
     }
   }
+  llvm::errs() << "VisitTranslationUnitDecl~>MapImported: " << D << " -> " << ToNamespace << '\n';
   Importer.MapImported(D, ToNamespace);
 
   if (Error Err = ImportDeclContext(D))
@@ -2870,6 +2873,7 @@ ExpectedDecl ASTNodeImporter::VisitRecordDecl(RecordDecl *D) {
           if (D->isThisDeclarationADefinition() && FoundDef) {
             // FIXME: Structural equivalence check should check for same
             // user-defined methods.
+            llvm::errs() << "VisitRecordDecl~>MapImported: " << D << " -> " << FoundDef << '\n';
             Importer.MapImported(D, FoundDef);
             if (const auto *DCXX = dyn_cast<CXXRecordDecl>(D)) {
               auto *FoundCXX = dyn_cast<CXXRecordDecl>(FoundDef);
@@ -4202,10 +4206,12 @@ ExpectedDecl ASTNodeImporter::VisitVarDecl(VarDecl *D) {
           // The VarDecl in the "From" context has a definition, but in the
           // "To" context we already have a definition.
           VarDecl *FoundDef = FoundVar->getDefinition();
-          if (D->isThisDeclarationADefinition() && FoundDef)
+          if (D->isThisDeclarationADefinition() && FoundDef) {
             // FIXME Check for ODR error if the two definitions have
             // different initializers?
+            llvm::errs() << "VisitVarDecl~>MapImported: " << D << " -> " << FoundDef << '\n';
             return Importer.MapImported(D, FoundDef);
+          }
 
           // The VarDecl in the "From" context has an initializer, but in the
           // "To" context we already have an initializer.
@@ -8515,6 +8521,8 @@ ASTImporter::ASTImporter(ASTContext &ToContext, FileManager &ToFileManager,
     this->SharedState = std::make_shared<ASTImporterSharedState>();
   }
 
+  llvm::errs() << "ASTImporter~>ImportedDecls[" << FromContext.getTranslationUnitDecl()
+      << "] = " << ToContext.getTranslationUnitDecl() << " (ToContext : " << &ToContext << ") (FromContext : " << &FromContext << ")\n";
   ImportedDecls[FromContext.getTranslationUnitDecl()] =
       ToContext.getTranslationUnitDecl();
 }
@@ -8589,6 +8597,7 @@ Expected<Decl *> ASTImporter::ImportImpl(Decl *FromD) {
 }
 
 void ASTImporter::RegisterImportedDecl(Decl *FromD, Decl *ToD) {
+  llvm::errs() << "RegisterImportedDecl~>MapImported: " << FromD << " -> " << ToD << '\n';
   MapImported(FromD, ToD);
 }
 
@@ -8930,10 +8939,12 @@ Expected<Attr *> ASTImporter::Import(const Attr *FromAttr) {
 
 Decl *ASTImporter::GetAlreadyImportedOrNull(const Decl *FromD) const {
   auto Pos = ImportedDecls.find(FromD);
-  if (Pos != ImportedDecls.end())
+  if (Pos != ImportedDecls.end()) {
+    llvm::errs() << "GetAlreadyImportedOrNull: FromD(" << FromD << ") Found(" << Pos->second << ") ASTContext(" << &Pos->second->getASTContext() << ")\n";
     return Pos->second;
-  else
+  } else {
     return nullptr;
+  }
 }
 
 TranslationUnitDecl *ASTImporter::GetFromTU(Decl *ToD) {
@@ -9990,6 +10001,8 @@ Decl *ASTImporter::MapImported(Decl *From, Decl *To) {
       "Try to import an already imported Decl");
   if (Pos != ImportedDecls.end())
     return Pos->second;
+
+  llvm::errs() << "ImportedDecls[" << From << "] = [" << To << "]\n";
   ImportedDecls[From] = To;
   // This mapping should be maintained only in this function. Therefore do not
   // check for additional consistency.

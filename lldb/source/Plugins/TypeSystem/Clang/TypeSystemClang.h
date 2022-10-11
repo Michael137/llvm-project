@@ -1061,7 +1061,7 @@ private:
 
   // Classes that inherit from TypeSystemClang can see and modify these
   std::string m_target_triple;
-  std::shared_ptr<clang::ASTContext> m_ast_sp;
+  std::unique_ptr<clang::ASTContext> m_ast_up;
   std::unique_ptr<clang::LangOptions> m_language_options_up;
   std::unique_ptr<clang::FileManager> m_file_manager_up;
   std::unique_ptr<clang::SourceManager> m_source_manager_up;

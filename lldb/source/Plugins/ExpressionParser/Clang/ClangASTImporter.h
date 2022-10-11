@@ -445,6 +445,7 @@ public:
     DelegateMap::iterator delegate_iter = delegates.find(src_ctx);
 
     if (delegate_iter == delegates.end()) {
+      llvm::errs() << llvm::formatv("Creating new ASTImporterDelegate: from_ctx = {0}, dst_ctx = {1}\n", src_ctx, dst_ctx);
       ImporterDelegateSP delegate =
           ImporterDelegateSP(new ASTImporterDelegate(*this, dst_ctx, src_ctx));
       delegates[src_ctx] = delegate;

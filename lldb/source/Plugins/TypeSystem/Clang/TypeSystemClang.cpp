@@ -9896,8 +9896,10 @@ ScratchTypeSystemClang::GetForTarget(Target &target,
   ScratchTypeSystemClang &scratch_ast =
       llvm::cast<ScratchTypeSystemClang>(type_system_or_err.get());
   // If no dedicated sub-AST was requested, just return the main AST.
-  if (ast_kind == DefaultAST)
+  if (ast_kind == DefaultAST) {
+    llvm::errs() << "ScratchTypeSystemClang::GetForTarget: " << &scratch_ast << " ASTContext(" << &scratch_ast.getASTContext() << ")\n";
     return &scratch_ast;
+  }
   // Search the sub-ASTs.
   return &scratch_ast.GetIsolatedAST(*ast_kind);
 }

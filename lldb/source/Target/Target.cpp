@@ -125,6 +125,7 @@ Target::Target(Debugger &debugger, const ArchSpec &target_arch,
 Target::~Target() {
   Log *log = GetLog(LLDBLog::Object);
   LLDB_LOG(log, "{0} Target::~Target()", static_cast<void *>(this));
+  llvm::errs() << "Destroying Target(" << this << ")\n";
   DeleteCurrentProcess();
 }
 

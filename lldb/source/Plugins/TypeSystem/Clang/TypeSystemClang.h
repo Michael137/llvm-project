@@ -123,7 +123,8 @@ public:
   ///               certain characteristics of the ASTContext and its types
   ///               (e.g., whether certain primitive types exist or what their
   ///               signedness is).
-  explicit TypeSystemClang(llvm::StringRef name, llvm::Triple triple);
+  explicit TypeSystemClang(llvm::StringRef name, llvm::Triple triple,
+                           Target* target = nullptr);
 
   /// Constructs a TypeSystemClang that uses an existing ASTContext internally.
   /// Useful when having an existing ASTContext created by Clang.
@@ -131,7 +132,8 @@ public:
   /// \param name The name for the TypeSystemClang (for logging purposes)
   /// \param existing_ctxt An existing ASTContext.
   explicit TypeSystemClang(llvm::StringRef name,
-                           clang::ASTContext &existing_ctxt);
+                           clang::ASTContext &existing_ctxt,
+                           Target* target = nullptr);
 
   ~TypeSystemClang() override;
 
@@ -1104,6 +1106,10 @@ private:
   /// ASTContext wasn't created by parsing source code.
   clang::Sema *m_sema = nullptr;
 
+protected:
+  lldb::TargetWP m_target_wp;
+
+private:
   // For TypeSystemClang only
   TypeSystemClang(const TypeSystemClang &);
   const TypeSystemClang &operator=(const TypeSystemClang &);
@@ -1198,11 +1204,14 @@ public:
   CreateUtilityFunction(std::string text, std::string name) override;
 
   PersistentExpressionState *GetPersistentExpressionState() override;
+  std::shared_ptr<ClangASTImporter> GetClangASTImporter();
 
   /// Unregisters the given ASTContext as a source from the scratch AST (and
   /// all sub-ASTs).
   /// \see ClangASTImporter::ForgetSource
   void ForgetSource(clang::ASTContext *src_ctx, ClangASTImporter &importer);
+
+  void ResetMetadata(ClangASTImporter &importer);
 
   // llvm casting support
   bool isA(const void *ClassID) const override {
@@ -1220,7 +1229,6 @@ private:
   /// This was potentially adjusted and might not be identical to the triple
   /// of `m_target_wp`.
   llvm::Triple m_triple;
-  lldb::TargetWP m_target_wp;
   /// The persistent variables associated with this process for the expression
   /// parser.
   std::unique_ptr<ClangPersistentVariables> m_persistent_variables;

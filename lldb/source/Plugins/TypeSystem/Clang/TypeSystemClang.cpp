@@ -552,7 +552,10 @@ static void ParseLangArgs(LangOptions &Opts, InputKind IK, const char *triple) {
 }
 
 TypeSystemClang::TypeSystemClang(llvm::StringRef name,
-                                 llvm::Triple target_triple) {
+                                 llvm::Triple target_triple,
+                                 Target* target) :
+      m_target_wp(target ? target->shared_from_this() : nullptr)
+{
   m_display_name = name.str();
   if (!target_triple.str().empty())
     SetTargetTriple(target_triple.str());
@@ -562,7 +565,10 @@ TypeSystemClang::TypeSystemClang(llvm::StringRef name,
 }
 
 TypeSystemClang::TypeSystemClang(llvm::StringRef name,
-                                 ASTContext &existing_ctxt) {
+                                 ASTContext &existing_ctxt,
+                                 Target* target) :
+      m_target_wp(target ? target->shared_from_this() : nullptr)
+{
   llvm::errs() << "Creating a non-owning TypeSystemClang\n";
   m_display_name = name.str();
   SetTargetTriple(existing_ctxt.getTargetInfo().getTriple().str());
@@ -609,11 +615,13 @@ lldb::TypeSystemSP TypeSystemClang::CreateInstance(lldb::LanguageType language,
   if (module) {
     std::string ast_name =
         "ASTContext for '" + module->GetFileSpec().GetPath() + "'";
-    llvm::errs() << "Creating module TypeSystemClang\n";
-    return std::make_shared<TypeSystemClang>(ast_name, triple);
+    auto ptr = std::make_shared<TypeSystemClang>(ast_name, triple, target);
+    llvm::errs() << "Created module TypeSystemClang(" << ptr.get() << ", target = " << target << ")\n";
+    return ptr;
   } else if (target && target->IsValid()) {
-    llvm::errs() << "Creating module ScratchTypeSystemClang\n";
-    return std::make_shared<ScratchTypeSystemClang>(*target, triple);
+    auto ptr = std::make_shared<ScratchTypeSystemClang>(*target, triple);
+    llvm::errs() << "Created module ScratchTypeSystemClang(" << ptr.get() << ", target = " << target << ")\n";
+    return ptr;
   }
 
   return lldb::TypeSystemSP();
@@ -658,8 +666,29 @@ void TypeSystemClang::Terminate() {
 void TypeSystemClang::Finalize() {
   assert(m_ast_up);
   GetASTMap().Erase(m_ast_up.get());
-  if (!m_ast_owned)
+  if (!m_ast_owned) {
     m_ast_up.release();
+  } else if (auto target = m_target_wp.lock()) {
+    llvm::errs() << "Locked target\n";
+    if (auto ts_or_err = target->GetScratchTypeSystemForLanguage(lldb::eLanguageTypeC, false)) {
+      llvm::errs() << "Got typesystem\n";
+      if (llvm::isa<ScratchTypeSystemClang>(ts_or_err.get())) {
+        llvm::errs() << "Got scratch typesystem\n";
+        ScratchTypeSystemClang &scratch_ast =
+            llvm::cast<ScratchTypeSystemClang>(ts_or_err.get());
+        // Remove this TypeSystem's ASTContext from origin map
+        // where it could be in the src_ctx field
+        // dst_ctx is the scratch AST
+        auto importer = scratch_ast.GetClangASTImporter();
+        if (importer) {
+          llvm::errs() << "Got importer\n";
+          scratch_ast.ForgetSource(&getASTContext(), *importer);
+        }
+      }
+    }
+  } else {
+    llvm::errs() << "Failed to lock target\n";
+  }
 
   m_builtins_up.reset();
   m_selector_table_up.reset();
@@ -9847,7 +9876,7 @@ public:
   ///                   type information.
   SpecializedScratchAST(llvm::StringRef name, llvm::Triple triple,
                         std::unique_ptr<ClangASTSource> ast_source)
-      : TypeSystemClang(name, triple),
+      : TypeSystemClang(name, triple, nullptr),
         m_scratch_ast_source_up(std::move(ast_source)) {
     // Setup the ClangASTSource to complete this AST.
     m_scratch_ast_source_up->InstallASTContext(*this);
@@ -9866,8 +9895,7 @@ const llvm::NoneType ScratchTypeSystemClang::DefaultAST = llvm::None;
 
 ScratchTypeSystemClang::ScratchTypeSystemClang(Target &target,
                                                llvm::Triple triple)
-    : TypeSystemClang("scratch ASTContext", triple), m_triple(triple),
-      m_target_wp(target.shared_from_this()),
+    : TypeSystemClang("scratch ASTContext", triple, &target), m_triple(triple),
       m_persistent_variables(
           new ClangPersistentVariables(target.shared_from_this())) {
   m_scratch_ast_source_up = CreateASTSource();
@@ -9980,6 +10008,12 @@ ScratchTypeSystemClang::GetPersistentExpressionState() {
   return m_persistent_variables.get();
 }
 
+void ScratchTypeSystemClang::ResetMetadata(ClangASTImporter &importer) {
+  if (auto metadata = importer.GetContextMetadata(&getASTContext())) {
+    metadata->removeOrigin(getASTContext().getTranslationUnitDecl());
+  }
+}
+
 void ScratchTypeSystemClang::ForgetSource(ASTContext *src_ctx,
                                           ClangASTImporter &importer) {
   // Remove it as a source from the main AST.
@@ -10002,6 +10036,10 @@ GetSpecializedASTName(ScratchTypeSystemClang::IsolatedASTKind feature) {
     return "scratch ASTContext for C++ module types";
   }
   llvm_unreachable("Unimplemented ASTFeature kind?");
+}
+
+std::shared_ptr<ClangASTImporter> ScratchTypeSystemClang::GetClangASTImporter() {
+  return m_persistent_variables->GetClangASTImporter();
 }
 
 TypeSystemClang &ScratchTypeSystemClang::GetIsolatedAST(

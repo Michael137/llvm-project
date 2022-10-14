@@ -7,6 +7,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "lldb/Target/Target.h"
+#include "Plugins/TypeSystem/Clang/TypeSystemClang.h"
 #include "lldb/Breakpoint/BreakpointIDList.h"
 #include "lldb/Breakpoint/BreakpointPrecondition.h"
 #include "lldb/Breakpoint/BreakpointResolver.h"
@@ -60,6 +61,7 @@
 #include "lldb/Utility/State.h"
 #include "lldb/Utility/StreamString.h"
 #include "lldb/Utility/Timer.h"
+#include "lldb/lldb-enumerations.h"
 
 #include "llvm/ADT/ScopeExit.h"
 #include "llvm/ADT/SetVector.h"
@@ -1669,6 +1671,16 @@ void Target::SymbolsDidLoad(ModuleList &module_list) {
 
 void Target::ModulesDidUnload(ModuleList &module_list, bool delete_locations) {
   if (m_valid && module_list.GetSize()) {
+    auto ts_or_err = GetScratchTypeSystemForLanguage(lldb::eLanguageTypeC, false);
+    if (auto err = ts_or_err.takeError()) {
+        llvm::errs() << llvm::toString(std::move(err)) << '\n';
+    } else if (llvm::isa<ScratchTypeSystemClang>(ts_or_err.get())) {
+      auto& scratch = llvm::cast<ScratchTypeSystemClang>(ts_or_err.get());
+      auto importer = scratch.GetClangASTImporter();
+      if (importer) {
+        llvm::errs() << "Unloaded modules for target with scratch AST: " << &scratch.getASTContext() << '\n';
+      }
+    }
     UnloadModuleSections(module_list);
     BroadcastEvent(eBroadcastBitModulesUnloaded,
                    new TargetEventData(this->shared_from_this(), module_list));

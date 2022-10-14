@@ -1679,6 +1679,7 @@ void Target::ModulesDidUnload(ModuleList &module_list, bool delete_locations) {
       auto importer = scratch.GetClangASTImporter();
       if (importer) {
         llvm::errs() << "Unloaded modules for target with scratch AST: " << &scratch.getASTContext() << '\n';
+        scratch.ResetMetadata(*importer);
       }
     }
     UnloadModuleSections(module_list);

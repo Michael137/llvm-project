@@ -10010,7 +10010,8 @@ ScratchTypeSystemClang::GetPersistentExpressionState() {
 
 void ScratchTypeSystemClang::ResetMetadata(ClangASTImporter &importer) {
   if (auto metadata = importer.GetContextMetadata(&getASTContext())) {
-    metadata->removeOrigin(getASTContext().getTranslationUnitDecl());
+    //metadata->removeOrigin(getASTContext().getTranslationUnitDecl());
+    metadata->removeAllOrigins();
   }
 }
 

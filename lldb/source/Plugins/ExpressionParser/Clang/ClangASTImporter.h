@@ -402,6 +402,10 @@ public:
       return getOrigin(decl).Valid();
     }
 
+    void removeAllOrigins() {
+      m_origins.clear();
+    }
+
   private:
     /// Maps declarations to the ASTContext/Decl from which they were imported
     /// from. If a declaration is from an ASTContext which has been deleted

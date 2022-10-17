@@ -244,7 +244,7 @@ PrintingPolicy CGDebugInfo::getPrintingPolicy() const {
   } else {
     // For DWARF, printing rules are underspecified.
     // SplitTemplateClosers yields better interop with GCC and GDB (PR46052).
-    PP.SplitTemplateClosers = true;
+    PP.SplitTemplateClosers = false;
   }
 
   PP.SuppressInlineNamespace = false;
@@ -5143,6 +5143,7 @@ std::string CGDebugInfo::GetName(const Decl *D, bool Qualified) const {
   const NamedDecl *ND = dyn_cast<NamedDecl>(D);
   if (!ND)
     return Name;
+
   codegenoptions::DebugTemplateNamesKind TemplateNamesKind =
       CGM.getCodeGenOpts().getDebugSimpleTemplateNames();
 

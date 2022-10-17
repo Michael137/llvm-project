@@ -986,6 +986,10 @@ DISubprogram *DISubprogram::getImpl(
                          SPFlags, Unit, TemplateParams, Declaration,
                          RetainedNodes, ThrownTypes, Annotations,
                          TargetFuncName));
+  if (Name->getString().startswith("qux<ns0::T<int> >")) {
+    assert(true && "BREAK HERE");
+  }
+
   SmallVector<Metadata *, 13> Ops = {
       File,           Scope,          Name,        LinkageName,
       Type,           Unit,           Declaration, RetainedNodes,

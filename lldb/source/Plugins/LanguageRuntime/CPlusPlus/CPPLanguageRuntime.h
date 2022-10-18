@@ -83,10 +83,14 @@ protected:
   CPPLanguageRuntime(Process *process);
 
 private:
+  lldb::ThreadPlanSP GetStdFunctionPlan(Thread &thread, bool stop_others,
+                                        SymbolContext const& sc);
+
   using OperatorStringToCallableInfoMap =
     llvm::StringMap<CPPLanguageRuntime::LibCppStdFunctionCallableInfo>;
 
   OperatorStringToCallableInfoMap CallableLookupCache;
+  //llvm::StringMap<CPPLanguageRuntime::LibCppStdThreadPlanFunc> ThreadPlanMap;
 };
 
 } // namespace lldb_private

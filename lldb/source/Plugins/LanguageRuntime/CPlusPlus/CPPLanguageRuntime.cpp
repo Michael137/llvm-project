@@ -336,47 +336,15 @@ CPPLanguageRuntime::FindLibCppStdFunctionCallableInfo(
   return optional_info;
 }
 
+// Handling the case where we are attempting to step into std::function.
+// The behavior will be that we will attempt to obtain the wrapped
+// callable via FindLibCppStdFunctionCallableInfo() and if we find it we
+// will return a ThreadPlanRunToAddress to the callable. Therefore we will
+// step into the wrapped callable.
+//
 lldb::ThreadPlanSP
-CPPLanguageRuntime::GetStepThroughTrampolinePlan(Thread &thread,
-                                                 bool stop_others) {
-  ThreadPlanSP ret_plan_sp;
-
-  lldb::addr_t curr_pc = thread.GetRegisterContext()->GetPC();
-
-  TargetSP target_sp(thread.CalculateTarget());
-
-  if (target_sp->GetSectionLoadList().IsEmpty())
-    return ret_plan_sp;
-
-  Address pc_addr_resolved;
-  SymbolContext sc;
-  Symbol *symbol;
-
-  if (!target_sp->GetSectionLoadList().ResolveLoadAddress(curr_pc,
-                                                          pc_addr_resolved))
-    return ret_plan_sp;
-
-  target_sp->GetImages().ResolveSymbolContextForAddress(
-      pc_addr_resolved, eSymbolContextEverything, sc);
-  symbol = sc.symbol;
-
-  if (symbol == nullptr)
-    return ret_plan_sp;
-
-  llvm::StringRef function_name(symbol->GetName().GetCString());
-
-  // Handling the case where we are attempting to step into std::function.
-  // The behavior will be that we will attempt to obtain the wrapped
-  // callable via FindLibCppStdFunctionCallableInfo() and if we find it we
-  // will return a ThreadPlanRunToAddress to the callable. Therefore we will
-  // step into the wrapped callable.
-  //
-  bool found_expected_start_string =
-      function_name.startswith("std::__1::function<");
-
-  if (!found_expected_start_string)
-    return ret_plan_sp;
-
+CPPLanguageRuntime::GetStdFunctionPlan(Thread &thread, bool stop_others,
+                                       SymbolContext const& sc) {
   AddressRange range_of_curr_func;
   sc.GetAddressRange(eSymbolContextEverything, 0, false, range_of_curr_func);
 
@@ -392,19 +360,52 @@ CPPLanguageRuntime::GetStepThroughTrampolinePlan(Thread &thread,
         value_sp->GetValueIsValid()) {
       // We found the std::function wrapped callable and we have its address.
       // We now create a ThreadPlan to run to the callable.
-      ret_plan_sp = std::make_shared<ThreadPlanRunToAddress>(
+      return std::make_shared<ThreadPlanRunToAddress>(
           thread, callable_info.callable_address, stop_others);
-      return ret_plan_sp;
     } else {
       // We are in std::function but we could not obtain the callable.
       // We create a ThreadPlan to keep stepping through using the address range
       // of the current function.
-      ret_plan_sp = std::make_shared<ThreadPlanStepInRange>(
+      return std::make_shared<ThreadPlanStepInRange>(
           thread, range_of_curr_func, sc, nullptr, eOnlyThisThread,
           eLazyBoolYes, eLazyBoolYes);
-      return ret_plan_sp;
     }
   }
 
-  return ret_plan_sp;
+  return nullptr;
+}
+
+lldb::ThreadPlanSP
+CPPLanguageRuntime::GetStepThroughTrampolinePlan(Thread &thread,
+                                                 bool stop_others) {
+  lldb::addr_t curr_pc = thread.GetRegisterContext()->GetPC();
+
+  TargetSP target_sp(thread.CalculateTarget());
+
+  if (target_sp->GetSectionLoadList().IsEmpty())
+    return nullptr;
+
+  Address pc_addr_resolved;
+  SymbolContext sc;
+  Symbol *symbol;
+
+  if (!target_sp->GetSectionLoadList().ResolveLoadAddress(curr_pc,
+                                                          pc_addr_resolved))
+    return nullptr;
+
+  target_sp->GetImages().ResolveSymbolContextForAddress(
+      pc_addr_resolved, eSymbolContextEverything, sc);
+  symbol = sc.symbol;
+
+  if (symbol == nullptr)
+    return nullptr;
+
+  llvm::StringRef function_name(symbol->GetName().GetCString());
+  llvm::errs() << "Checking thread plan for " << function_name << '\n';
+  if (function_name.startswith("std::__1::function<"))
+    return GetStdFunctionPlan(thread, stop_others, sc);
+  else if (function_name.startswith("std::__1::ranges::views::__transform"))
+    return GetStdFunctionPlan(thread, stop_others, sc);
+
+  return nullptr;
 }

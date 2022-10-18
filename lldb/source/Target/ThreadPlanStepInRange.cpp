@@ -304,6 +304,7 @@ void ThreadPlanStepInRange::SetDefaultFlagValue(uint32_t new_value) {
 }
 
 bool ThreadPlanStepInRange::FrameMatchesAvoidCriteria() {
+  llvm::errs() << "Trying to match avoid criteria\n";
   StackFrame *frame = GetThread().GetStackFrameAtIndex(0).get();
 
   // Check the library list first, as that's cheapest:

@@ -114,13 +114,55 @@ TEST(CPlusPlusLanguage, MethodNameParsing) {
       {"llvm::Optional<llvm::MCFixupKind>::operator*() const volatile &&",
        "llvm::Optional<llvm::MCFixupKind>", "operator*", "()",
        "const volatile &&", "llvm::Optional<llvm::MCFixupKind>::operator*"},
+      {"void foo<Dummy<char [10]>>()",
+       "", "foo<Dummy<char [10]>>", "()", "", "foo<Dummy<char [10]>>"},
 
       // auto return type
       {"auto std::test_return_auto<int>() const", "std",
        "test_return_auto<int>", "()", "const", "std::test_return_auto<int>"},
       {"decltype(auto) std::test_return_auto<int>(int) const", "std",
        "test_return_auto<int>", "(int)", "const",
-       "std::test_return_auto<int>"}};
+       "std::test_return_auto<int>"},
+  
+      // abi_tag on class
+      {"v1::v2::Dummy[abi:c1][abi:c2]<v1::v2::Dummy[abi:c1][abi:c2]<int>> "
+       "v1::v2::Dummy[abi:c1][abi:c2]<v1::v2::Dummy[abi:c1][abi:c2]<int>>"
+       "::method2<v1::v2::Dummy[abi:c1][abi:c2]<v1::v2::Dummy[abi:c1][abi:c2]<int>>>(int, v1::v2::Dummy<int>) const &&",
+       // Context
+       "v1::v2::Dummy[abi:c1][abi:c2]<v1::v2::Dummy[abi:c1][abi:c2]<int>>",
+       // Basename
+       "method2<v1::v2::Dummy[abi:c1][abi:c2]<v1::v2::Dummy[abi:c1][abi:c2]<int>>>", 
+       // Args, qualifiers
+       "(int, v1::v2::Dummy<int>)", "const &&",
+       // Full scope-qualified name without args
+       "v1::v2::Dummy[abi:c1][abi:c2]<v1::v2::Dummy[abi:c1][abi:c2]<int>>"
+       "::method2<v1::v2::Dummy[abi:c1][abi:c2]<v1::v2::Dummy[abi:c1][abi:c2]<int>>>"},
+
+      // abi_tag on free function and template argument
+      {"v1::v2::Dummy[abi:c1][abi:c2]<v1::v2::Dummy[abi:c1][abi:c2]<int>> "
+       "v1::v2::with_tag_in_ns[abi:f1][abi:f2]<v1::v2::Dummy[abi:c1][abi:c2]"
+       "<v1::v2::Dummy[abi:c1][abi:c2]<int>>>(int, v1::v2::Dummy<int>) const &&",
+       // Context
+       "v1::v2",
+       // Basename
+       "with_tag_in_ns[abi:f1][abi:f2]<v1::v2::Dummy[abi:c1][abi:c2]<v1::v2::Dummy[abi:c1][abi:c2]<int>>>",
+       // Args, qualifiers
+       "(int, v1::v2::Dummy<int>)", "const &&",
+       // Full scope-qualified name without args
+       "v1::v2::with_tag_in_ns[abi:f1][abi:f2]<v1::v2::Dummy[abi:c1][abi:c2]<v1::v2::Dummy[abi:c1][abi:c2]<int>>>"},
+
+      // abi_tag with special characters
+      {"auto ns::with_tag_in_ns[abi:special tag,0.0][abi:special tag,1.0]<Dummy<int>>"
+       "(float) const &&",
+       // Context
+       "ns",
+       // Basename
+       "with_tag_in_ns[abi:special tag,0.0][abi:special tag,1.0]<Dummy<int>>",
+       // Args, qualifiers
+       "(float)", "const &&",
+       // Full scope-qualified name without args
+       "ns::with_tag_in_ns[abi:special tag,0.0][abi:special tag,1.0]<Dummy<int>>"},
+  };
 
   for (const auto &test : test_cases) {
     CPlusPlusLanguage::MethodName method(ConstString(test.input));

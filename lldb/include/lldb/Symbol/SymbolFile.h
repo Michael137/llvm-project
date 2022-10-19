@@ -223,6 +223,11 @@ public:
                                         lldb::SymbolContextItem resolve_scope,
                                         SymbolContext &sc) = 0;
 
+  virtual llvm::Optional<std::string> GetFunctionNameFromDebugInfo(SymbolContext const&) {
+      llvm::errs() << "Returning default llvm::None\n";
+      return llvm::None;
+  }
+
   /// Get an error that describes why variables might be missing for a given
   /// symbol context.
   ///

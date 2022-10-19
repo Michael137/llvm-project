@@ -117,6 +117,9 @@ private:
   void Advance();
   void TakeBack();
   bool ConsumeToken(clang::tok::TokenKind kind);
+
+  /// Consumes ABI tags enclosed within '[abi:' ... ']'
+  bool ConsumeAbiTag();
   template <typename... Ts> bool ConsumeToken(Ts... kinds);
   Bookmark SetBookmark();
   size_t GetCurrentPosition();

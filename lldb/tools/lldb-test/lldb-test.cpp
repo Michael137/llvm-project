@@ -9,12 +9,14 @@
 #include "FormatUtil.h"
 #include "SystemInitializerTest.h"
 
+#include "Plugins/Language/CPlusPlus/CPlusPlusNameParser.h"
 #include "Plugins/SymbolFile/DWARF/SymbolFileDWARF.h"
 #include "Plugins/TypeSystem/Clang/TypeSystemClang.h"
 #include "lldb/Breakpoint/BreakpointLocation.h"
 #include "lldb/Core/Debugger.h"
 #include "lldb/Core/Module.h"
 #include "lldb/Core/Section.h"
+#include "lldb/Expression/IRMemoryMap.h"
 #include "lldb/Expression/IRMemoryMap.h"
 #include "lldb/Initialization/SystemLifetimeManager.h"
 #include "lldb/Interpreter/CommandInterpreter.h"
@@ -63,12 +65,15 @@ cl::SubCommand SymTabSubcommand("symtab",
 cl::SubCommand IRMemoryMapSubcommand("ir-memory-map", "Test IRMemoryMap");
 cl::SubCommand AssertSubcommand("assert", "Test assert handling");
 
+cl::SubCommand NameParserSubCommand("parser", "CPlusPlusNameParser");
+
 cl::opt<std::string> Log("log", cl::desc("Path to a log file"), cl::init(""),
                          cl::sub(BreakpointSubcommand),
                          cl::sub(ObjectFileSubcommand),
                          cl::sub(SymbolsSubcommand),
                          cl::sub(SymTabSubcommand),
-                         cl::sub(IRMemoryMapSubcommand));
+                         cl::sub(IRMemoryMapSubcommand),
+                         cl::sub(NameParserSubCommand));
 
 /// Create a target using the file pointed to by \p Filename, or abort.
 TargetSP createTarget(Debugger &Dbg, const std::string &Filename);
@@ -93,6 +98,44 @@ static void dumpState(const BreakpointList &List, LinePrinter &P);
 static std::string substitute(StringRef Cmd);
 static int evaluateBreakpoints(Debugger &Dbg);
 } // namespace breakpoint
+
+namespace parser {
+struct Parsed {
+  CPlusPlusNameParser::ParsedFunction as_definition;
+  CPlusPlusNameParser::ParsedName full_name;
+};
+
+static cl::opt<std::string> CPPName(cl::Positional, cl::desc("<CPPName>"),
+                                    cl::Required, cl::sub(NameParserSubCommand));
+
+static Parsed parseImpl() {
+  CPlusPlusNameParser parser(parser::CPPName);
+  Parsed parsed;
+  if (auto name = parser.ParseAsFullName())
+    parsed.full_name = std::move(name.value());
+
+  if (auto def = parser.ParseAsFunctionDefinition())
+    parsed.as_definition = std::move(def.value());
+
+  return parsed;
+}
+
+static int parse(Debugger&) {
+  Parsed parsed = parseImpl();
+  outs() << "Parsed: " << parser::CPPName << '\n';
+  outs() << "ParseAsFullName:\n";
+  outs() << "\tbasename: " << parsed.full_name.basename << '\n';
+  outs() << "\t context: " << parsed.full_name.context << '\n';
+  outs() << '\n';
+  outs() << "ParseAsFunctionDefinition:\n";
+  outs() << "\t  basename: " << parsed.as_definition.name.basename << '\n';
+  outs() << "\t   context: " << parsed.as_definition.name.context << '\n';
+  outs() << "\t arguments: " << parsed.as_definition.arguments << '\n';
+  outs() << "\tqualifiers: " << parsed.as_definition.qualifiers << '\n';
+
+  return 0;
+}
+} // namespace parser
 
 namespace object {
 cl::opt<bool> SectionContents("contents",
@@ -1232,6 +1275,8 @@ int main(int argc, const char *argv[]) {
     return opts::irmemorymap::evaluateMemoryMapCommands(*Dbg);
   if (opts::AssertSubcommand)
     return opts::assert::lldb_assert(*Dbg);
+  if (opts::NameParserSubCommand)
+    return opts::parser::parse(*Dbg);
 
   WithColor::error() << "No command specified.\n";
   return 1;

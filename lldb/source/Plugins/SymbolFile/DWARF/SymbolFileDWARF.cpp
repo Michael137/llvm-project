@@ -1398,6 +1398,26 @@ user_id_t SymbolFileDWARF::GetUID(DIERef ref) {
          lldb::user_id_t(ref.section() == DIERef::Section::DebugTypes) << 63;
 }
 
+llvm::Optional<std::string> SymbolFileDWARF::GetFunctionNameFromDebugInfo(SymbolContext const& sc) {
+  std::string ret;
+
+  lldb_private::Function* func = sc.function;
+  if (!func) {
+    llvm::errs() << "Couldn't find function symbol\n";
+    return llvm::None;
+  }
+
+  // Get DW_AT_name
+  auto die = GetDIE(func->GetID());
+  llvm::errs() << "Got declcontext strings: " << GetDWARFDeclContext(die).GetQualifiedNameAsConstString() << '\n';
+  ConstString name = GetDWARFDeclContext(die).GetQualifiedNameAsConstString();
+  if (name)
+    return std::string(name.GetCString());
+
+  return llvm::None;
+}
+
+
 llvm::Optional<SymbolFileDWARF::DecodedUID>
 SymbolFileDWARF::DecodeUID(lldb::user_id_t uid) {
   // This method can be called without going through the symbol vendor so we

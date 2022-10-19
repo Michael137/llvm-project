@@ -29,6 +29,7 @@
 #include "lldb/Utility/ConstString.h"
 #include "lldb/Utility/Flags.h"
 #include "lldb/Utility/RangeMap.h"
+#include "lldb/Utility/StreamString.h"
 #include "lldb/lldb-private.h"
 
 #include "DWARFContext.h"
@@ -263,6 +264,8 @@ public:
   virtual DWARFDIE GetDIE(const DIERef &die_ref);
 
   DWARFDIE GetDIE(lldb::user_id_t uid);
+
+  llvm::Optional<std::string> GetFunctionNameFromDebugInfo(lldb_private::SymbolContext const& sc) override;
 
   lldb::user_id_t GetUID(const DWARFBaseDIE &die) {
     return GetUID(die.GetDIERef());

@@ -11,6 +11,7 @@
 #include "lldb/Core/Module.h"
 #include "lldb/Symbol/Function.h"
 #include "lldb/Symbol/Symbol.h"
+#include "lldb/Symbol/SymbolFile.h"
 #include "lldb/Target/Process.h"
 #include "lldb/Target/RegisterContext.h"
 #include "lldb/Target/SectionLoadList.h"
@@ -336,16 +337,26 @@ bool ThreadPlanStepInRange::FrameMatchesAvoidCriteria() {
     SymbolContext sc = frame->GetSymbolContext(
         eSymbolContextFunction | eSymbolContextBlock | eSymbolContextSymbol);
     if (sc.symbol != nullptr) {
-      const char *frame_function_name =
+      llvm::Optional<std::string> frame_function_name = llvm::None;
+
+      auto* sf = frame->GetFrameBlock()->GetSymbolFile();
+      if (sf) {
+        frame_function_name = sf->GetFunctionNameFromDebugInfo(sc);
+      }
+
+      if (!frame_function_name.has_value()) {
+        frame_function_name =
           sc.GetFunctionName(Mangled::ePreferDemangledWithoutArguments)
               .GetCString();
-      if (frame_function_name) {
-        bool return_value = avoid_regexp_to_use->Execute(frame_function_name);
+      }
+
+      if (frame_function_name.has_value()) {
+        bool return_value = avoid_regexp_to_use->Execute(*frame_function_name);
         if (return_value) {
           LLDB_LOGF(GetLog(LLDBLog::Step),
                     "Stepping out of function \"%s\" because it matches the "
                     "avoid regexp \"%s\".",
-                    frame_function_name,
+                    frame_function_name->c_str(),
                     avoid_regexp_to_use->GetText().str().c_str());
         }
         return return_value;

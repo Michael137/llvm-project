@@ -120,7 +120,35 @@ TEST(CPlusPlusLanguage, MethodNameParsing) {
        "test_return_auto<int>", "()", "const", "std::test_return_auto<int>"},
       {"decltype(auto) std::test_return_auto<int>(int) const", "std",
        "test_return_auto<int>", "(int)", "const",
-       "std::test_return_auto<int>"}};
+       "std::test_return_auto<int>"},
+  
+      // abi_tag on class
+      {"v1::v2::Dummy[abi:c1][abi:c2]<v1::v2::Dummy[abi:c1][abi:c2]<int>> "
+       "v1::v2::Dummy[abi:c1][abi:c2]<v1::v2::Dummy[abi:c1][abi:c2]<int>>"
+       "::method2<v1::v2::Dummy[abi:c1][abi:c2]<v1::v2::Dummy[abi:c1][abi:c2]<int>>>(int, v1::v2::Dummy<int>) const &&",
+       // Context
+       "v1::v2::Dummy[abi:c1][abi:c2]<v1::v2::Dummy[abi:c1][abi:c2]<int>>",
+       // Basename
+       "method2<v1::v2::Dummy[abi:c1][abi:c2]<v1::v2::Dummy[abi:c1][abi:c2]<int>>>", 
+       // Args, qualifiers
+       "(int, v1::v2::Dummy<int>)", "const &&",
+       // Full scope-qualified name without args
+       "v1::v2::Dummy[abi:c1][abi:c2]<v1::v2::Dummy[abi:c1][abi:c2]<int>>"
+       "::method2<v1::v2::Dummy[abi:c1][abi:c2]<v1::v2::Dummy[abi:c1][abi:c2]<int>>>"},
+
+      // abi_tag on free function and template argument
+      {"v1::v2::Dummy[abi:c1][abi:c2]<v1::v2::Dummy[abi:c1][abi:c2]<int>> "
+       "v1::v2::with_tag_in_ns[abi:f1][abi:f2]<v1::v2::Dummy[abi:c1][abi:c2]"
+       "<v1::v2::Dummy[abi:c1][abi:c2]<int>>>(int, v1::v2::Dummy<int>) const &&",
+       // Context
+       "v1::v2",
+       // Basename
+       "with_tag_in_ns[abi:f1][abi:f2]<v1::v2::Dummy[abi:c1][abi:c2]<v1::v2::Dummy[abi:c1][abi:c2]<int>>>",
+       // Args, qualifiers
+       "(int, v1::v2::Dummy<int>)", "const &&",
+       // Full scope-qualified name without args
+       "v1::v2::with_tag_in_ns[abi:f1][abi:f2]<v1::v2::Dummy[abi:c1][abi:c2]<v1::v2::Dummy[abi:c1][abi:c2]<int>>>"}
+  };
 
   for (const auto &test : test_cases) {
     CPlusPlusLanguage::MethodName method(ConstString(test.input));

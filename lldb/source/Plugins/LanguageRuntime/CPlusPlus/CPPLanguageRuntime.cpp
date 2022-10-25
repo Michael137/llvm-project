@@ -374,8 +374,9 @@ CPPLanguageRuntime::GetStepThroughTrampolinePlan(Thread &thread,
   bool is_std_function =
       function_name.startswith("std::__1::function<");
   bool is_filter_view = function_name.startswith("std::__1::ranges::filter_view<");
+  bool is_transform_view = function_name.startswith("std::__1::ranges::transform_view<");
 
-  if (!is_std_function && !is_filter_view)
+  if (!is_std_function && !is_filter_view && !is_transform_view)
     return ret_plan_sp;
 
   AddressRange range_of_curr_func;
@@ -386,10 +387,24 @@ CPPLanguageRuntime::GetStepThroughTrampolinePlan(Thread &thread,
   if (frame) {
     ValueObjectSP value_sp = frame->FindVariable(g_this);
 
-    if (is_filter_view)
-      if (auto pred = value_sp->GetChildMemberWithName(ConstString("__pred_"), true))
+    if (is_filter_view) {
+      if (auto pred = value_sp->GetChildMemberWithName(ConstString("__pred_"), true)) {
+        if (auto val = pred->GetChildMemberWithName(ConstString("__val_"), true)) {
+          value_sp = val;
+        }
+      }
+    } else if (is_transform_view) {
+      auto parent = value_sp->GetChildMemberWithName(ConstString("__parent_"), true);
+      auto pred = value_sp->GetChildMemberWithName(ConstString("__func_"), true);
+
+      if (!pred && parent) {
+        pred = parent->GetChildMemberWithName(ConstString("__func_"), true);
+      }
+
+      if (pred)
         if (auto val = pred->GetChildMemberWithName(ConstString("__val_"), true))
           value_sp = val;
+    }
 
     CPPLanguageRuntime::LibCppStdFunctionCallableInfo callable_info =
         FindLibCppStdFunctionCallableInfo(value_sp);
@@ -400,9 +415,9 @@ CPPLanguageRuntime::GetStepThroughTrampolinePlan(Thread &thread,
       // We now create a ThreadPlan to run to the callable.
       ret_plan_sp = std::make_shared<ThreadPlanRunToAddress>(
           thread, callable_info.callable_address, stop_others);
-      // TODO: or use QueueThreadPlanForStepOutNoShouldStop? or another QueueThreadPlanForRunToAddress?
-      auto new_plan = thread.QueueThreadPlanForStepUntil(false, source_addr, 1, stop_others,
-                                                         frame_idx, status)
+      //// TODO: or use QueueThreadPlanForStepOutNoShouldStop? or another QueueThreadPlanForRunToAddress?
+      //auto new_plan = thread.QueueThreadPlanForStepUntil(false, source_addr, 1, stop_others,
+      //                                                   frame_idx, status)
       return ret_plan_sp;
     } else {
       // We are in std::function but we could not obtain the callable.

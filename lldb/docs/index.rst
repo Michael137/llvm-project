@@ -131,6 +131,7 @@ interesting areas to contribute to lldb.
    use/map
    use/formatting
    use/variable
+   use/type_completion
    use/symbolication
    use/symbols
    use/extensions

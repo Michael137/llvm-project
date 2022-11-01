@@ -163,6 +163,18 @@ Minimal Import
 
 By default, all ``ASTImporter`` instances used by LLDB (created by ``ASTImporterDelegate``) import using ``clang::ASTImporter``'s "minimal import" mode.
 
+Minimal import has following effects on the import process:
+1. `ASTNodeImporter::ImportDeclContext`: now only imports the DeclContext decl, not necessarily the decls
+                                         contained in the context
+2. `addDeclToContexts`: calls `addDeclInternal` unconditionally
+3. `shouldForceImportDeclContext`: *crucial*, `ImportDefinitionKind::IDK_Default` now
+                                   doesn't import any part of a definition in minimal import
+                                   case
+4. `ImportDefinition`: doesn't call `setCompleteDefinition` in minimal import case
+5. `getStructuralEquivalenceKind`: results in a much weaker equivalence check for records with
+                                   external lexical storage
+6. `VisitRecordDecl`: doesn't call `ImportImplicitMethods` in minimal import case
+
 Origin Tracking Structures
 **************************
 
@@ -387,6 +399,9 @@ There are several kinds of AST sources (and AST source wrappers) to be aware of:
 
 Example Completion Call-chain
 -----------------------------
+
+Example Minimal Import
+----------------------
 
 Glossary
 --------

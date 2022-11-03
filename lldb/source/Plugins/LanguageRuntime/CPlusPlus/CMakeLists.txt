@@ -1,5 +1,6 @@
 add_lldb_library(lldbPluginCPPRuntime
   CPPLanguageRuntime.cpp
+  CPlusPlusCallableThreadPlan.cpp
 
   LINK_LIBS
     lldbCore

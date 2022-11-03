@@ -422,6 +422,7 @@ public:
   Status JumpToLine(const FileSpec &file, uint32_t line,
                     bool can_leave_function, std::string *warnings = nullptr);
 
+  /// Returns nullptr if 'stack_id' is invalid.
   virtual lldb::StackFrameSP GetFrameWithStackID(const StackID &stack_id) {
     if (stack_id.IsValid())
       return GetStackFrameList()->GetFrameWithStackID(stack_id);

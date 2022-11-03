@@ -11,6 +11,7 @@
 #include <memory>
 
 #include "CPPLanguageRuntime.h"
+#include "CPlusPlusCallableThreadPlan.h"
 
 #include "llvm/ADT/StringRef.h"
 
@@ -393,7 +394,11 @@ CPPLanguageRuntime::GetStepThroughTrampolinePlan(Thread &thread,
       // We found the std::function wrapped callable and we have its address.
       // We now create a ThreadPlan to run to the callable.
       ret_plan_sp = std::make_shared<ThreadPlanRunToAddress>(
-          thread, callable_info.callable_address, stop_others);
+                thread, callable_info.callable_address, stop_others); 
+      //ret_plan_sp = std::make_shared<CPlusPlusCallableThreadPlan>(
+      //    thread, callable_info.callable_address, frame->GetStackID(), stop_others);
+      //ret_plan_sp->SetOkayToDiscard(false);
+
       return ret_plan_sp;
     } else {
       // We are in std::function but we could not obtain the callable.

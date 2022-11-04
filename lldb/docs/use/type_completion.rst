@@ -310,22 +310,24 @@ Single Record Type
                                                 1. DWARFASTParserClang::ParseTypeFromDWARF
                                                     1. DWARFASTParserClang::ParseStructureLikeDIE
                                                         1. TypeSystemClang::CreateRecordType
-                                                        2. TypeSystemClang::StartTagDeclarationDefinition <<<
+                                                        2. TypeSystemClang::StartTagDeclarationDefinition
                 2. ClangExpressionDeclMap::AddOneVariable
                 3. ClangExpressionDeclMap::GetVariableValue
-                4. Type::GetFullCompilerType
-                5. Type::ResolveCompilerType
-                6. SymbolFileDWARF::CompleteType(“struct Foo”)
-                    1. CompleteTypeFromDWARF(“struct Foo”)
-                        1. m_ast.SetHasExternalStorage(clang_type)
-                        2. CompleteRecordType
-                            1. ParseChildMembers
-                                1. ParseSingleMember
-                                    1. ResolveTypeUID
-                                    2. RequireCompleteType(member_clang_type)
-                                    3. TypeSystemClang::AddFieldToRecordType(“struct Foo”, field_decl)
-                            2. TypeSystemClang::CompleteTagDeclarationDefinition <<< NOTE: completed the declaration definition independently of when we started it
-                            3. SetRecordLayout(record_decl, layout_info)
+                    1. Type::GetFullCompilerType
+                        1. Type::ResolveCompilerType
+                            1. SymbolFileDWARF::CompleteType(“struct Foo”)
+                                1. CompleteTypeFromDWARF(“struct Foo”)
+                                    1. m_ast.SetHasExternalStorage(clang_type)
+                                    2. CompleteRecordType
+                                        1. ParseChildMembers
+                                            1. ParseSingleMember
+                                                1. ResolveTypeUID
+                                                2. RequireCompleteType(member_clang_type)
+                                                3. TypeSystemClang::AddFieldToRecordType(“struct Foo”, field_decl)
+                                        2. TypeSystemClang::CompleteTagDeclarationDefinition
+                                        3. SetRecordLayout(record_decl, layout_info)
+                    2. ClangASTImporter::CopyType(“struct Foo”)
+                    3. ClangASTSource::GuardedCopyType(“struct Foo”)
     4. SetExternalVisibleDeclsForName(decl_ctx, “f”, name_decls); <<< Sets StoredDeclsMap
     5. m_active_lookups.erase(uniqued_const_decl_name);
 

@@ -175,123 +175,6 @@ Minimal import has following effects on the import process:
                                    external lexical storage
 6. `VisitRecordDecl`: doesn't call `ImportImplicitMethods` in minimal import case
 
-Origin Tracking Structures
-**************************
-
-* ``DeclOrigin``
-
-  - Most fundamental unit of origin tracking
-  - Contains a ``clang::Decl*`` and the ``clang::ASTContext*`` that owns it
-
-* ``NamespaceMap``
-
-  - Alias for ``std::vector<std::pair<lldb::ModuleSP, CompilerDeclContext>>``
-  - List of all LLDB modules that contain declarations for some namespace
-  - Each ``NamespaceDecl`` is mapped to such a list via ``NamespaceMetaMap``
-  - When a ``ClangASTSource`` (e.g., ``ClangExpressionDeclMap``) resolves a namespaced type
-    (e.g., via ``ClangASTSource::FindCompleteType``), it will search each LLDB module
-    that knows of the namespace ``DeclContext`` in question for the type's name (this search
-    is done in (``FindTypesInNamespace``, which requires both pieces of information we store
-    in a ``NamespaceMap`` entry, aka ``NamespaceMapItem``).
-
-* ``ClangASTMap`` TODO
-* ``ClangASTMetadata`` TODO
-* ``TypeSystemMap`` TODO
-
-* ``ContextMetadataMap``
-
-  - ``map<clang::ASTContext*, ASTContextMetadata*>``
-  - Stores metadata for a *destination* ``ASTContext``
-  - Owned by ``ClangASTImporter``
-
-* ``NamespaceMetaMap``
-
-  - Alias for ``DenseMap<clang::NamespaceDecl*, NamespaceMap*>``
-  - See ``NamespaceMap``
-  - Owned by ``ASTImporterDelegate``
-
-* ``DelegateMap``
-
-  - Alias for ``DenseMap<clang::ASTContext*, ImporterDelegate*>``
-  - Stores each **source** ``ASTContext``'s ``ASTImporterDelegate``
-  - The ``ClangASTImporter`` APIs are used by the expression evaluator
-  - Owned by ``ASTImporterDelegate``
-
-* ``MapCompleter``
-
-  - This is a protocol implemented by a ``ClangASTSource`` to populate the ``NamespaceMetaMap``
-    for a freshly imported ``NamespaceDecl``
-  - Owned by ``ASTImporterDelegate``
-
-* ``OriginMap``
-
-  - ``map<clang::Decl*, DeclOrigin>``
-  - Tracks the owning *source* decl and its owning ``ASTContext`` for a *destination* decl
-  - Owned by ``ASTImporterDelegate``
-
-* ``ASTContextMetadata``:
-
-  - Main structure responsible for tracking decl origin information per ``ASTContext``
-  - An instance of this object tracks metadata for a single **destination** ``ASTContext``
-  - Keeps track of:
-
-    - Unused ``m_dst_ctx`` (!) *<<<*
-    - The source ``ASTContext``s' ``ASTImporterDelegate``s (tracked via ``DelegateMap``)
-
-      - Note, a single destination context can have multiple source contexts
-
-    - Which ``lldb::Module``s contain declarations whose ``DeclContext``s are some given ``NamespaceDecl``
-      (maintained by ``NamespaceMetaMap``)
-    - A ``MapCompleter`` to populate the above ``NamespaceMetaMap``
-    - Which *from* decl (and *from* ``ASTContext``) a *to* decl was imported from (via ``OriginMap``)
-
-* ``ClangASTImporter::GetContextMetadata``/``ClangASTImporter::MaybeGetContextMetadata``
-
-  - Returns the ``ASTContextMetadataSP`` for a given *destination* context
-  - The ``Maybe`` variant will not create an ``ASTContextMetadataSP`` if one doesn't already
-    exist
-
-* ``ASTImporterDelegate::Imported``
-
-  - TODO
-
-* ``ASTImporterDelegate::setOrigin``
-
-  - Primarily used in ``ASTImporterDelegate::Imported`` to adjust origins
-    according for a newly imported decl
-
-* ``ASTImporterDelegate::getOrigin``/``ClangASTImporter::GetDeclOrigin``
-
-  - Used in ``CompleteTagDeclsScope`` to complete specifically decls from a source context
-  - ``ClangASTSource::layoutRecordType``
-  - See [APIs that care about decl origins](#apis-that-care-about-decl-origins)
-
-::
-
-    ClangASTImporter
-    `- map<clang::ASTContext*, ASTContextMetadata*> m_metadata_map
-       |- AST_1 : ...
-       |- AST_2 : ASTContextMetadata_2
-       `- ...     `- map<clang::Decl*, DeclOrigin> OriginMap
-                     |- dst_decl1 : DeclOrigin_1
-                     |              `- { clang::Decl* : nullptr,   clang::ASTContext* :  nullptr } // Invalid origin
-                     |- dst_decl2 : DeclOrigin_2
-                     |              `- { clang::Decl* : src_decl2, clang::ASTContext* : src_ctx2 } // Valid origin
-                     |- dst_decl3 : DeclOrigin_3
-                     |              `- { clang::Decl* : src_decl3, clang::ASTContext* :  nullptr } // Valid origin
-                     |- dst_decl4 : DeclOrigin_4
-                     `- ...         `- { clang::Decl* : nullptr,   clang::ASTContext* : src_ctx4 } // Valid origin
-
-* ``ClangASTImporter::DeclOrigin ClangASTImporter::GetDeclOrigin(const clang::Decl *decl)``
-
-* ``void ClangASTImporter::SetDeclOrigin(const clang::Decl *decl)``
-
-  - Overwrites decl origin (only used for Objective-C support)
-
-* ``ClangASTImporter::NewDeclListener``
-
-  - E.g., ``CompleteTagDeclsScope``
-
 TypeSystemClang
 ***************
 
@@ -399,6 +282,58 @@ There are several kinds of AST sources (and AST source wrappers) to be aware of:
 
 Example Completion Call-chain
 -----------------------------
+
+Single Record Type
+******************
+
+1. ClangExpressionParser::Parse
+2. ClangExpressionParser::ParseInternal
+3. clang::Sema::CppLookupName
+4. CppNamespaceLookup
+5. LookupDirect
+6. clang::DeclContext::lookup
+7. ClangASTSource::ClangASTSourceProxy::FindExternalVisibleDeclsByName(“f”)
+8. ClangASTSource::FindExternalVisibleDeclsByName(“f”, decl_ctx)
+    1. NameSearchContext context(“f”, decl_ctx)
+    2. m_active_lookups.insert(“f”);
+    3. ClangExpressionDeclMap::FindExternalVisibleDecls(context)
+        1. ClangExpressionDeclMap::FindExternalVisibleDecls(context, lldb::ModuleSP(), namespace_decl);
+            1. ClangExpressionDeclMap::LookupLocalVariable
+                1. Variable::GetDecl
+                    1. Variable::GetType
+                        1. SymbolFileType::GetType
+                            1. SymbolFileDWARF::ResolveTypeUID
+                                1. DWARFDIE::ResolveType
+                                    1. SymbolFileDWARF::ResolveType
+                                        1. SymbolFileDWARF::GetTypeForDIE
+                                            1. SymbolFileDWARF::ParseType
+                                                1. DWARFASTParserClang::ParseTypeFromDWARF
+                                                    1. DWARFASTParserClang::ParseStructureLikeDIE
+                                                        1. TypeSystemClang::CreateRecordType
+                                                        2. TypeSystemClang::StartTagDeclarationDefinition <<<
+                2. ClangExpressionDeclMap::AddOneVariable
+                3. ClangExpressionDeclMap::GetVariableValue
+                4. Type::GetFullCompilerType
+                5. Type::ResolveCompilerType
+                6. SymbolFileDWARF::CompleteType(“struct Foo”)
+                    1. CompleteTypeFromDWARF(“struct Foo”)
+                        1. m_ast.SetHasExternalStorage(clang_type)
+                        2. CompleteRecordType
+                            1. ParseChildMembers
+                                1. ParseSingleMember
+                                    1. ResolveTypeUID
+                                    2. RequireCompleteType(member_clang_type)
+                                    3. TypeSystemClang::AddFieldToRecordType(“struct Foo”, field_decl)
+                            2. TypeSystemClang::CompleteTagDeclarationDefinition <<< NOTE: completed the declaration definition independently of when we started it
+                            3. SetRecordLayout(record_decl, layout_info)
+    4. SetExternalVisibleDeclsForName(decl_ctx, “f”, name_decls); <<< Sets StoredDeclsMap
+    5. m_active_lookups.erase(uniqued_const_decl_name);
+
+Single Nested Record Type
+*************************
+
+Single Derived Record Type
+**************************
 
 Example Minimal Import
 ----------------------
@@ -730,13 +665,26 @@ clang::Type
 TODO
 ----
 * Single-step through example
-* TypeSystemClang ownership
-* ForgetSource/ForgetDestination
+  * single variable
+    * ~record type~
+    * nested record type
+    * derived record type
+  * clang module
+  * method call
+  * member access
+  * typedef
+* Move documentation of individual APIs to function contracts in source code
+* APIs that track origins
 * CompleteRedeclChain
+* ParseStructureLikeDIE
+* ParseTypeFromClangModule
 * ExternalVisibleDecls
 * ExternalLexicalDecls
 * LazyLocalLexicalDecls
 * LazyExternalLexicalDecls
+
+* ForgetSource/ForgetDestination
+* TypeSystemClang ownership
 * TagDecl::completeDefinition
 * setCompleteDefinition
 * ParseSubroutine
@@ -751,8 +699,6 @@ TODO
 * ClangUtil::GetAsTagDecl
 * TypeSystemClang::GetAsTagDecl
 * ClangASTImporter::CompleteAndFetchChildren
-* ParseStructureLikeDIE
-* ParseTypeFromClangModule
 * GetTypeForDIE
 * ClangASTImporter
 * Import

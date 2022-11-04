@@ -174,6 +174,8 @@ public:
   //
 
   typedef std::pair<lldb::ModuleSP, CompilerDeclContext> NamespaceMapItem;
+  /// List of all LLDB modules that contain declarations for some namespace
+  /// (represented as a CompilerDeclContext)
   typedef std::vector<NamespaceMapItem> NamespaceMap;
   typedef std::shared_ptr<NamespaceMap> NamespaceMapSP;
 
@@ -215,6 +217,8 @@ public:
   void ForgetDestination(clang::ASTContext *dst_ctx);
   void ForgetSource(clang::ASTContext *dst_ctx, clang::ASTContext *src_ctx);
 
+  /// Most fundamental unit of origin tracking. This type stores
+  /// a \ref clang::Decl next to the \ref clang::ASTContext that owns it.
   struct DeclOrigin {
     DeclOrigin() = default;
 
@@ -236,8 +240,8 @@ public:
 
     bool Valid() const { return (ctx != nullptr || decl != nullptr); }
 
-    clang::ASTContext *ctx = nullptr;
-    clang::Decl *decl = nullptr;
+    clang::ASTContext *ctx = nullptr; ///< \ref ASTContext that owns the tracked decl
+    clang::Decl *decl = nullptr;      ///< \ref Decl to track
   };
 
   /// Listener interface used by the ASTImporterDelegate to inform other code
@@ -341,16 +345,32 @@ public:
   typedef llvm::DenseMap<const clang::NamespaceDecl *, NamespaceMapSP>
       NamespaceMetaMap;
 
+  /// Performs origin tracking and book-keeping for a single destination
+  /// ASTContext.
+  ///
+  /// DeclOrigins are queried within the type-completion process when
+  /// we need layout information or need to import a definition eagerly.
   class ASTContextMetadata {
     typedef llvm::DenseMap<const clang::Decl *, DeclOrigin> OriginMap;
 
   public:
     ASTContextMetadata(clang::ASTContext *dst_ctx) : m_dst_ctx(dst_ctx) {}
 
+    /// The *destination* \ref clang::ASTContext that this metadata
+    /// describes
     clang::ASTContext *m_dst_ctx;
+
+    /// Maps a *source* \ref clang::ASTContext to the
+    /// \ref ClangASTImporter::ASTImporterDelegate that
+    /// handles importing from said source context
+    /// into \ref m_dst_ctx
     DelegateMap m_delegates;
 
+    /// Maps a namespace decl to a list of \ref lldb_private::Module that
+    /// contain declarations in said namespace
     NamespaceMetaMap m_namespace_maps;
+
+    /// Used to populate 'm_namespace_maps'
     MapCompleter *m_map_completer = nullptr;
 
     /// Sets the DeclOrigin for the given Decl and overwrites any existing
@@ -409,6 +429,7 @@ public:
   typedef llvm::DenseMap<const clang::ASTContext *, ASTContextMetadataSP>
       ContextMetadataMap;
 
+  /// Maps *destination* \ref clang::ASTContext to its \ref ASTContextMetadata
   ContextMetadataMap m_metadata_map;
 
   ASTContextMetadataSP GetContextMetadata(clang::ASTContext *dst_ctx) {

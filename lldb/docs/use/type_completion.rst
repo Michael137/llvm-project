@@ -337,6 +337,12 @@ Single Nested Record Type
 Single Derived Record Type
 **************************
 
+Pointer to Record Type
+**********************
+
+gmodules
+********
+
 Example Minimal Import
 ----------------------
 

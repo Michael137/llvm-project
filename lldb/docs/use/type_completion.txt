@@ -334,6 +334,75 @@ Single Record Type
 Single Nested Record Type
 *************************
 
+LookupDirect(S=0x0000000101deca00, R=0x000000016fdf75b0, DC=0x
+    clang::DeclContext::lookup(this=0x0000000101de9c30, Name=(Ptr 
+        lldb_private::ClangASTSource::ClangASTSourceProxy::FindExterna
+            lldb_private::ClangASTSource::FindExternalVisibleDeclsByName(t
+                lldb_private::ClangExpressionDeclMap::FindExternalVisibleDecls(“f”)
+                    lldb_private::ClangExpressionDeclMap::FindExternalVisibleDecls
+                        lldb_private::ClangExpressionDeclMap::LookupLocalVariable(“f”)
+                            lldb_private::Variable::GetDecl(this=0x0000600003b056d8) at Va
+                                lldb_private::Variable::GetType(this=0x0000600003b056d8) at Var
+                                    lldb_private::SymbolFileType::GetType(this=0x000060000212d828) 
+                                        SymbolFileDWARF::ResolveTypeUID(this=0x0000000101985200, type_u
+                                            DWARFDIE::ResolveType(this=0x000000016fdf5500) const at DWARFDI
+                                                SymbolFileDWARF::ResolveType(this=0x0000000101985200, die=0x000
+                                                    SymbolFileDWARF::GetTypeForDIE(this=0x0000000101985200, die=0x0
+                                                        SymbolFileDWARF::ParseType(“struct Foo”)
+                                                            DWARFASTParserClang::ParseTypeFromDWARF(this=0x0000600003014cf0
+                                                                DWARFASTParserClang::ParseStructureLikeDIE(this=0x0000600003014
+                                                                    CreateRecordType
+                                                                    lldb_private::TypeSystemClang::StartTagDeclarationDefinition
+                                                                    SetHasExternalStorage(clang_type.GetOpaqueQualType(), true)
+                            lldb_private::ClangExpressionDeclMap::AddOneVariable
+                                lldb_private::ClangExpressionDeclMap::GetVariableValue
+                                    lldb_private::Type::GetFullCompilerType(this=0x0000600
+                                        lldb_private::Type::ResolveCompilerType(this=0x0000600
+	                                        SymbolFileDWARF::CompleteType(this=0x0000000101985200,
+		                                        DWARFASTParserClang::CompleteTypeFromDWARF(“struct Foo”)
+			                                        DWARFASTParserClang::CompleteRecordType(
+                                                        DWARFASTParserClang::ParseChildMembers(
+                                                            DWARFASTParserClang::ParseSingleMember(thi
+                                                                DWARFDIE::ResolveTypeUID(this=0x000000016f
+                                                                    SymbolFileDWARF::ResolveTypeUID(this=0x000
+                                                                        SymbolFileDWARF::ResolveType(this=0x000000
+                                                                            SymbolFileDWARF::GetTypeForDIE(this=0x0000
+                                                                                SymbolFileDWARF::ParseType(this=0x00000001
+                                                                                    DWARFASTParserClang::ParseTypeFromDWARF(th
+	                                                                                    DWARFASTParserClang::ParseStructureLikeDIE(“struct Bar”)
+		                                                                                    CreateRecordType
+		                                                                                    lldb_private::TypeSystemClang::StartTagDeclarationDefinition
+		                                                                                    SetHasExternalStorage(clang_type.GetOpaqueQualType(), true)
+                                                                lldb_private::Type::GetLayoutCompilerType
+                                                                    lldb_private::Type::ResolveCompilerType
+                                                                        SymbolFileDWARF::CompleteType(“strut Bar”)
+	                                                                        SymbolFileDWARF::CompleteType
+                                                                                DWARFASTParserClang::CompleteTypeFromDWARF
+                                                                                    DWARFASTParserClang::CompleteRecordType
+                                                                                        TypeSystemClang::CompleteTagDeclarationDefinition
+                                                                                            cxx_record_decl->setHasLoadedFieldsFromExternalStorage(true);
+                                                                                            cxx_record_decl->setHasExternalLexicalStorage(false);
+                                                                                            cxx_record_decl->setHasExternalVisibleStorage(false);
+                                                                                        GetClangASTImporter().SetRecordLayout(record_decl, layout_info);
+                                                                RequireCompleteType(“struct Foo::Bar”)
+                                                                TypeSystemClang::AddFieldToRecordType(“struct Foo”, “bar”, “struct Foo::Bar”)
+							                                TypeSystemClang::CompleteTagDeclarationDefinition
+						                                        cxx_record_decl->setHasLoadedFieldsFromExternalStorage(true);
+						                                        cxx_record_decl->setHasExternalLexicalStorage(false);
+						                                        cxx_record_decl->setHasExternalVisibleStorage(false);
+						                                    GetClangASTImporter().SetRecordLayout(record_decl, layout_info);
+                                    lldb_private::ClangASTSource::GuardedCopyType
+                                        lldb_private::ClangASTImporter::CopyType
+                                            clang::ASTImporter::Import
+                                                clang::ASTImporter::Import
+                                                    clang::ASTNodeImporter::VisitRecordType
+                                                        clang::ASTImporter::Import
+                                                            lldb_private::ClangASTImporter::ASTImporterDelegate::ImportImpl
+                                                            clang::ASTImporter::ImportImpl
+                                                                clang::ASTNodeImporter::VisitRecordDecl
+                                    ClangExpressionDeclMap::AddExpressionVariable
+	                                    ClangASTSource::CompleteType
+
 Single Derived Record Type
 **************************
 

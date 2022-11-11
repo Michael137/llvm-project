@@ -5569,7 +5569,7 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
 
   // This controls whether or not we perform JustMyCode instrumentation.
   if (Args.hasFlag(options::OPT_fjmc, options::OPT_fno_jmc, false)) {
-    if (TC.getTriple().isOSBinFormatELF()) {
+    if (TC.getTriple().isOSBinFormatELF() || TC.getEffectiveTriple().isOSBinFormatMachO()) {
       if (DebugInfoKind >= codegenoptions::DebugInfoConstructor)
         CmdArgs.push_back("-fjmc");
       else

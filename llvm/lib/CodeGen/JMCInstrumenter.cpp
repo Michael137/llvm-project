@@ -149,9 +149,10 @@ bool JMCInstrumenter::runOnModule(Module &M) {
   Triple ModuleTriple(M.getTargetTriple());
   bool IsMSVC = ModuleTriple.isKnownWindowsMSVCEnvironment();
   bool IsELF = ModuleTriple.isOSBinFormatELF();
-  assert((IsELF || IsMSVC) && "Unsupported triple for JMC");
+  bool IsMachO = ModuleTriple.isOSBinFormatMachO();
+  assert((IsMachO || IsELF || IsMSVC) && "Unsupported triple for JMC");
   bool UseX86FastCall = IsMSVC && ModuleTriple.getArch() == Triple::x86;
-  const char *const FlagSymbolSection = IsELF ? ".data.just.my.code" : ".msvcjmc";
+  const char *const FlagSymbolSection = (IsELF || IsMachO) ? ".data.just.my.code" : ".msvcjmc";
 
   GlobalValue *CheckFunction = nullptr;
   DenseMap<DISubprogram *, Constant *> SavedFlags(8);
@@ -183,7 +184,7 @@ bool JMCInstrumenter::runOnModule(Module &M) {
     if (!CheckFunction) {
       Function *DefaultCheckFunc =
           createDefaultCheckFunction(M, UseX86FastCall);
-      if (IsELF) {
+      if (IsELF || IsMachO) {
         DefaultCheckFunc->setName(CheckFunctionName);
         DefaultCheckFunc->setLinkage(GlobalValue::WeakAnyLinkage);
         CheckFunction = DefaultCheckFunc;

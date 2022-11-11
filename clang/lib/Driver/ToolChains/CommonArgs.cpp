@@ -673,7 +673,7 @@ void tools::addLTOOptions(const ToolChain &ToolChain, const ArgList &Args,
 
   // This controls whether or not we perform JustMyCode instrumentation.
   if (Args.hasFlag(options::OPT_fjmc, options::OPT_fno_jmc, false)) {
-    if (ToolChain.getEffectiveTriple().isOSBinFormatELF())
+    if (ToolChain.getEffectiveTriple().isOSBinFormatELF() || ToolChain.getEffectiveTriple().isOSBinFormatMachO())
       CmdArgs.push_back(Args.MakeArgString(Twine(PluginOptPrefix) +
                                            "-enable-jmc-instrument"));
     else

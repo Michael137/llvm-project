@@ -744,12 +744,16 @@ TODO
 * Single-step through example
   * single variable
     * ~record type~
-    * nested record type
-    * derived record type
+    * ~nested record type~
+    * ~derived record type~
+    * reference to record
   * clang module
   * method call
   * member access
   * typedef
+  * Templates/~Template specializations
+  * namespaces
+    * Multiple types in single namespace but print only a single type
 * Move documentation of individual APIs to function contracts in source code
 * APIs that track origins
 * CompleteRedeclChain

@@ -142,6 +142,10 @@ public:
       lldb::user_id_t type_uid,
       const lldb_private::ExecutionContext *exe_ctx) override;
 
+  /// Completes the 'compiler_type' using the ClangASTImporter if
+  /// the type is a record (or enum) type and has a valid origin.
+  /// No-op if this type has already been 
+  /// Otherwise, 
   bool CompleteType(lldb_private::CompilerType &compiler_type) override;
 
   lldb_private::Type *ResolveType(const DWARFDIE &die,

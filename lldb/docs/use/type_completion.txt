@@ -286,6 +286,7 @@ Example Completion Call-chain
 Single Record Type
 ******************
 
+```
 1. ClangExpressionParser::Parse
 2. ClangExpressionParser::ParseInternal
 3. clang::Sema::CppLookupName
@@ -330,87 +331,339 @@ Single Record Type
                     3. ClangASTSource::GuardedCopyType(“struct Foo”)
     4. SetExternalVisibleDeclsForName(decl_ctx, “f”, name_decls); <<< Sets StoredDeclsMap
     5. m_active_lookups.erase(uniqued_const_decl_name);
+```
 
 Single Nested Record Type
 *************************
 
-LookupDirect(S=0x0000000101deca00, R=0x000000016fdf75b0, DC=0x
-    clang::DeclContext::lookup(this=0x0000000101de9c30, Name=(Ptr 
-        lldb_private::ClangASTSource::ClangASTSourceProxy::FindExterna
-            lldb_private::ClangASTSource::FindExternalVisibleDeclsByName(t
-                lldb_private::ClangExpressionDeclMap::FindExternalVisibleDecls(“f”)
-                    lldb_private::ClangExpressionDeclMap::FindExternalVisibleDecls
-                        lldb_private::ClangExpressionDeclMap::LookupLocalVariable(“f”)
-                            lldb_private::Variable::GetDecl(this=0x0000600003b056d8) at Va
-                                lldb_private::Variable::GetType(this=0x0000600003b056d8) at Var
-                                    lldb_private::SymbolFileType::GetType(this=0x000060000212d828) 
-                                        SymbolFileDWARF::ResolveTypeUID(this=0x0000000101985200, type_u
-                                            DWARFDIE::ResolveType(this=0x000000016fdf5500) const at DWARFDI
-                                                SymbolFileDWARF::ResolveType(this=0x0000000101985200, die=0x000
-                                                    SymbolFileDWARF::GetTypeForDIE(this=0x0000000101985200, die=0x0
-                                                        SymbolFileDWARF::ParseType(“struct Foo”)
-                                                            DWARFASTParserClang::ParseTypeFromDWARF(this=0x0000600003014cf0
-                                                                DWARFASTParserClang::ParseStructureLikeDIE(this=0x0000600003014
+```
+LookupDirect
+    clang::DeclContext::lookup
+        lldb_private::ClangASTSource::ClangASTSourceProxy::FindExtern
+            lldb_private::ClangASTSource::FindExternalVisibleDeclsByName
+                lldb_private::ClangExpressionDeclMap::FindExternalVisibleDecls
+                    lldb_private::ClangExpressionDeclMap::FindExternalVisibleDecl
+                        lldb_private::ClangExpressionDeclMap::LookupLocalVariable
+                            lldb_private::Variable::GetDecl
+                                lldb_private::Variable::GetType
+                                    lldb_private::SymbolFileType::GetType
+                                        SymbolFileDWARF::ResolveTypeUID
+                                            DWARFDIE::ResolveType
+                                                SymbolFileDWARF::ResolveType
+                                                    SymbolFileDWARF::GetTypeForDIE
+                                                        SymbolFileDWARF::ParseType
+                                                            DWARFASTParserClang::ParseTypeFromDWARF
+                                                                DWARFASTParserClang::ParseStructureLikeDIE
                                                                     CreateRecordType
                                                                     lldb_private::TypeSystemClang::StartTagDeclarationDefinition
                                                                     SetHasExternalStorage(clang_type.GetOpaqueQualType(), true)
-                            lldb_private::ClangExpressionDeclMap::AddOneVariable
-                                lldb_private::ClangExpressionDeclMap::GetVariableValue
-                                    lldb_private::Type::GetFullCompilerType(this=0x0000600
-                                        lldb_private::Type::ResolveCompilerType(this=0x0000600
-	                                        SymbolFileDWARF::CompleteType(this=0x0000000101985200,
-		                                        DWARFASTParserClang::CompleteTypeFromDWARF(“struct Foo”)
-			                                        DWARFASTParserClang::CompleteRecordType(
-                                                        DWARFASTParserClang::ParseChildMembers(
-                                                            DWARFASTParserClang::ParseSingleMember(thi
-                                                                DWARFDIE::ResolveTypeUID(this=0x000000016f
-                                                                    SymbolFileDWARF::ResolveTypeUID(this=0x000
-                                                                        SymbolFileDWARF::ResolveType(this=0x000000
-                                                                            SymbolFileDWARF::GetTypeForDIE(this=0x0000
-                                                                                SymbolFileDWARF::ParseType(this=0x00000001
-                                                                                    DWARFASTParserClang::ParseTypeFromDWARF(th
-	                                                                                    DWARFASTParserClang::ParseStructureLikeDIE(“struct Bar”)
-		                                                                                    CreateRecordType
-		                                                                                    lldb_private::TypeSystemClang::StartTagDeclarationDefinition
-		                                                                                    SetHasExternalStorage(clang_type.GetOpaqueQualType(), true)
-                                                                lldb_private::Type::GetLayoutCompilerType
-                                                                    lldb_private::Type::ResolveCompilerType
-                                                                        SymbolFileDWARF::CompleteType(“strut Bar”)
-	                                                                        SymbolFileDWARF::CompleteType
-                                                                                DWARFASTParserClang::CompleteTypeFromDWARF
-                                                                                    DWARFASTParserClang::CompleteRecordType
-                                                                                        TypeSystemClang::CompleteTagDeclarationDefinition
-                                                                                            cxx_record_decl->setHasLoadedFieldsFromExternalStorage(true);
-                                                                                            cxx_record_decl->setHasExternalLexicalStorage(false);
-                                                                                            cxx_record_decl->setHasExternalVisibleStorage(false);
-                                                                                        GetClangASTImporter().SetRecordLayout(record_decl, layout_info);
-                                                                RequireCompleteType(“struct Foo::Bar”)
-                                                                TypeSystemClang::AddFieldToRecordType(“struct Foo”, “bar”, “struct Foo::Bar”)
-							                                TypeSystemClang::CompleteTagDeclarationDefinition
-						                                        cxx_record_decl->setHasLoadedFieldsFromExternalStorage(true);
-						                                        cxx_record_decl->setHasExternalLexicalStorage(false);
-						                                        cxx_record_decl->setHasExternalVisibleStorage(false);
-						                                    GetClangASTImporter().SetRecordLayout(record_decl, layout_info);
-                                    lldb_private::ClangASTSource::GuardedCopyType
-                                        lldb_private::ClangASTImporter::CopyType
-                                            clang::ASTImporter::Import
-                                                clang::ASTImporter::Import
-                                                    clang::ASTNodeImporter::VisitRecordType
-                                                        clang::ASTImporter::Import
-                                                            lldb_private::ClangASTImporter::ASTImporterDelegate::ImportImpl
-                                                            clang::ASTImporter::ImportImpl
-                                                                clang::ASTNodeImporter::VisitRecordDecl
-                                    ClangExpressionDeclMap::AddExpressionVariable
-	                                    ClangASTSource::CompleteType
+                             lldb_private::ClangExpressionDeclMap::AddOneVariable
+                                 lldb_private::ClangExpressionDeclMap::GetVariableValue
+                                     lldb_private::Type::GetFullCompilerType
+                                         lldb_private::Type::ResolveCompilerType
+                                             SymbolFileDWARF::CompleteType
+                                                 DWARFASTParserClang::CompleteTypeFromDWARF(“struct Foo”)
+                                                     DWARFASTParserClang::CompleteRecordType(“struct Foo”)
+                                                         DWARFASTParserClang::ParseChildMembers
+                                                             DWARFASTParserClang::ParseSingleMember
+                                                                 DWARFDIE::ResolveTypeUID
+                                                                     SymbolFileDWARF::ResolveTypeUID
+                                                                         SymbolFileDWARF::ResolveType
+                                                                             SymbolFileDWARF::GetTypeForDIE
+                                                                                 SymbolFileDWARF::ParseType
+                                                                                     DWARFASTParserClang::ParseTypeFromDWARF
+                                                                                        	DWARFASTParserClang::ParseStructureLikeDIE(“struct Bar”)
+                                                                                         	    CreateRecordType
+                                                                                         	    lldb_private::TypeSystemClang::StartTagDeclarationDefinition
+                                                                                         	    SetHasExternalStorage(clang_type.GetOpaqueQualType(), true)
+                                                                 lldb_private::Type::GetLayoutCompilerType
+                                                                     lldb_private::Type::ResolveCompilerType
+                                                                         SymbolFileDWARF::CompleteType(“strut Bar”)
+                                                                             SymbolFileDWARF::CompleteType
+                                                                                 DWARFASTParserClang::CompleteTypeFromDWARF
+                                                                                     DWARFASTParserClang::CompleteRecordType
+                                                                                         TypeSystemClang::CompleteTagDeclarationDefinition
+                                                                                             cxx_record_decl->setHasLoadedFieldsFromExternalStorage(true);
+                                                                                             cxx_record_decl->setHasExternalLexicalStorage(false);
+                                                                                             cxx_record_decl->setHasExternalVisibleStorage(false);
+                                                                                         GetClangASTImporter().SetRecordLayout(record_decl, layout_info);
+                                                                 RequireCompleteType(“struct Foo::Bar”)
+                                                                 TypeSystemClang::AddFieldToRecordType(“struct Foo”, “bar”, “struct Foo::Bar”)
+                                                         TypeSystemClang::CompleteTagDeclarationDefinition
+                                                             cxx_record_decl->setHasLoadedFieldsFromExternalStorage(true);
+                                                             cxx_record_decl->setHasExternalLexicalStorage(false);
+                                                             cxx_record_decl->setHasExternalVisibleStorage(false);
+                                                         GetClangASTImporter().SetRecordLayout(record_decl, layout_info);
+                                     lldb_private::ClangASTSource::GuardedCopyType
+                                         lldb_private::ClangASTImporter::CopyType
+                                             clang::ASTImporter::Import                        
+                                                 clang::ASTNodeImporter::VisitRecordType
+                                                     clang::ASTImporter::Import
+                                                         lldb_private::ClangASTImporter::ASTImporterDelegate::ImportImpl
+                                                             clang::ASTImporter::ImportImpl
+                                                                 clang::ASTNodeImporter::VisitRecordDecl
+                                     ClangExpressionDeclMap::AddExpressionVariable
+                                         ClangASTSource::CompleteType
+```
 
 Single Derived Record Type
 **************************
+
+```
+clang::Sema::BuildUsingDeclaration
+    clang::Sema::LookupName
+        clang::Sema::CppLookupName
+            CppNamespaceLookup
+                LookupDirect
+                    clang::DeclContext::lookup
+                        lldb_private::ClangASTSource::ClangASTSourceProxy::FindExternalVisibleDeclsByNam
+                            lldb_private::ClangASTSource::FindExternalVisibleDeclsByName
+                                lldb_private::ClangExpressionDeclMap::FindExternalVisibleDecls
+                                    lldb_private::ClangExpressionDeclMap::FindExternalVisibleDecls
+                                        lldb_private::ClangExpressionDeclMap::LookupLocalVariable(“f”)
+                                            lldb_private::Variable::GetDecl
+                                                lldb_private::Variable::GetType(“struct Foo”)
+                                                    lldb_private::SymbolFileType::GetType
+                                                        SymbolFileDWARF::ResolveTypeUID
+                                                            DWARFDIE::ResolveType
+                                                                SymbolFileDWARF::ResolveType
+                                                                    SymbolFileDWARF::GetTypeForDIE
+                                                                        SymbolFileDWARF::ParseType
+                                                                            DWARFASTParserClang::ParseTypeFromDWARF
+                                                                                DWARFASTParserClang::ParseStructureLikeDIE
+                                                                                    lldb_private::TypeSystemClang::CreateRecordType(“struct Foo”)
+                                                                                        LinkDeclContextToDIE
+                                                                                        GetUniqueDWARFASTTypeMap().Insert(Type(Type::RsolveState::Forward))
+                                                                                        TypeSystemClang::StartTagDeclarationDefinition
+                                                                                        m_ast.SetHasExternalStorage
+                                            m_ast.CreateVariableDeclaration(“f”)
+                                            lldb_private::ClangExpressionDeclMap::AddOneVariable(“f”)
+                                                lldb_private::ClangExpressionDeclMap::GetVariableValue
+                                                    lldb_private::Type::GetFullCompilerType
+                                                        lldb_private::Type::ResolveCompilerType
+                                                            SymbolFileDWARF::CompleteType
+                                                                auto die_it = GetForwardDeclClangTypeToDie
+                                                                GetDIEToType().lookup(dwarf_die.GetDIE());
+                                                                CompleteTypeFromDWARF
+                                                                    DWARFASTParserClang::CompleteRecordType(“struct Foo”)
+                                                                        DWARFASTParserClang::ParseChildMember
+                                                                            DWARFASTParserClang::ParseInheritance(“struct Foo”)
+                                                                                DWARFDIE::ResolveTypeUID
+                                                                                    SymbolFileDWARF::ResolveTypeUID(“struct Bar”)
+                                                                                        SymbolFileDWARF::ResolveType(“struct Bar”)
+                                                                                            SymbolFileDWARF::GetTypeForDIE
+                                                                                                SymbolFileDWARF::ParseType
+                                                                                                    DWARFASTParserClang::ParseTypeFromDWARF
+                                                                                                        DWARFASTParserClang::ParseStructureLikeDIE
+                                                                                                            lldb_private::TypeSystemClang::CreateRecordType(“struct Foo”)
+                                                                                                                LinkDeclContextToDIE
+                                                                                                                GetUniqueDWARFASTTypeMap().Insert(Type(Type::RsolveState::Forward))
+                                                                                                                TypeSystemClang::StartTagDeclarationDefinition
+                                                                                                                m_ast.SetHasExternalStorage(true)
+                                                                                CompilerType base_class_clang_type = base_class_type->GetFullCompilerType();
+                                                                                    lldb_private::Type::ResolveCompilerType(“struct Bar”)
+                                                                                        SymbolFileDWARF::CompleteType(“struct Bar”)
+                                                                                            DWARFASTParserClang::CompleteTypeFromDWARF
+                                                                                                DWARFASTParserClang::CompleteRecordType
+                                                                                                    DWARFASTParserClang::ParseChildMembers
+                                                                                                        DWARFASTParserClang::ParseSingleMember
+                                                                                                            DWARFDIE::ResolveTypeUID
+                                                                                                                SymbolFileDWARF::ResolveTypeUID
+                                                                                                                    SymbolFileDWARF::ResolveType
+                                                                                                    CompleteTagDeclarationDefinition(“struct Bar”)
+                                                                                                    GetClangASTImporter().SetRecordLayout(record_decl, layout_info)
+                                                                        CompleteTagDeclarationDefinition(“struct Foo”)
+                                                                        GetClangASTImporter().SetRecordLayout(record_decl, layout_info)
+                                             lldb_private::ClangExpressionDeclMap::GetVariableValue
+                                                 lldb_private::ClangASTSource::GuardedCopyType
+                                                     lldb_private::ClangASTImporter::CopyType
+                                                         clang::ASTImporter::Import
+                                                             clang::ASTNodeImporter::VisitRecordType
+                                                                 clang::ASTImporter::Import
+                                                                     lldb_private::ClangASTImporter::ASTImporterDelegate::ImportImp
+                                                                         clang::ASTImporter::ImportImpl
+                                                                             clang::ASTNodeImporter::VisitRecordDecl(“struct Foo”)
+                                                                                 clang::ASTNodeImporter::ImportDefinition
+                                                                                     clang::CXXRecordDecl::setBases
+                                                                                         clang::RecordDecl::field_empty
+                                                                                             clang::RecordDecl::field_begin
+                                                                                                 clang::RecordDecl::LoadFieldsFromExternalStorage
+                                                                                                     lldb_private::ClangASTSource::ClangASTSourceProxy::FindExternalLexicalDecls
+                                                                                                         lldb_private::ClangASTSource::FindExternalLexicalDecls
+                                                                                                             lldb_private::ClangExternalASTSourceCallbacks::CompleteType(“struct Bar”)
+IRForTarget::runOnModule
+    IRForTarget::CreateResultVariable
+        lldb_private::ClangExpressionDeclMap::AddPersistentVariable
+            lldb_private::ClangExpressionDeclMap::DeportType
+                lldb_private::ClangASTImporter::DeportType
+                    lldb_private::ClangASTImporter::CopyType
+                        clang::ASTImporter::Import
+                            clang::ASTImporter::Import
+                                clang::TypeVisitor<clang::ASTNodeImporter, llvm::Expected<clang::QualType>
+                                    clang::ASTNodeImporter::VisitRecordType
+                                        clang::ASTImporter::Import
+                                            lldb_private::ClangASTImporter::ASTImporterDelegate::ImportImpl
+                                                lldb_private::ClangASTImporter::CopyDecl
+                                                    clang::ASTImporter::Import
+                                                        lldb_private::ClangASTImporter::ASTImporterDelegate::ImportImpl
+                                                            clang::ASTImporter::ImportImpl
+                                                                clang::ASTNodeImporter::VisitRecordDecl
+                                                                    clang::ASTNodeImporter::ImportDefinition
+                                                                        clang::CXXRecordDecl::setBases
+                                                                            clang::CXXRecordDecl::addedClassSubobject
+                                                                                clang::CXXRecordDecl::hasConstexprDestructor
+                                                                                    clang::CXXRecordDecl::getDestructor
+                                                                                        clang::DeclContext::lookup
+                                                                                            clang::DeclContext::buildLookup
+                                                                                                clang::DeclContext::LoadLexicalDeclsFromExternalStorage
+                                                                                                    clang::ExternalASTSource::FindExternalLexicalDecls
+                                                                                                         lldb_private::ClangASTSource::ClangASTSourceProxy::FindExternalLexicalDecls
+```
 
 Pointer to Record Type
 **********************
 
 gmodules
 ********
+
+```
+ clang::Sema::LookupName
+     clang::Sema::CppLookupName
+         CppNamespaceLookup
+             LookupDirect
+                 clang::DeclContext::lookup
+                     lldb_private::ClangASTSource::ClangASTSourceProxy::FindExternalVisibleDeclsByName
+                         lldb_private::ClangASTSource::FindExternalVisibleDeclsByName
+                             lldb_private::ClangExpressionDeclMap::FindExternalVisibleDecls
+                                 lldb_private::ClangExpressionDeclMap::FindExternalVisibleDecls
+                                     lldb_private::ClangExpressionDeclMap::LookupLocalVariable
+                                         lldb_private::Variable::GetDecl
+                                             lldb_private::Variable::GetType
+                                                 lldb_private::SymbolFileType::GetType
+                                                     SymbolFileDWARF::ResolveTypeUID
+                                                         DWARFDIE::ResolveType
+                                                             SymbolFileDWARF::ResolveType
+                                                                 SymbolFileDWARF::GetTypeForDIE
+                                                                     SymbolFileDWARF::ParseType
+                                                                         DWARFASTParserClang::ParseTypeFromDWARF
+                                                                             DWARFASTParserClang::ParseStructureLikeDIE(“ClassInMod1”)
+                                                                                 DWARFASTParserClang::ParseTypeFromClangModule
+                                                                                     SymbolFileDWARF::FindTypes
+                                                                                         lldb_private::AppleDWARFIndex::GetTypes
+                                                                                             DWARFMappedHash::MemoryTable::FindByName
+                                                                                                 DWARFMappedHash::ExtractDIEArray
+                                                                                                     SymbolFileDWARF::FindTypes
+                                                                                                         SymbolFileDWARF::ResolveType
+                                                                                                             SymbolFileDWARF::GetTypeForDIE
+                                                                                                                 SymbolFileDWARF::ParseType
+                                                                                                                     DWARFASTParserClang::ParseTypeFromDWARF
+                                                                                                                         DWARFASTParserClang::ParseStructureLikeDIE(“ClassInMod1”)
+                                                                                                                             lldb_private::TypeSystemClang::StartTagDeclarationDefinition
+                                                                                                                             dwarf->GetForwardDeclClangTypeToDie().try_emplace(clang_type)
+                                                                                                                             m_ast.SetHasExternalStorage(clang_type.GetOpaqueQualType(), true);
+                                                                                     lldb_private::ClangASTImporter::CopyType
+                                                                                         clang::ASTImporter::Import
+                                                                                              clang::ASTImporter::Import
+                                                                                                  clang::ASTNodeImporter::VisitRecordType
+                                                                                                      clang::ASTImporter::Import
+                                                                                                          lldb_private::ClangASTImporter::ASTImporterDelegate::ImportImpl
+                                                                                                              clang::ASTImporter::ImportImpl
+                                                                                                                  clang::ASTNodeImporter::VisitRecordDecl
+                                         lldb_private::ClangExpressionDeclMap::AddOneVariable
+                                             lldb_private::ClangExpressionDeclMap::GetVariableValue
+                                                 lldb_private::Type::GetFullCompilerType
+                                                     lldb_private::Type::ResolveCompilerType
+                                                         SymbolFileDWARF::CompleteType(“ClassInMod1”)
+                                                            lldb_private::ClangASTImporter::CompleteType(“ClassInMod1”)
+                                                                lldb_private::ClangASTImporter::Import
+                                                                    lldb_private::ClangASTImporter::CompleteAndFetchChildren
+                                                                        lldb_private::ClangASTImporter::RequireCompleteType
+                                                                            lldb_private::ClangASTImporter::CompleteTagDecl
+                                                                                lldb_private::TypeSystemClang::GetCompleteDecl
+                                                                                    lldb_private::ClangExternalASTSourceCallbacks::CompleteType
+                                                                                        lldb_private::TypeSystemClang::CompleteTagDecl
+                                                                                            SymbolFileDWARF::CompleteType("ClassInMod1”)
+                                                                                                DWARFASTParserClang::CompleteTypeFromDWARF
+                                                                                                    DWARFASTParserClang::CompleteRecordType("ClassInMod1”)
+                                                                                                        DWARFASTParserClang::ParseChildMembers
+                                                                                                            DWARFASTParserClang::ParseSingleMember
+                                                                                                                DWARFDIE::ResolveTypeUID
+                                                                                                                    SymbolFileDWARF::ResolveTypeUID
+                                                                                                                        SymbolFileDWARF::ResolveType
+                                                                                                                            SymbolFileDWARF::GetTypeForDIE
+                                                                                                                                SymbolFileDWARF::ParseType
+                                                                                                                                    DWARFASTParserClang::ParseTypeFromDWARF("ClassInMod2”)
+                                                                                                                                        DWARFASTParserClang::ParseStructureLikeDIE("ClassInMod2”)
+                                                                                                                                            DWARFASTParserClang::ParseTypeFromClangModule("ClassInMod2”)
+                                                                                                                                                SymbolFileDWARF::FindTypes
+                                                                                                                                                    lldb_private::AppleDWARFIndex::GetTypes
+                                                                                                                                                        DWARFMappedHash::MemoryTable::FindByName("ClassInMod2”)
+                                                                                                                                                            DWARFMappedHash::ExtractDIEArray
+                                                                                                                                                                SymbolFileDWARF::FindTypes
+                                                                                                                                                                    SymbolFileDWARF::ResolveType
+                                                                                                                                                                        SymbolFileDWARF::GetTypeForDIE
+                                                                                                                                                                            SymbolFileDWARF::ParseType
+                                                                                                                                                                                DWARFASTParserClang::ParseTypeFromDWARF("ClassInMod2”)
+                                                                                                                                                                                    DWARFASTParserClang::ParseStructureLikeDIE("ClassInMod2”)
+                                                                                                                                                                                        lldb_private::TypeSystemClang::StartTagDeclarationDefinition
+                                                                                                                                                                                        dwarf->GetForwardDeclClangTypeToDie().try_emplace(clang_type)
+                                                                                                                                                                                        m_ast.SetHasExternalStorage(clang_type.GetOpaqueQualType(), true);
+                                                                                                                                                lldb_private::ClangASTImporter::CopyType(“ClassInMod2”)
+                                                                                                                                                    clang::ASTImporter::Import
+                                                                                                                                                        clang::ASTImporter::Import
+                                                                                                                                                            clang::ASTNodeImporter::VisitRecordType
+                                                                                                                                                                clang::ASTImporter::Import
+                                                                                                                                                                    lldb_private::ClangASTImporter::ASTImporterDelegate::ImportImpl
+                                                                                                                                                                        clang::ASTImporter::ImportImpl
+                                                                                                                                                                            clang::ASTNodeImporter::VisitRecordDecl
+                                                                                                                lldb_private::Type::GetLayoutCompilerType(“ClassInMod2”)
+                                                                                                                    lldb_private::Type::ResolveCompilerType(“ClassInMod2”)
+                                                                                                                        SymbolFileDWARF::CompleteType(“ClassInMod2”)
+                                                                                                                            lldb_private::ClangASTImporter::CompleteType(“ClassInMod2”)
+                                                                                                                                lldb_private::ClangASTImporter::Import
+                                                                                                                                    lldb_private::ClangASTImporter::CompleteAndFetchChildren
+                                                                                                                                        lldb_private::ClangASTImporter::RequireCompleteType
+                                                                                                                                            lldb_private::ClangASTImporter::CompleteTagDecl
+                                                                                                                                                lldb_private::TypeSystemClang::GetCompleteDecl
+                                                                                                                                                    lldb_private::ClangExternalASTSourceCallbacks::CompleteType
+                                                                                                                                                        lldb_private::TypeSystemClang::CompleteTagDecl
+                                                                                                                                                            SymbolFileDWARF::CompleteType
+                                                                                                                                                                DWARFASTParserClang::CompleteTypeFromDWARF
+                                                                                                                                                                    DWARFASTParserClang::CompleteRecordType
+                                                                                                                                                                        TypeSystemClang::CompleteTagDeclarationDefinition
+                                                                                                        lldb_private::TypeSystemClang::CompleteTagDeclarationDefinition(“ClassInMod1”)
+                                                                                lldb_private::ClangASTImporter::ASTImporterDelegate::ImportDefinitionTo(“ClassInMod1”)
+                                                                                    clang::ASTImporter::ImportDefinition
+                                                                                        clang::ASTNodeImporter::ImportDefinition
+                                                                                            clang::ASTNodeImporter::ImportDeclContext
+                                                                                                clang::ASTImporter::Import(“ClassInMod2”)
+                                                                                                    lldb_private::ClangASTImporter::ASTImporterDelegate::ImportImpl
+                                                                                                        clang::ASTImporter::ImportImpl
+                                                                                                            clang::ASTNodeImporter::VisitFieldDecl
+                                                                                                                clang::ASTNodeImporter::import<clang::QualType>
+                                                                                                                    clang::ASTImporter::Import
+                                                                                                                        clang::ASTImporter::Import
+                                                                                                                            clang::ASTNodeImporter::VisitRecordType
+                                                                                                                                clang::ASTImporter::Import
+                                                                                                                                    lldb_private::ClangASTImporter::ASTImporterDelegate::ImportImpl
+                                                                                                                                        clang::ASTImporter::ImportImpl
+                                                                                                                                            clang::ASTNodeImporter::VisitRecordDecl(“ClassInMod2”)
+                                                                                                                clang::DeclContext::addDeclInternal
+                                                                                                                    clang::DeclContext::addHiddenDecl
+                                                                                                                        clang::CXXRecordDecl::addedMember
+                                                                                                                            clang::CXXRecordDecl::addedClassSubobject
+                                                                                                                                clang::CXXRecordDecl::hasConstexprDestructor
+                                                                                                                                    clang::CXXRecordDecl::getDestructor
+                                                                                                                                        clang::DeclContext::lookup
+                                                                                                                                            clang::DeclContext::buildLookup
+                                                                                                                                                clang::DeclContext::LoadLexicalDeclsFromExternalStorage
+                                                                                                                                                    clang::ExternalASTSource::FindExternalLexicalDecls
+                                                                                                                                                        lldb_private::ClangExternalASTSourceCallbacks::CompleteType(“ClassInMod2”)
+                                                                                                                                                            lldb_private::TypeSystemClang::CompleteTagDecl
+                                                                                                                                                                lldb_private::ClangASTImporter::CompleteType
+                                                                                                                                                                    lldb_private::TypeSystemClang::CompleteTagDeclarationDefinition(“ClassInMod2”)
+                                                                lldb_private::TypeSystemClang::CompleteTagDeclarationDefinition(“ClassInMod1”)
+```
 
 Example Minimal Import
 ----------------------

@@ -835,12 +835,12 @@ static void LoadLibCxxFormatters(lldb::TypeCategoryImplSP cpp_category_sp) {
       "libc++ std::span synthetic children",
       ConstString("^std::__[[:alnum:]]+::span<.+>(( )?&)?$"), stl_deref_flags,
       true);
-  //AddCXXSynthetic(
-  //    cpp_category_sp,
-  //    lldb_private::formatters::LibcxxStdRangesRefViewSyntheticFrontEndCreator,
-  //    "libc++ std::ranges::ref_view synthetic children",
-  //    ConstString("^std::__[[:alnum:]]+::ranges::ref_view<.+>(( )?&)?$"), stl_deref_flags,
-  //    true);
+  AddCXXSynthetic(
+      cpp_category_sp,
+      lldb_private::formatters::LibcxxStdRangesRefViewSyntheticFrontEndCreator,
+      "libc++ std::ranges::ref_view synthetic children",
+      ConstString("^std::__[[:alnum:]]+::ranges::ref_view<.+>(( )?&)?$"), stl_deref_flags,
+      true);
 
   cpp_category_sp->AddTypeSynthetic(
       "^(std::__[[:alnum:]]+::)deque<.+>(( )?&)?$", eFormatterMatchRegex,
@@ -967,11 +967,6 @@ static void LoadLibCxxFormatters(lldb::TypeCategoryImplSP cpp_category_sp) {
                 "libc++ std::span summary provider",
                 ConstString("^std::__[[:alnum:]]+::span<.+>(( )?&)?$"),
                 stl_summary_flags, true);
-//  AddCXXSummary(cpp_category_sp,
-//                lldb_private::formatters::LibcxxContainerSummaryProvider,
-//                "libc++ std::ranges::ref_view summary provider",
-//                ConstString("^std::__[[:alnum:]]+::ranges::ref_view<.+>(( )?&)?$"),
-//                stl_summary_flags, true);
 
   stl_summary_flags.SetSkipPointers(true);
 

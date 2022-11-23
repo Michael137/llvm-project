@@ -49,13 +49,13 @@ lldb_private::formatters::LibcxxStdRangesRefViewSyntheticFrontEnd::
 
 size_t lldb_private::formatters::LibcxxStdRangesRefViewSyntheticFrontEnd::
     CalculateNumChildren() {
-  return m_range_sp->GetNumChildren();
+  return 1;
 }
 
 lldb::ValueObjectSP
 lldb_private::formatters::LibcxxStdRangesRefViewSyntheticFrontEnd::GetChildAtIndex(
     size_t idx) {
-  return m_range_sp->GetChildAtIndex(idx, true);
+  return m_range_sp;
 }
 
 bool lldb_private::formatters::LibcxxStdRangesRefViewSyntheticFrontEnd::Update() {
@@ -66,9 +66,13 @@ bool lldb_private::formatters::LibcxxStdRangesRefViewSyntheticFrontEnd::Update()
     return false;
 
   lldb_private::Status error;
+  auto range_sp = range_ptr->Dereference(error);
+  if (!error.Success())
+    return false;
+
   m_range_sp = range_ptr->Dereference(error);
 
-  return error.Success();
+  return true;
 }
 
 bool lldb_private::formatters::LibcxxStdRangesRefViewSyntheticFrontEnd::
@@ -78,7 +82,7 @@ bool lldb_private::formatters::LibcxxStdRangesRefViewSyntheticFrontEnd::
 
 size_t lldb_private::formatters::LibcxxStdRangesRefViewSyntheticFrontEnd::
     GetIndexOfChildWithName(ConstString name) {
-  return m_range_sp->GetIndexOfChildWithName(name);
+  return 0;
 }
 
 lldb_private::SyntheticChildrenFrontEnd *

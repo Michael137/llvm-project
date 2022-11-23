@@ -721,6 +721,25 @@ bool lldb_private::formatters::LibcxxContainerSummaryProvider(
                                        nullptr, nullptr, &valobj, false, false);
 }
 
+bool lldb_private::formatters::LibcxxRefViewSummaryProvider(
+    ValueObject &valobj, Stream &stream, const TypeSummaryOptions &options) {
+  ValueObjectSP valobj_sp(valobj.GetNonSyntheticValue());
+  if (!valobj_sp)
+    return false;
+  ValueObjectSP ptr_sp(
+      valobj_sp->GetChildMemberWithName(ConstString("__range_"), true));
+
+  if (!ptr_sp)
+    return false;
+
+  Status error;
+  ValueObjectSP range_sp = ptr_sp->Dereference(error);
+  if (!error.Success())
+    return false;
+  
+  return range_sp->DumpPrintableRepresentation(stream);
+}
+
 /// The field layout in a libc++ string (cap, side, data or data, size, cap).
 namespace {
 enum class StringLayout { CSD, DSC };

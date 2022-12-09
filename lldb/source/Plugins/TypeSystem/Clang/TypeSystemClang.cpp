@@ -1389,14 +1389,32 @@ static TemplateParameterList *CreateTemplateParameterList(
     if (IsValueParam(template_param_infos.args[i])) {
       QualType template_param_type =
           template_param_infos.args[i].getIntegralType();
-      template_param_decls.push_back(NonTypeTemplateParmDecl::Create(
+      auto* ptr = NonTypeTemplateParmDecl::Create(
           ast, decl_context, SourceLocation(), SourceLocation(), depth, i,
           identifier_info, template_param_type, parameter_pack,
-          ast.getTrivialTypeSourceInfo(template_param_type)));
+          ast.getTrivialTypeSourceInfo(template_param_type));
+
+      if (template_param_infos.default_check[i]) {
+        if (template_param_infos.args[i].getKind() == TemplateArgument::Expression)
+          ptr->setDefaultArgument(template_param_infos.args[i].getAsExpr());
+        else if (template_param_infos.args[i].getKind() == TemplateArgument::Integral) {
+          Expr *LiteralExpr =
+              IntegerLiteral::Create(ast, template_param_infos.args[i].getAsIntegral(),
+                                     template_param_infos.args[i].getAsType(), SourceLocation());
+          ptr->setDefaultArgument(LiteralExpr);
+        }
+      }
+
+      template_param_decls.push_back(ptr);
     } else {
-      template_param_decls.push_back(TemplateTypeParmDecl::Create(
+      auto* ptr = TemplateTypeParmDecl::Create(
           ast, decl_context, SourceLocation(), SourceLocation(), depth, i,
-          identifier_info, is_typename, parameter_pack));
+          identifier_info, is_typename, parameter_pack);
+
+      if (template_param_infos.default_check[i]) {
+        ptr->setDefaultArgument(ast.getTrivialTypeSourceInfo(template_param_infos.args[i].getAsType()));
+      }
+      template_param_decls.push_back(ptr);
     }
   }
 
@@ -1639,7 +1657,7 @@ ClassTemplateDecl *TypeSystemClang::CreateClassTemplateDecl(
 }
 
 TemplateTemplateParmDecl *
-TypeSystemClang::CreateTemplateTemplateParmDecl(const char *template_name) {
+TypeSystemClang::CreateTemplateTemplateParmDecl(const char *template_name, bool is_default) {
   ASTContext &ast = getASTContext();
 
   auto *decl_ctx = ast.getTranslationUnitDecl();
@@ -1655,10 +1673,15 @@ TypeSystemClang::CreateTemplateTemplateParmDecl(const char *template_name) {
   // type that includes a template template argument. Only the name matters for
   // this purpose, so we use dummy values for the other characteristics of the
   // type.
-  return TemplateTemplateParmDecl::Create(
+  auto* decl = TemplateTemplateParmDecl::Create(
       ast, decl_ctx, SourceLocation(),
       /*Depth*/ 0, /*Position*/ 0,
       /*IsParameterPack*/ false, &identifier_info, template_param_list);
+
+  if (is_default)
+    decl->setDefaultArgument(ast, {});
+
+  return decl;
 }
 
 ClassTemplateSpecializationDecl *

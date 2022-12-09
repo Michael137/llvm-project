@@ -343,6 +343,7 @@ public:
 
     llvm::SmallVector<const char *, 2> names;
     llvm::SmallVector<clang::TemplateArgument, 2> args;
+    llvm::SmallVector<bool, 2> default_check;
 
     const char * pack_name = nullptr;
     std::unique_ptr<TemplateParameterInfos> packed_args;
@@ -362,7 +363,7 @@ public:
       const TemplateParameterInfos &infos);
 
   clang::TemplateTemplateParmDecl *
-  CreateTemplateTemplateParmDecl(const char *template_name);
+  CreateTemplateTemplateParmDecl(const char *template_name, bool is_default);
 
   clang::ClassTemplateSpecializationDecl *CreateClassTemplateSpecializationDecl(
       clang::DeclContext *decl_ctx, OptionalClangModuleID owning_module,

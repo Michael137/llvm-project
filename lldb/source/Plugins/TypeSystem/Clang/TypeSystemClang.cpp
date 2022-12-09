@@ -1400,7 +1400,7 @@ static TemplateParameterList *CreateTemplateParameterList(
         else if (template_param_infos.args[i].getKind() == TemplateArgument::Integral) {
           Expr *LiteralExpr =
               IntegerLiteral::Create(ast, template_param_infos.args[i].getAsIntegral(),
-                                     template_param_infos.args[i].getAsType(), SourceLocation());
+                                     template_param_type, SourceLocation());
           ptr->setDefaultArgument(LiteralExpr);
         }
       }

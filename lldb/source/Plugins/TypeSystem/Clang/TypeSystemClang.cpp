@@ -1398,10 +1398,13 @@ static TemplateParameterList *CreateTemplateParameterList(
         if (template_param_infos.args[i].getKind() == TemplateArgument::Expression)
           ptr->setDefaultArgument(template_param_infos.args[i].getAsExpr());
         else if (template_param_infos.args[i].getKind() == TemplateArgument::Integral) {
-          Expr *LiteralExpr =
-              IntegerLiteral::Create(ast, template_param_infos.args[i].getAsIntegral(),
-                                     template_param_type, SourceLocation());
-          ptr->setDefaultArgument(LiteralExpr);
+          // FIXME: handle boolean default template arguments
+          if (!template_param_type->isBooleanType()) {
+            Expr *LiteralExpr =
+                IntegerLiteral::Create(ast, template_param_infos.args[i].getAsIntegral(),
+                                       template_param_type, SourceLocation());
+            ptr->setDefaultArgument(LiteralExpr);
+          }
         }
       }
 

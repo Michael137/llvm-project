@@ -2025,12 +2025,12 @@ static bool isSubstitutedTemplateArgument(ASTContext &Ctx, TemplateArgument Arg,
     }
   }
 
-  if (Arg.getKind() == TemplateArgument::Integral
-      && Pattern.getKind() == TemplateArgument::Expression) {
-    clang::Expr::EvalResult Result;
-    Pattern.getAsExpr()->EvaluateAsConstantExpr(Result, Ctx);
-    return Result.Val.isInt() && llvm::APSInt::isSameValue(Arg.getAsIntegral(), Result.Val.getInt());
-  }
+  //if (Arg.getKind() == TemplateArgument::Integral
+  //    && Pattern.getKind() == TemplateArgument::Expression) {
+  //  clang::Expr::EvalResult Result;
+  //  Pattern.getAsExpr()->EvaluateAsConstantExpr(Result, Ctx);
+  //  return Result.Val.isInt() && llvm::APSInt::isSameValue(Arg.getAsIntegral(), Result.Val.getInt());
+  //}
 
   if (Arg.getKind() != Pattern.getKind())
     return false;

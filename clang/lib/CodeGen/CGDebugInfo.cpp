@@ -2018,7 +2018,17 @@ CGDebugInfo::CollectTemplateParams(Optional<TemplateArgs> OArgs,
       if (Args.TList /*&& CGM.getCodeGenOpts().DwarfVersion >= 5*/)
         if (auto *templateType = dyn_cast_or_null<NonTypeTemplateParmDecl>(
                 Args.TList->getParam(i)))
-            defaultParameter = templateType->hasDefaultArgument();
+          // FIXME:
+          //    in template<typename T, T SIZE = 42>, SIZE is ValueDependent so
+          //    we would not generate a defaulted argument for such instantiation
+          //
+          //    in template<typename T, int SIZE = sizeof(T)> same as above
+          if (templateType->hasDefaultArgument() &&
+              !templateType->getDefaultArgument()->isValueDependent())
+            defaultParameter = llvm::APSInt::isSameValue(
+                templateType->getDefaultArgument()->EvaluateKnownConstInt(
+                    CGM.getContext()),
+                TA.getAsIntegral());
 
       TemplateParams.push_back(DBuilder.createTemplateValueParameter(
           TheCU, Name, TTy, defaultParameter,

@@ -68,6 +68,150 @@ static uint32_t getDeclAlignIfRequired(const Decl *D, const ASTContext &Ctx) {
   return D->hasAttr<AlignedAttr>() ? D->getMaxAlignment() : 0;
 }
 
+static bool isSubstitutedTemplateArgument(ASTContext &Ctx, TemplateArgument Arg,
+                                          TemplateArgument Pattern,
+                                          ArrayRef<TemplateArgument> Args,
+                                          unsigned Depth);
+
+static bool isSubstitutedType(ASTContext &Ctx, QualType T, QualType Pattern,
+                              ArrayRef<TemplateArgument> Args, unsigned Depth) {
+  if (Ctx.hasSameType(T, Pattern))
+    return true;
+
+  // A type parameter matches its argument.
+  if (auto *TTPT = Pattern->getAs<TemplateTypeParmType>()) {
+    if (TTPT->getDepth() == Depth && TTPT->getIndex() < Args.size() &&
+        Args[TTPT->getIndex()].getKind() == TemplateArgument::Type) {
+      QualType SubstArg = Ctx.getQualifiedType(
+          Args[TTPT->getIndex()].getAsType(), Pattern.getQualifiers());
+      return Ctx.hasSameType(SubstArg, T);
+    }
+    return false;
+  }
+
+  // FIXME: Recurse into array types.
+
+  // All other cases will need the types to be identically qualified.
+  Qualifiers TQual, PatQual;
+  T = Ctx.getUnqualifiedArrayType(T, TQual);
+  Pattern = Ctx.getUnqualifiedArrayType(Pattern, PatQual);
+  if (TQual != PatQual)
+    return false;
+
+  // Recurse into pointer-like types.
+  {
+    QualType TPointee = T->getPointeeType();
+    QualType PPointee = Pattern->getPointeeType();
+    if (!TPointee.isNull() && !PPointee.isNull())
+      return T->getTypeClass() == Pattern->getTypeClass() &&
+             isSubstitutedType(Ctx, TPointee, PPointee, Args, Depth);
+  }
+
+  // Recurse into template specialization types.
+  if (auto *PTST =
+          Pattern.getCanonicalType()->getAs<TemplateSpecializationType>()) {
+    TemplateName Template;
+    ArrayRef<TemplateArgument> TemplateArgs;
+    if (auto *TTST = T->getAs<TemplateSpecializationType>()) {
+      Template = TTST->getTemplateName();
+      TemplateArgs = TTST->template_arguments();
+    } else if (auto *CTSD = dyn_cast_or_null<ClassTemplateSpecializationDecl>(
+                   T->getAsCXXRecordDecl())) {
+      Template = TemplateName(CTSD->getSpecializedTemplate());
+      TemplateArgs = CTSD->getTemplateArgs().asArray();
+    } else {
+      return false;
+    }
+
+    if (!isSubstitutedTemplateArgument(Ctx, Template, PTST->getTemplateName(),
+                                       Args, Depth))
+      return false;
+    if (TemplateArgs.size() != PTST->template_arguments().size())
+      return false;
+    for (unsigned I = 0, N = TemplateArgs.size(); I != N; ++I)
+      if (!isSubstitutedTemplateArgument(
+              Ctx, TemplateArgs[I], PTST->template_arguments()[I], Args, Depth))
+        return false;
+    return true;
+  }
+
+  // FIXME: Handle more cases.
+  return false;
+}
+
+static bool isSubstitutedTemplateArgument(ASTContext &Ctx, TemplateArgument Arg,
+                                          TemplateArgument Pattern,
+                                          ArrayRef<TemplateArgument> Args,
+                                          unsigned Depth) {
+  Arg = Ctx.getCanonicalTemplateArgument(Arg);
+  Pattern = Ctx.getCanonicalTemplateArgument(Pattern);
+  if (Arg.structurallyEquals(Pattern))
+    return true;
+
+  if (Pattern.getKind() == TemplateArgument::Expression) {
+    if (auto *DRE =
+            dyn_cast<DeclRefExpr>(Pattern.getAsExpr()->IgnoreParenImpCasts())) {
+      if (auto *NTTP = dyn_cast<NonTypeTemplateParmDecl>(DRE->getDecl()))
+        return NTTP->getDepth() == Depth && Args.size() > NTTP->getIndex() &&
+               Args[NTTP->getIndex()].structurallyEquals(Arg);
+    }
+  }
+
+  if (Arg.getKind() == TemplateArgument::Integral
+      && Pattern.getKind() == TemplateArgument::Expression) {
+    clang::Expr::EvalResult Result;
+
+    if (!Pattern.getAsExpr()->isValueDependent()) {
+      Pattern.getAsExpr()->EvaluateAsConstantExpr(Result, Ctx);
+      return Result.Val.isInt() && llvm::APSInt::isSameValue(Arg.getAsIntegral(), Result.Val.getInt());
+    }
+  }
+
+  if (Arg.getKind() != Pattern.getKind())
+    return false;
+
+  if (Arg.getKind() == TemplateArgument::Type)
+    return isSubstitutedType(Ctx, Arg.getAsType(), Pattern.getAsType(), Args,
+                             Depth);
+
+  if (Arg.getKind() == TemplateArgument::Template) {
+    TemplateDecl *PatTD = Pattern.getAsTemplate().getAsTemplateDecl();
+    if (auto *TTPD = dyn_cast_or_null<TemplateTemplateParmDecl>(PatTD))
+      return TTPD->getDepth() == Depth && Args.size() > TTPD->getIndex() &&
+             Ctx.getCanonicalTemplateArgument(Args[TTPD->getIndex()])
+                 .structurallyEquals(Arg);
+  }
+
+  // FIXME: Handle more cases.
+  return false;
+}
+
+/// Make a best-effort determination of whether the type T can be produced by
+/// substituting Args into the default argument of Param.
+static bool isSubstitutedDefaultArgument(ASTContext &Ctx, TemplateArgument Arg,
+                                         const NamedDecl *Param,
+                                         ArrayRef<TemplateArgument> Args,
+                                         unsigned Depth) {
+  // An empty pack is equivalent to not providing a pack argument.
+  if (Arg.getKind() == TemplateArgument::Pack && Arg.pack_size() == 0)
+    return true;
+
+  if (auto *TTPD = dyn_cast<TemplateTypeParmDecl>(Param)) {
+    return TTPD->hasDefaultArgument() &&
+           isSubstitutedTemplateArgument(Ctx, Arg, TTPD->getDefaultArgument(),
+                                         Args, Depth);
+  } else if (auto *TTPD = dyn_cast<TemplateTemplateParmDecl>(Param)) {
+    return TTPD->hasDefaultArgument() &&
+           isSubstitutedTemplateArgument(
+               Ctx, Arg, TTPD->getDefaultArgument().getArgument(), Args, Depth);
+  } else if (auto *NTTPD = dyn_cast<NonTypeTemplateParmDecl>(Param)) {
+    return NTTPD->hasDefaultArgument() &&
+           isSubstitutedTemplateArgument(Ctx, Arg, NTTPD->getDefaultArgument(),
+                                         Args, Depth);
+  }
+  return false;
+}
+
 CGDebugInfo::CGDebugInfo(CodeGenModule &CGM)
     : CGM(CGM), DebugKind(CGM.getCodeGenOpts().getDebugInfo()),
       DebugTypeExtRefs(CGM.getCodeGenOpts().DebugTypeExtRefs),
@@ -2005,9 +2149,14 @@ CGDebugInfo::CollectTemplateParams(Optional<TemplateArgs> OArgs,
       if (Args.TList)
         if (auto *templateType =
                 dyn_cast_or_null<TemplateTypeParmDecl>(Args.TList->getParam(i)))
-          if (templateType->hasDefaultArgument())
-            defaultParameter =
-                templateType->getDefaultArgument() == TA.getAsType();
+
+          if (Args.decl) {
+            defaultParameter = isSubstitutedDefaultArgument(
+                    Args.decl->getASTContext(), TA, Args.TList->getParam(i), Args.Args, Args.TList->getDepth());
+          //if (templateType->hasDefaultArgument())
+          //  defaultParameter =
+          //      templateType->getDefaultArgument() == TA.getAsType();
+          }
 
       TemplateParams.push_back(DBuilder.createTemplateTypeParameter(
           TheCU, Name, TTy, defaultParameter));
@@ -2017,18 +2166,22 @@ CGDebugInfo::CollectTemplateParams(Optional<TemplateArgs> OArgs,
       llvm::DIType *TTy = getOrCreateType(TA.getIntegralType(), Unit);
       if (Args.TList /*&& CGM.getCodeGenOpts().DwarfVersion >= 5*/)
         if (auto *templateType = dyn_cast_or_null<NonTypeTemplateParmDecl>(
-                Args.TList->getParam(i)))
+                Args.TList->getParam(i))) {
           // FIXME:
           //    in template<typename T, T SIZE = 42>, SIZE is ValueDependent so
           //    we would not generate a defaulted argument for such instantiation
           //
           //    in template<typename T, int SIZE = sizeof(T)> same as above
-          if (templateType->hasDefaultArgument() &&
-              !templateType->getDefaultArgument()->isValueDependent())
-            defaultParameter = llvm::APSInt::isSameValue(
-                templateType->getDefaultArgument()->EvaluateKnownConstInt(
-                    CGM.getContext()),
-                TA.getAsIntegral());
+          // if (templateType->hasDefaultArgument() &&
+          //     !templateType->getDefaultArgument()->isValueDependent())
+          //   defaultParameter = llvm::APSInt::isSameValue(
+          //       templateType->getDefaultArgument()->EvaluateKnownConstInt(
+          //           CGM.getContext()),
+          //       TA.getAsIntegral());
+          if (Args.decl)
+            defaultParameter = isSubstitutedDefaultArgument(
+                    Args.decl->getASTContext(), TA, Args.TList->getParam(i), Args.Args, Args.TList->getDepth());
+        }
 
       TemplateParams.push_back(DBuilder.createTemplateValueParameter(
           TheCU, Name, TTy, defaultParameter,
@@ -2185,7 +2338,10 @@ llvm::DINodeArray CGDebugInfo::CollectVarTemplateParams(const VarDecl *VL,
 
 llvm::DINodeArray CGDebugInfo::CollectCXXTemplateParams(const RecordDecl *RD,
                                                         llvm::DIFile *Unit) {
-  return CollectTemplateParams(GetTemplateArgs(RD), Unit);
+  auto args = GetTemplateArgs(RD);
+  if (args)
+    args->decl = RD;
+  return CollectTemplateParams(args, Unit);
 }
 
 llvm::DINodeArray CGDebugInfo::CollectBTFDeclTagAnnotations(const Decl *D) {

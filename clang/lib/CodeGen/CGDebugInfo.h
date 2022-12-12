@@ -278,6 +278,7 @@ class CGDebugInfo {
   struct TemplateArgs {
     const TemplateParameterList *TList;
     llvm::ArrayRef<TemplateArgument> Args;
+    const clang::RecordDecl * decl = nullptr;
   };
   /// A helper function to collect template parameters.
   llvm::DINodeArray CollectTemplateParams(Optional<TemplateArgs> Args,

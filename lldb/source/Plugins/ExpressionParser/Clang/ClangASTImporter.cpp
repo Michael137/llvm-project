@@ -807,6 +807,20 @@ void ClangASTImporter::ForgetSource(clang::ASTContext *dst_ast,
   md->removeOriginsWithContext(src_ast);
 }
 
+PrintingCallbacks::TriState ClangASTImporter::IsTemplateArgumentDefaulted(
+    clang::ClassTemplateSpecializationDecl const *D, size_t ArgIndex) const {
+  using TriState = PrintingCallbacks::TriState;
+
+  auto it = m_template_decl_defaults_map.find(D);
+  if (it == m_template_decl_defaults_map.end())
+    return TriState::kUnknown;
+
+  auto const &bits = it->getSecond();
+  assert(bits.size() > ArgIndex);
+
+  return bits.test(ArgIndex) ? TriState::kYes : TriState::kNo;
+}
+
 ClangASTImporter::MapCompleter::~MapCompleter() = default;
 
 llvm::Expected<Decl *>

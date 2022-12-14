@@ -1394,14 +1394,43 @@ static TemplateParameterList *CreateTemplateParameterList(
     TemplateArgument const &targ = args[i];
     if (IsValueParam(targ)) {
       QualType template_param_type = targ.getIntegralType();
-      template_param_decls.push_back(NonTypeTemplateParmDecl::Create(
+      auto *decl = NonTypeTemplateParmDecl::Create(
           ast, decl_context, SourceLocation(), SourceLocation(), depth, i,
           identifier_info, template_param_type, parameter_pack,
-          ast.getTrivialTypeSourceInfo(template_param_type)));
+          ast.getTrivialTypeSourceInfo(template_param_type));
+
+      if (template_param_infos.IsDefaultArg(i)) {
+        if (targ.getKind() == TemplateArgument::Integral) {
+          Expr *LiteralExpr = nullptr;
+          if (template_param_type->isBooleanType()) {
+            LiteralExpr = CXXBoolLiteralExpr::Create(
+                ast, !targ.getAsIntegral().isZero(), template_param_type, {});
+          } else {
+            LiteralExpr = IntegerLiteral::Create(ast, targ.getAsIntegral(),
+                                                 template_param_type, {});
+          }
+
+          decl->setDefaultArgument(LiteralExpr);
+        }
+      }
+
+      template_param_decls.push_back(decl);
     } else {
-      template_param_decls.push_back(TemplateTypeParmDecl::Create(
+      auto *decl = TemplateTypeParmDecl::Create(
           ast, decl_context, SourceLocation(), SourceLocation(), depth, i,
-          identifier_info, is_typename, parameter_pack));
+          identifier_info, is_typename, parameter_pack);
+
+      if (template_param_infos.IsDefaultArg(i)) {
+        if (targ.getKind() == TemplateArgument::Type) {
+          decl->setDefaultArgument(
+              ast.getTrivialTypeSourceInfo(targ.getAsType()));
+        } else if (targ.getKind() == TemplateArgument::Template) {
+          decl->setDefaultArgument(ast.getTemplateSpecializationTypeInfo(
+              targ.getAsTemplate(), {}, {}));
+        }
+      }
+
+      template_param_decls.push_back(decl);
     }
   }
 
@@ -3824,6 +3853,18 @@ ConstString TypeSystemClang::GetTypeName(lldb::opaque_compiler_type_t type,
   return ConstString(qual_type.getAsString(GetTypePrintingPolicy()));
 }
 
+lldb_private::ClangASTImporter *TypeSystemClang::GetClangASTImporter() const {
+  lldb_private::ClangASTImporter *importer = nullptr;
+  if (m_dwarf_ast_parser_up)
+    importer = &m_dwarf_ast_parser_up->GetClangASTImporter();
+  if (!importer && m_pdb_ast_parser_up)
+    importer = &m_pdb_ast_parser_up->GetClangASTImporter();
+  if (!importer && m_native_pdb_ast_parser_up)
+    importer = &m_native_pdb_ast_parser_up->GetClangASTImporter();
+
+  return importer;
+}
+
 ConstString
 TypeSystemClang::GetDisplayTypeName(lldb::opaque_compiler_type_t type) {
   if (!type)
@@ -3835,6 +3876,7 @@ TypeSystemClang::GetDisplayTypeName(lldb::opaque_compiler_type_t type) {
   printing_policy.SuppressScope = false;
   printing_policy.SuppressUnwrittenScope = true;
   printing_policy.SuppressInlineNamespace = true;
+  printing_policy.Callbacks = &m_printing_callbacks;
   return ConstString(qual_type.getAsString(printing_policy));
 }
 
@@ -9436,18 +9478,23 @@ bool TypeSystemClang::LayoutRecordType(
         &base_offsets,
     llvm::DenseMap<const clang::CXXRecordDecl *, clang::CharUnits>
         &vbase_offsets) {
-  lldb_private::ClangASTImporter *importer = nullptr;
-  if (m_dwarf_ast_parser_up)
-    importer = &m_dwarf_ast_parser_up->GetClangASTImporter();
-  if (!importer && m_pdb_ast_parser_up)
-    importer = &m_pdb_ast_parser_up->GetClangASTImporter();
-  if (!importer && m_native_pdb_ast_parser_up)
-    importer = &m_native_pdb_ast_parser_up->GetClangASTImporter();
+
+  auto *importer = GetClangASTImporter();
   if (!importer)
     return false;
 
   return importer->LayoutRecordType(record_decl, bit_size, alignment,
                                     field_offsets, base_offsets, vbase_offsets);
+}
+
+PrintingCallbacks::TriState TypeSystemClang::IsTemplateArgumentDefaulted(
+    clang::ClassTemplateSpecializationDecl const *D, size_t ArgIndex) const {
+  lldb_private::ClangASTImporter *importer = GetClangASTImporter();
+
+  if (!importer)
+    return PrintingCallbacks::TriState::kUnknown;
+
+  return importer->IsTemplateArgumentDefaulted(D, ArgIndex);
 }
 
 // CompilerDecl override functions

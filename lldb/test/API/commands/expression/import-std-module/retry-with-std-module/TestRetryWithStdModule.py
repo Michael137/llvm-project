@@ -15,7 +15,7 @@ class TestCase(TestBase):
                                           lldb.SBFileSpec("main.cpp"))
 
         # Test printing the vector before enabling any C++ module setting.
-        self.expect_expr("a", result_type="std::vector<int, std::allocator<int> >")
+        self.expect_expr("a", result_type="std::vector<int>")
 
         # Set loading the import-std-module to 'fallback' which loads the module
         # and retries when an expression fails to parse.
@@ -25,7 +25,7 @@ class TestCase(TestBase):
         # as before as this shouldn't use a C++ module type (the C++ module type
         # is hiding the second template parameter as it's equal to the default
         # argument which the C++ module has type info for).
-        self.expect_expr("a", result_type="std::vector<int, std::allocator<int> >")
+        self.expect_expr("a", result_type="std::vector<int>")
 
         # This expression can only parse with a C++ module. LLDB should
         # automatically fall back to import the C++ module to get this working.

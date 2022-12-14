@@ -22,6 +22,7 @@
 
 #include "clang/AST/ASTContext.h"
 #include "clang/AST/ASTFwd.h"
+#include "clang/AST/PrettyPrinter.h"
 #include "clang/AST/TemplateBase.h"
 #include "clang/AST/Type.h"
 #include "clang/Basic/TargetInfo.h"
@@ -333,6 +334,7 @@ public:
   public:
     struct ArgumentMetadata {
       char const *const name = nullptr;
+      bool const is_defaulted = false;
     };
 
     TemplateParameterInfos() = default;
@@ -372,9 +374,15 @@ public:
       return args.front();
     }
 
-    void InsertArg(char const *name, clang::TemplateArgument arg) {
+    bool IsDefaultArg(size_t idx) const {
+      assert(args_metadata.size() > idx);
+      return args_metadata[idx].is_defaulted;
+    }
+
+    void InsertArg(char const *name, clang::TemplateArgument arg,
+                   bool is_defaulted = false) {
       args.emplace_back(std::move(arg));
-      args_metadata.push_back({name});
+      args_metadata.push_back({name, is_defaulted});
     }
 
     // Parameter pack related
@@ -531,6 +539,24 @@ public:
 
   void CompleteObjCInterfaceDecl(clang::ObjCInterfaceDecl *);
 
+  class PrintingCallbacks : public clang::PrintingCallbacks {
+  public:
+    PrintingCallbacks(TypeSystemClang const &ts) : m_ast(ts) {}
+
+    virtual ~PrintingCallbacks() = default;
+
+    TriState
+    IsTemplateArgumentDefaulted(clang::ClassTemplateSpecializationDecl const *D,
+                                size_t ArgIndex) const override {
+      return m_ast.IsTemplateArgumentDefaulted(D, ArgIndex);
+    }
+
+  private:
+    TypeSystemClang const &m_ast;
+  };
+
+  lldb_private::ClangASTImporter *GetClangASTImporter() const;
+
   bool LayoutRecordType(
       const clang::RecordDecl *record_decl, uint64_t &size, uint64_t &alignment,
       llvm::DenseMap<const clang::FieldDecl *, uint64_t> &field_offsets,
@@ -538,6 +564,10 @@ public:
           &base_offsets,
       llvm::DenseMap<const clang::CXXRecordDecl *, clang::CharUnits>
           &vbase_offsets);
+
+  PrintingCallbacks::TriState
+  IsTemplateArgumentDefaulted(clang::ClassTemplateSpecializationDecl const *D,
+                              size_t ArgIndex) const;
 
   /// Creates a CompilerDecl from the given Decl with the current
   /// TypeSystemClang instance as its typesystem.
@@ -1193,6 +1223,8 @@ private:
   /// May be null if we are already done parsing this ASTContext or the
   /// ASTContext wasn't created by parsing source code.
   clang::Sema *m_sema = nullptr;
+
+  PrintingCallbacks m_printing_callbacks = {*this};
 
   // For TypeSystemClang only
   TypeSystemClang(const TypeSystemClang &);

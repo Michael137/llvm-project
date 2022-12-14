@@ -18,6 +18,7 @@
 #include "clang/AST/CharUnits.h"
 #include "clang/AST/Decl.h"
 #include "clang/AST/DeclCXX.h"
+#include "clang/AST/DeclTemplate.h"
 #include "clang/Basic/FileManager.h"
 #include "clang/Basic/FileSystemOptions.h"
 
@@ -108,6 +109,16 @@ public:
   /// Copies the given decl to the destination type system.
   /// \see ClangASTImporter::DeportType
   clang::Decl *DeportDecl(clang::ASTContext *dst_ctx, clang::Decl *decl);
+
+  clang::PrintingCallbacks::TriState
+  IsTemplateArgumentDefaulted(clang::ClassTemplateSpecializationDecl const *D,
+                              size_t ArgIndex) const;
+
+  void
+  SetTemplateArgumentDefaults(clang::ClassTemplateSpecializationDecl const *D,
+                              llvm::BitVector defaults) {
+    m_template_decl_defaults_map[D] = std::move(defaults);
+  }
 
   /// Sets the layout for the given RecordDecl. The layout will later be
   /// used by Clang's during code generation. Not calling this function for
@@ -454,6 +465,10 @@ public:
       RecordDeclToLayoutMap;
 
   RecordDeclToLayoutMap m_record_decl_to_layout_map;
+
+  llvm::DenseMap<clang::ClassTemplateSpecializationDecl const *,
+                 llvm::BitVector>
+      m_template_decl_defaults_map;
 };
 
 } // namespace lldb_private

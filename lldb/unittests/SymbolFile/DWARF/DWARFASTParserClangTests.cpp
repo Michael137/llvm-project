@@ -6,11 +6,14 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "Plugins/Platform/MacOSX/PlatformMacOSX.h"
+#include "Plugins/Platform/MacOSX/PlatformRemoteMacOSX.h"
 #include "Plugins/SymbolFile/DWARF/DWARFASTParserClang.h"
 #include "Plugins/SymbolFile/DWARF/DWARFCompileUnit.h"
 #include "Plugins/SymbolFile/DWARF/DWARFDIE.h"
 #include "TestingSupport/Symbol/ClangTestUtils.h"
 #include "TestingSupport/Symbol/YAMLModuleTester.h"
+#include "lldb/Core/Debugger.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 
@@ -19,7 +22,23 @@ using namespace lldb_private;
 using namespace lldb_private::dwarf;
 
 namespace {
-class DWARFASTParserClangTests : public testing::Test {};
+static std::once_flag debugger_initialize_flag;
+
+class DWARFASTParserClangTests : public testing::Test {
+  void SetUp() override {
+    HostInfo::Initialize();
+    PlatformMacOSX::Initialize();
+    std::call_once(debugger_initialize_flag,
+                   []() { Debugger::Initialize(nullptr); });
+    ArchSpec arch("x86_64-apple-macosx-");
+    Platform::SetHostPlatform(
+        PlatformRemoteMacOSX::CreateInstance(true, &arch));
+  }
+  void TearDown() override {
+    PlatformMacOSX::Terminate();
+    HostInfo::Terminate();
+  }
+};
 
 class DWARFASTParserClangStub : public DWARFASTParserClang {
 public:
@@ -403,4 +422,381 @@ TEST_F(ExtractIntFromFormValueTest, TestUnsignedInt) {
                        llvm::Failed());
   EXPECT_THAT_EXPECTED(Extract(ast.UnsignedIntTy, uint_max + 2),
                        llvm::Failed());
+}
+
+TEST_F(DWARFASTParserClangTests, TestDefaultTemplateParamParsing) {
+  // Tests parsing DW_AT_default_value for template parameters.
+
+  // template <typename T>
+  // class foo {};
+  //
+  // template <template <typename T> class CT = foo>
+  // class baz {};
+  //
+  // template <typename T = char, int i = 3, bool b = true,
+  //           typename c = foo<T>>
+  // class bar {};
+  //
+  // int main() {
+  //     bar<> br;
+  //     baz<> bz;
+  //     return 0;
+  // }
+  //
+  // YAML generated on Linux using obj2yaml on the above program
+  // compiled with Clang.
+  const char *yamldata = R"(
+--- !ELF
+FileHeader:
+  Class:           ELFCLASS64
+  Data:            ELFDATA2LSB
+  Type:            ET_REL
+  Machine:         EM_AARCH64
+  SectionHeaderStringTable: .strtab
+Sections:
+  - Name:            .text
+    Type:            SHT_PROGBITS
+    Flags:           [ SHF_ALLOC, SHF_EXECINSTR ]
+    AddressAlign:    0x4
+    Content:         FF4300D1E0031F2AFF0F00B9FF430091C0035FD6
+  - Name:            .linker-options
+    Type:            SHT_LLVM_LINKER_OPTIONS
+    Flags:           [ SHF_EXCLUDE ]
+    AddressAlign:    0x1
+    Content:         ''
+  - Name:            .debug_abbrev
+    Type:            SHT_PROGBITS
+    AddressAlign:    0x1
+    Content:         011101252513050325721710171B25111B120673170000022E01111B1206401803253A0B3B0B49133F190000033400021803253A0B3B0B4913000004240003253E0B0B0B0000050201360B03250B0B3A0B3B0B0000062F00491303251E190000073000491303251E191C0D0000083000491303251E191C0F000009020003253C1900000A8682010003251E19904225000000
+  - Name:            .debug_info
+    Type:            SHT_PROGBITS
+    AddressAlign:    0x1
+    Content:         7F00000005000108000000000100210001000000000000000002001400000000000000020014000000016F03000B490000000302910B05000C4D0000000302910A0E000D78000000000404050405050D010009066E000000070749000000080308720000000A0106760000000C000406080104090201090B0505110100050A0F100000
+  - Name:            .debug_str_offsets
+    Type:            SHT_PROGBITS
+    AddressAlign:    0x1
+    Content:         4C00000005000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+  - Name:            .comment
+    Type:            SHT_PROGBITS
+    Flags:           [ SHF_MERGE, SHF_STRINGS ]
+    AddressAlign:    0x1
+    EntSize:         0x1
+    Content:         00636C616E672076657273696F6E2031362E302E30202868747470733A2F2F6769746875622E636F6D2F6C6C766D2F6C6C766D2D70726F6A65637420343764323862376138323638653337616130646537366238353966343530386533646261633663652900
+  - Name:            .note.GNU-stack
+    Type:            SHT_PROGBITS
+    AddressAlign:    0x1
+  - Name:            .eh_frame
+    Type:            SHT_PROGBITS
+    Flags:           [ SHF_ALLOC ]
+    AddressAlign:    0x8
+    Content:         1000000000000000017A5200017C1E011B0C1F001800000018000000000000001400000000440E104C0E000000000000
+  - Name:            .debug_line
+    Type:            SHT_PROGBITS
+    AddressAlign:    0x1
+    Content:         580000000500080037000000010101FB0E0D00010101010000000100000101011F010000000003011F020F051E01000000000019537E33C1D1006B79E3D1C33D6EE6A304000009020000000000000000030A0105050ABD0208000101
+  - Name:            .debug_line_str
+    Type:            SHT_PROGBITS
+    Flags:           [ SHF_MERGE, SHF_STRINGS ]
+    AddressAlign:    0x1
+    EntSize:         0x1
+    Content:         2F686F6D652F6761726465690064656661756C74732E63707000
+  - Name:            .rela.debug_info
+    Type:            SHT_RELA
+    Flags:           [ SHF_INFO_LINK ]
+    Link:            .symtab
+    AddressAlign:    0x8
+    Info:            .debug_info
+    Relocations:
+      - Offset:          0x8
+        Symbol:          .debug_abbrev
+        Type:            R_AARCH64_ABS32
+      - Offset:          0x11
+        Symbol:          .debug_str_offsets
+        Type:            R_AARCH64_ABS32
+        Addend:          8
+      - Offset:          0x15
+        Symbol:          .debug_line
+        Type:            R_AARCH64_ABS32
+      - Offset:          0x1F
+        Symbol:          .debug_addr
+        Type:            R_AARCH64_ABS32
+        Addend:          8
+  - Name:            .rela.debug_str_offsets
+    Type:            SHT_RELA
+    Flags:           [ SHF_INFO_LINK ]
+    Link:            .symtab
+    AddressAlign:    0x8
+    Info:            .debug_str_offsets
+    Relocations:
+      - Offset:          0x8
+        Symbol:          .debug_str
+        Type:            R_AARCH64_ABS32
+      - Offset:          0xC
+        Symbol:          .debug_str
+        Type:            R_AARCH64_ABS32
+        Addend:          101
+      - Offset:          0x10
+        Symbol:          .debug_str
+        Type:            R_AARCH64_ABS32
+        Addend:          114
+      - Offset:          0x14
+        Symbol:          .debug_str
+        Type:            R_AARCH64_ABS32
+        Addend:          127
+      - Offset:          0x18
+        Symbol:          .debug_str
+        Type:            R_AARCH64_ABS32
+        Addend:          132
+      - Offset:          0x1C
+        Symbol:          .debug_str
+        Type:            R_AARCH64_ABS32
+        Addend:          136
+      - Offset:          0x20
+        Symbol:          .debug_str
+        Type:            R_AARCH64_ABS32
+        Addend:          139
+      - Offset:          0x24
+        Symbol:          .debug_str
+        Type:            R_AARCH64_ABS32
+        Addend:          144
+      - Offset:          0x28
+        Symbol:          .debug_str
+        Type:            R_AARCH64_ABS32
+        Addend:          146
+      - Offset:          0x2C
+        Symbol:          .debug_str
+        Type:            R_AARCH64_ABS32
+        Addend:          148
+      - Offset:          0x30
+        Symbol:          .debug_str
+        Type:            R_AARCH64_ABS32
+        Addend:          153
+      - Offset:          0x34
+        Symbol:          .debug_str
+        Type:            R_AARCH64_ABS32
+        Addend:          155
+      - Offset:          0x38
+        Symbol:          .debug_str
+        Type:            R_AARCH64_ABS32
+        Addend:          165
+      - Offset:          0x3C
+        Symbol:          .debug_str
+        Type:            R_AARCH64_ABS32
+        Addend:          167
+      - Offset:          0x40
+        Symbol:          .debug_str
+        Type:            R_AARCH64_ABS32
+        Addend:          198
+      - Offset:          0x44
+        Symbol:          .debug_str
+        Type:            R_AARCH64_ABS32
+        Addend:          201
+      - Offset:          0x48
+        Symbol:          .debug_str
+        Type:            R_AARCH64_ABS32
+        Addend:          204
+      - Offset:          0x4C
+        Symbol:          .debug_str
+        Type:            R_AARCH64_ABS32
+        Addend:          208
+  - Name:            .rela.debug_addr
+    Type:            SHT_RELA
+    Flags:           [ SHF_INFO_LINK ]
+    Link:            .symtab
+    AddressAlign:    0x8
+    Info:            .debug_addr
+    Relocations:
+      - Offset:          0x8
+        Symbol:          .text
+        Type:            R_AARCH64_ABS64
+  - Name:            .rela.eh_frame
+    Type:            SHT_RELA
+    Flags:           [ SHF_INFO_LINK ]
+    Link:            .symtab
+    AddressAlign:    0x8
+    Info:            .eh_frame
+    Relocations:
+      - Offset:          0x1C
+        Symbol:          .text
+        Type:            R_AARCH64_PREL32
+  - Name:            .rela.debug_line
+    Type:            SHT_RELA
+    Flags:           [ SHF_INFO_LINK ]
+    Link:            .symtab
+    AddressAlign:    0x8
+    Info:            .debug_line
+    Relocations:
+      - Offset:          0x22
+        Symbol:          .debug_line_str
+        Type:            R_AARCH64_ABS32
+      - Offset:          0x2E
+        Symbol:          .debug_line_str
+        Type:            R_AARCH64_ABS32
+        Addend:          13
+      - Offset:          0x48
+        Symbol:          .text
+        Type:            R_AARCH64_ABS64
+  - Name:            .llvm_addrsig
+    Type:            SHT_LLVM_ADDRSIG
+    Flags:           [ SHF_EXCLUDE ]
+    Link:            .symtab
+    AddressAlign:    0x1
+    Offset:          0x818
+    Symbols:         [  ]
+  - Type:            SectionHeaderTable
+    Sections:
+      - Name:            .strtab
+      - Name:            .text
+      - Name:            .linker-options
+      - Name:            .debug_abbrev
+      - Name:            .debug_info
+      - Name:            .rela.debug_info
+      - Name:            .debug_str_offsets
+      - Name:            .rela.debug_str_offsets
+      - Name:            .debug_str
+      - Name:            .debug_addr
+      - Name:            .rela.debug_addr
+      - Name:            .comment
+      - Name:            .note.GNU-stack
+      - Name:            .eh_frame
+      - Name:            .rela.eh_frame
+      - Name:            .debug_line
+      - Name:            .rela.debug_line
+      - Name:            .debug_line_str
+      - Name:            .llvm_addrsig
+      - Name:            .symtab
+Symbols:
+  - Name:            defaults.cpp
+    Type:            STT_FILE
+    Index:           SHN_ABS
+  - Name:            .text
+    Type:            STT_SECTION
+    Section:         .text
+  - Name:            '$x.0'
+    Section:         .text
+  - Name:            .debug_abbrev
+    Type:            STT_SECTION
+    Section:         .debug_abbrev
+  - Name:            '$d.1'
+    Section:         .debug_abbrev
+  - Name:            '$d.2'
+    Section:         .debug_info
+  - Name:            .debug_str_offsets
+    Type:            STT_SECTION
+    Section:         .debug_str_offsets
+  - Name:            '$d.3'
+    Section:         .debug_str_offsets
+  - Name:            .debug_str
+    Type:            STT_SECTION
+    Section:         .debug_str
+  - Name:            '$d.4'
+    Section:         .debug_str
+  - Name:            .debug_addr
+    Type:            STT_SECTION
+    Section:         .debug_addr
+  - Name:            '$d.5'
+    Section:         .debug_addr
+  - Name:            '$d.6'
+    Section:         .comment
+  - Name:            '$d.7'
+    Section:         .eh_frame
+  - Name:            .debug_line
+    Type:            STT_SECTION
+    Section:         .debug_line
+  - Name:            '$d.8'
+    Section:         .debug_line
+  - Name:            .debug_line_str
+    Type:            STT_SECTION
+    Section:         .debug_line_str
+  - Name:            '$d.9'
+    Section:         .debug_line_str
+  - Name:            main
+    Type:            STT_FUNC
+    Section:         .text
+    Binding:         STB_GLOBAL
+    Size:            0x14
+DWARF:
+  debug_str:
+    - 'clang version 16.0.0 (https://github.com/llvm/llvm-project 47d28b7a8268e37aa0de76b859f4508e3dbac6ce)'
+    - defaults.cpp
+    - '/home/gardei'
+    - main
+    - int
+    - br
+    - char
+    - T
+    - i
+    - bool
+    - b
+    - 'foo<char>'
+    - c
+    - 'bar<char, 3, true, foo<char> >'
+    - bz
+    - CT
+    - foo
+    - 'baz<foo>'
+  debug_addr:
+    - Length:          0xC
+      Version:         0x5
+      AddressSize:     0x8
+      Entries:
+        - {}
+...
+)";
+  YAMLModuleTester t(yamldata);
+
+  DWARFUnit *unit = t.GetDwarfUnit();
+  ASSERT_NE(unit, nullptr);
+  const DWARFDebugInfoEntry *cu_entry = unit->DIE().GetDIE();
+  ASSERT_EQ(cu_entry->Tag(), DW_TAG_compile_unit);
+  DWARFDIE cu_die(unit, cu_entry);
+
+  auto holder = std::make_unique<clang_utils::TypeSystemClangHolder>("ast");
+  auto &ast_ctx = *holder->GetAST();
+  DWARFASTParserClangStub ast_parser(ast_ctx);
+
+  llvm::SmallVector<lldb::TypeSP, 2> types;
+  for (DWARFDIE die : cu_die.children()) {
+    if (die.Tag() == DW_TAG_class_type) {
+      SymbolContext sc;
+      bool new_type = false;
+      types.push_back(ast_parser.ParseTypeFromDWARF(sc, die, &new_type));
+    }
+  }
+
+  ASSERT_EQ(types.size(), 3U);
+
+  auto check_decl = [](auto const *decl) {
+    clang::ClassTemplateSpecializationDecl const *ctsd =
+        llvm::dyn_cast_or_null<clang::ClassTemplateSpecializationDecl>(decl);
+    ASSERT_NE(ctsd, nullptr);
+    clang::ClassTemplateDecl const *ctd = ctsd->getSpecializedTemplate();
+    ASSERT_NE(ctd, nullptr);
+
+    auto const *params = ctd->getTemplateParameters();
+    ASSERT_NE(params, nullptr);
+
+    for (clang::NamedDecl const *param : *params) {
+      ASSERT_NE(param, nullptr);
+      if (auto *decl = llvm::dyn_cast<clang::TemplateTypeParmDecl>(param)) {
+        EXPECT_TRUE(decl->hasDefaultArgument());
+      } else if (auto *decl =
+                     llvm::dyn_cast<clang::NonTypeTemplateParmDecl>(param)) {
+        EXPECT_TRUE(decl->hasDefaultArgument());
+      } else if (auto *decl =
+                     llvm::dyn_cast<clang::TemplateTemplateParmDecl>(param)) {
+        EXPECT_TRUE(decl->hasDefaultArgument());
+      } else {
+        ASSERT_TRUE(false && "Shouldn't ever get here");
+      }
+    }
+  };
+
+  for (auto const &type_sp : types) {
+    ASSERT_NE(type_sp, nullptr);
+    auto const *decl = ClangUtil::GetAsTagDecl(type_sp->GetFullCompilerType());
+    if (decl->getName() == "bar" || decl->getName() == "baz") {
+      check_decl(decl);
+    }
+  }
 }

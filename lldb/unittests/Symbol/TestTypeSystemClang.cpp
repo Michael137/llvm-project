@@ -615,47 +615,52 @@ TEST_F(TestCreateClassTemplateDecl, FindExistingTemplates) {
 
   // Test that <typename T> with T = int creates a new template.
   ClassTemplateDecl *single_type_arg =
-      ExpectNewTemplate("<typename T>", {{"T"}, {intArg1}});
+      ExpectNewTemplate("<typename T>", {{{"T"}}, {intArg1}});
 
   // Test that changing the parameter name doesn't create a new class template.
-  ExpectReusedTemplate("<typename A> (A = int)", {{"A"}, {intArg1}},
+  ExpectReusedTemplate("<typename A> (A = int)", {{{"A"}}, {intArg1}},
                        single_type_arg);
 
   // Test that changing the used type doesn't create a new class template.
-  ExpectReusedTemplate("<typename A> (A = float)", {{"A"}, {floatArg}},
+  ExpectReusedTemplate("<typename A> (A = float)", {{{"A"}}, {floatArg}},
                        single_type_arg);
 
   // Test that <typename A, signed char I> creates a new template with A = int
   // and I = 47;
   ClassTemplateDecl *type_and_char_value =
       ExpectNewTemplate("<typename A, signed char I> (I = 47)",
-                        {{"A", "I"}, {floatArg, charArg1}});
+                        {{{"A"}, {"I"}}, {floatArg, charArg1}});
 
   // Change the value of the I parameter to 123. The previously created
   // class template should still be reused.
   ExpectReusedTemplate("<typename A, signed char I> (I = 123)",
-                       {{"A", "I"}, {floatArg, charArg2}}, type_and_char_value);
+                       {{{"A"}, {"I"}}, {floatArg, charArg2}},
+                       type_and_char_value);
 
   // Change the type of the I parameter to int so we have <typename A, int I>.
   // The class template from above can't be reused.
   ExpectNewTemplate("<typename A, int I> (I = 123)",
-                    {{"A", "I"}, {floatArg, intArg2}});
+                    {{{"A"}, {"I"}}, {floatArg, intArg2}});
 
   // Test a second type parameter will also cause a new template to be created.
   // We now have <typename A, int I, typename B>.
   ClassTemplateDecl *type_and_char_value_and_type =
       ExpectNewTemplate("<typename A, int I, typename B>",
-                        {{"A", "I", "B"}, {floatArg, intArg2, intArg1}});
+                        {{{"A"}, {"I"}, {"B"}}, {floatArg, intArg2, intArg1}});
 
   // Remove all the names from the parameters which shouldn't influence the
   // way the templates get merged.
   ExpectReusedTemplate("<typename, int, typename>",
-                       {{"", "", ""}, {floatArg, intArg2, intArg1}},
+                       {{{""}, {""}, {""}}, {floatArg, intArg2, intArg1}},
                        type_and_char_value_and_type);
 }
 
 TEST_F(TestCreateClassTemplateDecl, FindExistingTemplatesWithParameterPack) {
   // The same as FindExistingTemplates but for templates with parameter packs.
+
+  using ArgumentMetadata =
+      TypeSystemClang::TemplateParameterInfos::ArgumentMetadata;
+
   TypeSystemClang::TemplateParameterInfos infos;
   clang::TemplateArgument intArg1(m_ast->getASTContext().IntTy);
   clang::TemplateArgument intArg2(m_ast->getASTContext(),
@@ -671,7 +676,7 @@ TEST_F(TestCreateClassTemplateDecl, FindExistingTemplatesWithParameterPack) {
 
   infos.SetParameterPack(
       std::make_unique<TypeSystemClang::TemplateParameterInfos>(
-          llvm::SmallVector<const char *>{"", ""},
+          llvm::SmallVector<ArgumentMetadata>{{""}, {""}},
           llvm::SmallVector<TemplateArgument>{intArg1, intArg1}));
 
   ClassTemplateDecl *type_pack =
@@ -687,42 +692,42 @@ TEST_F(TestCreateClassTemplateDecl, FindExistingTemplatesWithParameterPack) {
   // Change the type content of pack type values.
   infos.SetParameterPack(
       std::make_unique<TypeSystemClang::TemplateParameterInfos>(
-          llvm::SmallVector<const char *>{"", ""},
+          llvm::SmallVector<ArgumentMetadata>{{""}, {""}},
           llvm::SmallVector<TemplateArgument>{intArg1, longArg1}));
   ExpectReusedTemplate("<typename ...> (int, long)", infos, type_pack);
 
   // Change the number of pack values.
   infos.SetParameterPack(
       std::make_unique<TypeSystemClang::TemplateParameterInfos>(
-          llvm::SmallVector<const char *>{""},
+          llvm::SmallVector<ArgumentMetadata>{{""}},
           llvm::SmallVector<TemplateArgument>{intArg1}));
   ExpectReusedTemplate("<typename ...> (int)", infos, type_pack);
 
   // The names of the pack values shouldn't matter.
   infos.SetParameterPack(
       std::make_unique<TypeSystemClang::TemplateParameterInfos>(
-          llvm::SmallVector<const char *>{"A"},
+          llvm::SmallVector<ArgumentMetadata>{{"A"}},
           llvm::SmallVector<TemplateArgument>{intArg1}));
   ExpectReusedTemplate("<typename ...> (int)", infos, type_pack);
 
   // Changing the kind of template argument will create a new template.
   infos.SetParameterPack(
       std::make_unique<TypeSystemClang::TemplateParameterInfos>(
-          llvm::SmallVector<const char *>{"A"},
+          llvm::SmallVector<ArgumentMetadata>{{"A"}},
           llvm::SmallVector<TemplateArgument>{intArg2}));
   ClassTemplateDecl *int_pack = ExpectNewTemplate("<int ...> (int = 1)", infos);
 
   // Changing the value of integral parameters will not create a new template.
   infos.SetParameterPack(
       std::make_unique<TypeSystemClang::TemplateParameterInfos>(
-          llvm::SmallVector<const char *>{"A"},
+          llvm::SmallVector<ArgumentMetadata>{{"A"}},
           llvm::SmallVector<TemplateArgument>{intArg3}));
   ExpectReusedTemplate("<int ...> (int = 123)", infos, int_pack);
 
   // Changing the integral type will create a new template.
   infos.SetParameterPack(
       std::make_unique<TypeSystemClang::TemplateParameterInfos>(
-          llvm::SmallVector<const char *>{"A"},
+          llvm::SmallVector<ArgumentMetadata>{{"A"}},
           llvm::SmallVector<TemplateArgument>{longArg2}));
   ExpectNewTemplate("<long ...> (long = 1)", infos);
 

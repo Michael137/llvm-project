@@ -331,11 +331,15 @@ public:
 
   class TemplateParameterInfos {
   public:
+    struct ArgumentMetadata {
+      char const *const name = nullptr;
+    };
+
     TemplateParameterInfos() = default;
-    TemplateParameterInfos(llvm::ArrayRef<const char *> names_in,
+    TemplateParameterInfos(llvm::ArrayRef<ArgumentMetadata> metadata,
                            llvm::ArrayRef<clang::TemplateArgument> args_in)
-        : names(names_in), args(args_in) {
-      assert(names.size() == args_in.size());
+        : args_metadata(metadata), args(args_in) {
+      assert(metadata.size() == args_in.size());
     }
 
     TemplateParameterInfos(TemplateParameterInfos const &) = delete;
@@ -351,7 +355,7 @@ public:
       // these template parameters as invalid.
       if (pack_name && !packed_args)
         return false;
-      return args.size() == names.size() &&
+      return args.size() == args_metadata.size() &&
              (!packed_args || !packed_args->packed_args);
     }
 
@@ -359,7 +363,9 @@ public:
     size_t Size() const { return args.size(); }
 
     llvm::ArrayRef<clang::TemplateArgument> GetArgs() const { return args; }
-    llvm::ArrayRef<const char *> GetNames() const { return names; }
+    llvm::ArrayRef<ArgumentMetadata> GetMetadata() const {
+      return args_metadata;
+    }
 
     clang::TemplateArgument const &Front() const {
       assert(!args.empty());
@@ -368,7 +374,7 @@ public:
 
     void InsertArg(char const *name, clang::TemplateArgument arg) {
       args.emplace_back(std::move(arg));
-      names.push_back(name);
+      args_metadata.push_back({name});
     }
 
     // Parameter pack related
@@ -404,9 +410,9 @@ public:
     }
 
   private:
-    /// Element 'names[i]' holds the template argument name
+    /// Element 'args_metadata[i]' holds the template argument metadata
     /// of 'args[i]'
-    llvm::SmallVector<const char *, 2> names;
+    llvm::SmallVector<ArgumentMetadata, 2> args_metadata;
     llvm::SmallVector<clang::TemplateArgument, 2> args;
 
     const char * pack_name = nullptr;

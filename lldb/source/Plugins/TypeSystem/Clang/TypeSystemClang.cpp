@@ -1384,9 +1384,9 @@ static TemplateParameterList *CreateTemplateParameterList(
       ast.getTranslationUnitDecl(); // Is this the right decl context?,
 
   auto const &args = template_param_infos.GetArgs();
-  auto const &names = template_param_infos.GetNames();
+  auto const &metadata = template_param_infos.GetMetadata();
   for (size_t i = 0; i < num_template_params; ++i) {
-    const char *name = names[i];
+    const char *name = metadata[i].name;
 
     IdentifierInfo *identifier_info = nullptr;
     if (name && name[0])

@@ -127,3 +127,39 @@ TEST(TypePrinter, TemplateIdWithNTTP) {
         Policy.EntireContentsOfLargeArray = true;
       }));
 }
+
+TEST(TypePrinter, TemplateParameterListWithCallback) {
+  constexpr char Code[] = R"cpp(
+    template <typename T1,         
+              typename T2 = double,
+              typename T3 = int,   
+              int      T4 = 42>    
+    struct Foo {                   
+    };                             
+                                   
+    Foo<char> X;                   
+  )cpp";
+  auto Matcher = classTemplateSpecializationDecl(
+      hasName("Foo"), has(cxxConstructorDecl(
+                          has(parmVarDecl(hasType(qualType().bind("id")))))));
+
+  struct DefaulterCallback final : public PrintingCallbacks {
+    virtual TriState
+    IsTemplateArgumentDefaulted(clang::ClassTemplateSpecializationDecl const *,
+                                size_t ArgIndex) const {
+      if (ArgIndex > 1)
+        return TriState::kYes;
+
+      return TriState::kNo;
+    }
+  };
+
+  DefaulterCallback Callback;
+
+  ASSERT_TRUE(PrintedTypeMatches(Code, {""}, Matcher,
+                                 R"(const Foo<char, double> &)",
+                                 [&Callback](PrintingPolicy &Policy) {
+                                   Policy.SuppressDefaultTemplateArgs = true;
+                                   Policy.Callbacks = &Callback;
+                                 }));
+}

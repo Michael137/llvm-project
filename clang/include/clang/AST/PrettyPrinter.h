@@ -21,6 +21,7 @@ namespace clang {
 class DeclContext;
 class LangOptions;
 class Stmt;
+class ClassTemplateSpecializationDecl;
 
 class PrinterHelper {
 public:
@@ -47,6 +48,14 @@ public:
   /// The printing stops at the first isScopeVisible() == true, so there will
   /// be no calls with outer scopes.
   virtual bool isScopeVisible(const DeclContext *DC) const { return false; }
+
+  enum class TriState : int { kYes, kNo, kUnknown };
+
+  virtual TriState
+  IsTemplateArgumentDefaulted(clang::ClassTemplateSpecializationDecl const *D,
+                              size_t ArgIndex) const {
+    return TriState::kNo;
+  }
 };
 
 /// Describes how types, statements, expressions, and declarations should be

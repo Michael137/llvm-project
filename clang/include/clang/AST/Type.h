@@ -63,6 +63,7 @@ class ConceptDecl;
 class TagDecl;
 class TemplateParameterList;
 class Type;
+class ClassTemplateSpecializationDecl;
 
 enum {
   TypeAlignmentInBits = 4,
@@ -5465,6 +5466,11 @@ void printTemplateArgumentList(raw_ostream &OS,
                                const TemplateArgumentListInfo &Args,
                                const PrintingPolicy &Policy,
                                const TemplateParameterList *TPL = nullptr);
+
+void printTemplateArgumentList(
+    raw_ostream &OS, ArrayRef<TemplateArgument> Args,
+    const PrintingPolicy &Policy, const TemplateParameterList *TPL,
+    const clang::ClassTemplateSpecializationDecl *CTSD);
 
 /// Make a best-effort determination of whether the type T can be produced by
 /// substituting Args into the default argument of Param.

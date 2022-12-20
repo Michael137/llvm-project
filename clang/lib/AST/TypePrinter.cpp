@@ -1285,7 +1285,7 @@ void TypePrinter::AppendScope(DeclContext *DC, raw_ostream &OS,
     const TemplateArgumentList &TemplateArgs = Spec->getTemplateArgs();
     printTemplateArgumentList(
         OS, TemplateArgs.asArray(), Policy,
-        Spec->getSpecializedTemplate()->getTemplateParameters());
+        Spec->getSpecializedTemplate()->getTemplateParameters(), Spec);
     OS << "::";
   } else if (const auto *Tag = dyn_cast<TagDecl>(DC)) {
     AppendScope(DC->getParent(), OS, Tag->getDeclName());
@@ -1383,7 +1383,7 @@ void TypePrinter::printTag(TagDecl *D, raw_ostream &OS) {
     IncludeStrongLifetimeRAII Strong(Policy);
     printTemplateArgumentList(
         OS, Args, Policy,
-        Spec->getSpecializedTemplate()->getTemplateParameters());
+        Spec->getSpecializedTemplate()->getTemplateParameters(), Spec);
   }
 
   spaceBeforePlaceHolder(OS);
@@ -2079,18 +2079,37 @@ bool clang::isSubstitutedDefaultArgument(ASTContext &Ctx, TemplateArgument Arg,
 }
 
 template <typename TA>
-static ArrayRef<TA> dropDefaultedArguments(ArrayRef<TA> Args,
-                                           const PrintingPolicy &Policy,
-                                           const TemplateParameterList *TPL) {
+static ArrayRef<TA>
+dropDefaultedArguments(ArrayRef<TA> Args, const PrintingPolicy &Policy,
+                       const TemplateParameterList *TPL,
+                       const ClassTemplateSpecializationDecl *CTSD) {
+  using TriState = PrintingCallbacks::TriState;
+
   ASTContext &Ctx = TPL->getParam(0)->getASTContext();
   llvm::SmallVector<TemplateArgument, 8> OrigArgs;
   for (const TA &A : Args)
     OrigArgs.push_back(getArgument(A));
-  while (!Args.empty() &&
-         isSubstitutedDefaultArgument(Ctx, getArgument(Args.back()),
-                                      TPL->getParam(Args.size() - 1), OrigArgs,
-                                      TPL->getDepth()))
+
+  auto const *Callbacks = Policy.Callbacks;
+
+  while (!Args.empty()) {
+    auto IsDefaulted = PrintingCallbacks::TriState::kUnknown;
+    if (Callbacks != nullptr)
+      IsDefaulted =
+          Callbacks->IsTemplateArgumentDefaulted(CTSD, Args.size() - 1);
+
+    if (IsDefaulted == TriState::kUnknown)
+      IsDefaulted = isSubstitutedDefaultArgument(Ctx, getArgument(Args.back()),
+                                                 TPL->getParam(Args.size() - 1),
+                                                 OrigArgs, TPL->getDepth())
+                        ? TriState::kYes
+                        : TriState::kNo;
+
+    if (IsDefaulted != TriState::kYes)
+      break;
+
     Args = Args.drop_back();
+  }
 
   return Args;
 }
@@ -2098,12 +2117,13 @@ static ArrayRef<TA> dropDefaultedArguments(ArrayRef<TA> Args,
 template <typename TA>
 static void
 printTo(raw_ostream &OS, ArrayRef<TA> Args, const PrintingPolicy &Policy,
-        const TemplateParameterList *TPL, bool IsPack, unsigned ParmIndex) {
+        const TemplateParameterList *TPL, bool IsPack, unsigned ParmIndex,
+        const ClassTemplateSpecializationDecl *CTSD) {
   // Drop trailing template arguments that match default arguments.
   if (TPL && Policy.SuppressDefaultTemplateArgs &&
       !Policy.PrintCanonicalTypes && !Args.empty() && !IsPack &&
       Args.size() <= TPL->size()) {
-    Args = dropDefaultedArguments(Args, Policy, TPL);
+    Args = dropDefaultedArguments(Args, Policy, TPL, CTSD);
   }
 
   const char *Comma = Policy.MSVCFormatting ? "," : ", ";
@@ -2121,7 +2141,7 @@ printTo(raw_ostream &OS, ArrayRef<TA> Args, const PrintingPolicy &Policy,
       if (Argument.pack_size() && !FirstArg)
         OS << Comma;
       printTo(ArgOS, Argument.getPackAsArray(), Policy, TPL,
-              /*IsPack*/ true, ParmIndex);
+              /*IsPack*/ true, ParmIndex, CTSD);
     } else {
       if (!FirstArg)
         OS << Comma;
@@ -2170,14 +2190,21 @@ void clang::printTemplateArgumentList(raw_ostream &OS,
                                       ArrayRef<TemplateArgument> Args,
                                       const PrintingPolicy &Policy,
                                       const TemplateParameterList *TPL) {
-  printTo(OS, Args, Policy, TPL, /*isPack*/ false, /*parmIndex*/ 0);
+  printTo(OS, Args, Policy, TPL, /*isPack*/ false, /*parmIndex*/ 0, nullptr);
 }
 
 void clang::printTemplateArgumentList(raw_ostream &OS,
                                       ArrayRef<TemplateArgumentLoc> Args,
                                       const PrintingPolicy &Policy,
                                       const TemplateParameterList *TPL) {
-  printTo(OS, Args, Policy, TPL, /*isPack*/ false, /*parmIndex*/ 0);
+  printTo(OS, Args, Policy, TPL, /*isPack*/ false, /*parmIndex*/ 0, nullptr);
+}
+
+void clang::printTemplateArgumentList(
+    raw_ostream &OS, ArrayRef<TemplateArgument> Args,
+    const PrintingPolicy &Policy, const TemplateParameterList *TPL,
+    const clang::ClassTemplateSpecializationDecl *CTSD) {
+  printTo(OS, Args, Policy, TPL, /*isPack*/ false, /*parmIndex*/ 0, CTSD);
 }
 
 std::string Qualifiers::getAsString() const {

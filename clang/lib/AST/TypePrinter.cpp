@@ -2079,6 +2079,23 @@ bool clang::isSubstitutedDefaultArgument(ASTContext &Ctx, TemplateArgument Arg,
 }
 
 template <typename TA>
+static ArrayRef<TA> dropDefaultedArguments(ArrayRef<TA> Args,
+                                           const PrintingPolicy &Policy,
+                                           const TemplateParameterList *TPL) {
+  ASTContext &Ctx = TPL->getParam(0)->getASTContext();
+  llvm::SmallVector<TemplateArgument, 8> OrigArgs;
+  for (const TA &A : Args)
+    OrigArgs.push_back(getArgument(A));
+  while (!Args.empty() &&
+         isSubstitutedDefaultArgument(Ctx, getArgument(Args.back()),
+                                      TPL->getParam(Args.size() - 1), OrigArgs,
+                                      TPL->getDepth()))
+    Args = Args.drop_back();
+
+  return Args;
+}
+
+template <typename TA>
 static void
 printTo(raw_ostream &OS, ArrayRef<TA> Args, const PrintingPolicy &Policy,
         const TemplateParameterList *TPL, bool IsPack, unsigned ParmIndex) {
@@ -2086,15 +2103,7 @@ printTo(raw_ostream &OS, ArrayRef<TA> Args, const PrintingPolicy &Policy,
   if (TPL && Policy.SuppressDefaultTemplateArgs &&
       !Policy.PrintCanonicalTypes && !Args.empty() && !IsPack &&
       Args.size() <= TPL->size()) {
-    ASTContext &Ctx = TPL->getParam(0)->getASTContext();
-    llvm::SmallVector<TemplateArgument, 8> OrigArgs;
-    for (const TA &A : Args)
-      OrigArgs.push_back(getArgument(A));
-    while (!Args.empty() &&
-           isSubstitutedDefaultArgument(Ctx, getArgument(Args.back()),
-                                        TPL->getParam(Args.size() - 1),
-                                        OrigArgs, TPL->getDepth()))
-      Args = Args.drop_back();
+    Args = dropDefaultedArguments(Args, Policy, TPL);
   }
 
   const char *Comma = Policy.MSVCFormatting ? "," : ", ";

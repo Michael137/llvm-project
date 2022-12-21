@@ -24,12 +24,14 @@
 #include "clang/AST/ASTFwd.h"
 #include "clang/AST/PrettyPrinter.h"
 #include "clang/AST/TemplateBase.h"
+#include "clang/AST/DeclTemplate.h"
 #include "clang/AST/Type.h"
 #include "clang/Basic/TargetInfo.h"
 #include "llvm/ADT/APSInt.h"
 #include "llvm/ADT/SmallVector.h"
 
 #include "Plugins/ExpressionParser/Clang/ClangPersistentVariables.h"
+#include "Plugins/ExpressionParser/Clang/ClangASTImporter.h"
 #include "lldb/Expression/ExpressionVariable.h"
 #include "lldb/Symbol/CompilerType.h"
 #include "lldb/Symbol/TypeSystem.h"
@@ -172,6 +174,13 @@ public:
   clang::Sema *getSema() { return m_sema; }
 
   const char *GetTargetTriple();
+
+  void
+  SetTemplateArgumentDefaults(clang::ClassTemplateSpecializationDecl const *D,
+                              llvm::BitVector defaults) {
+    llvm::errs() << __func__ << "(" << D->getName() << "): " << D << " " << D->getCanonicalDecl() << " " << &D->getASTContext() << " " << m_ast_up.get() << '\n';
+    m_template_decl_defaults_map[D] = std::move(defaults);
+  }
 
   void SetExternalSource(
       llvm::IntrusiveRefCntPtr<clang::ExternalASTSource> &ast_source_up);
@@ -1226,6 +1235,13 @@ private:
 
   PrintingCallbacks m_printing_callbacks = {*this};
 
+//  llvm::DenseMap<clang::ClassTemplateSpecializationDecl const *,
+//                 llvm::BitVector>
+//      m_template_decl_defaults_map;
+  llvm::DenseMap<clang::CXXRecordDecl const *,
+                 llvm::BitVector>
+      m_template_decl_defaults_map;
+
   // For TypeSystemClang only
   TypeSystemClang(const TypeSystemClang &);
   const TypeSystemClang &operator=(const TypeSystemClang &);
@@ -1320,6 +1336,8 @@ public:
   CreateUtilityFunction(std::string text, std::string name) override;
 
   PersistentExpressionState *GetPersistentExpressionState() override;
+
+  ClangASTImporter::DeclOrigin GetDeclOrigin(clang::Decl const* D) const;
 
   /// Unregisters the given ASTContext as a source from the scratch AST (and
   /// all sub-ASTs).

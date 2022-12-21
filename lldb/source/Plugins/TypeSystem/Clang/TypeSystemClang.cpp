@@ -50,6 +50,7 @@
 #include "Plugins/ExpressionParser/Clang/ClangPersistentVariables.h"
 #include "Plugins/ExpressionParser/Clang/ClangUserExpression.h"
 #include "Plugins/ExpressionParser/Clang/ClangUtil.h"
+#include "Plugins/ExpressionParser/Clang/ClangASTSource.h"
 #include "Plugins/ExpressionParser/Clang/ClangUtilityFunction.h"
 #include "lldb/Core/DumpDataExtractor.h"
 #include "lldb/Core/Module.h"
@@ -9460,12 +9461,31 @@ bool TypeSystemClang::LayoutRecordType(
 
 PrintingCallbacks::TriState TypeSystemClang::IsTemplateArgumentDefaulted(
     clang::ClassTemplateSpecializationDecl const *D, size_t ArgIndex) const {
-  lldb_private::ClangASTImporter *importer = GetClangASTImporter();
+  //lldb_private::ClangASTImporter *importer = GetClangASTImporter();
 
-  if (!importer)
-    return PrintingCallbacks::TriState::kUnknown;
+  //if (!importer)
+  //  return PrintingCallbacks::TriState::kUnknown;
 
-  return importer->IsTemplateArgumentDefaulted(D, ArgIndex);
+  //return importer->IsTemplateArgumentDefaulted(D, ArgIndex);
+
+  if (auto *scratch_ast = llvm::dyn_cast<ScratchTypeSystemClang>(this)) {
+    D = llvm::dyn_cast<ClassTemplateSpecializationDecl>(scratch_ast->GetDeclOrigin(D).decl);
+  }
+
+  llvm::errs() << __func__ << "(" << D->getName() << "): " << D << " " << D->getCanonicalDecl() << " " << &D->getASTContext() << " " << m_ast_up.get() << '\n';
+
+  using TriState = PrintingCallbacks::TriState;
+
+  // TODO: we set the map in the source TypeSystem and read it from the scratch type system.
+  //       need a shared instance between the two.
+  auto it = m_template_decl_defaults_map.find(D);
+  if (it == m_template_decl_defaults_map.end())
+    return TriState::kUnknown;
+
+  auto const &bits = it->getSecond();
+  assert(bits.size() > ArgIndex);
+
+  return bits.test(ArgIndex) ? TriState::kYes : TriState::kNo;
 }
 
 // CompilerDecl override functions
@@ -10109,4 +10129,8 @@ bool TypeSystemClang::SetDeclIsForcefullyCompleted(const clang::TagDecl *td) {
   m_has_forcefully_completed_types = true;
   metadata->SetIsForcefullyCompleted();
   return true;
+}
+
+ClangASTImporter::DeclOrigin ScratchTypeSystemClang::GetDeclOrigin(clang::Decl const* D) const {
+  return m_scratch_ast_source_up->GetDeclOrigin(D);
 }

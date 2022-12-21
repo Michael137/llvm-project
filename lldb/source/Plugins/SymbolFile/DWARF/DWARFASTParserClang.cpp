@@ -1816,7 +1816,7 @@ DWARFASTParserClang::ParseStructureLikeDIE(const SymbolContext &sc,
         defaults[i] = template_param_infos.IsDefaultArg(i);
 
       if (!defaults.empty())
-        GetClangASTImporter().SetTemplateArgumentDefaults(
+        m_ast.SetTemplateArgumentDefaults(
             class_specialization_decl, std::move(defaults));
 
       clang_type = m_ast.CreateClassTemplateSpecializationType(

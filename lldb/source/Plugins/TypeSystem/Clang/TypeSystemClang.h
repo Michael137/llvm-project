@@ -177,10 +177,7 @@ public:
 
   void
   SetTemplateArgumentDefaults(clang::ClassTemplateSpecializationDecl const *D,
-                              llvm::BitVector defaults) {
-    llvm::errs() << __func__ << "(" << D->getName() << "): " << D << " " << D->getCanonicalDecl() << " " << &D->getASTContext() << " " << m_ast_up.get() << '\n';
-    m_template_decl_defaults_map[D] = std::move(defaults);
-  }
+                              llvm::BitVector defaults);
 
   void SetExternalSource(
       llvm::IntrusiveRefCntPtr<clang::ExternalASTSource> &ast_source_up);
@@ -1238,9 +1235,9 @@ private:
 //  llvm::DenseMap<clang::ClassTemplateSpecializationDecl const *,
 //                 llvm::BitVector>
 //      m_template_decl_defaults_map;
-  llvm::DenseMap<clang::CXXRecordDecl const *,
-                 llvm::BitVector>
-      m_template_decl_defaults_map;
+  //llvm::DenseMap<clang::CXXRecordDecl const *,
+  //               llvm::BitVector>
+  //    m_template_decl_defaults_map;
 
   // For TypeSystemClang only
   TypeSystemClang(const TypeSystemClang &);

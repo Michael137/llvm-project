@@ -100,6 +100,10 @@ static void VerifyDecl(clang::Decl *decl) {
 #endif
 }
 
+llvm::DenseMap<clang::CXXRecordDecl const *,
+               llvm::BitVector>
+    m_template_decl_defaults_map;
+
 static inline bool
 TypeSystemClangSupportsLanguage(lldb::LanguageType language) {
   return language == eLanguageTypeUnknown || // Clang is the default type system
@@ -9487,6 +9491,13 @@ PrintingCallbacks::TriState TypeSystemClang::IsTemplateArgumentDefaulted(
 
   return bits.test(ArgIndex) ? TriState::kYes : TriState::kNo;
 }
+
+void
+TypeSystemClang::SetTemplateArgumentDefaults(clang::ClassTemplateSpecializationDecl const *D,
+                            llvm::BitVector defaults) {
+    llvm::errs() << __func__ << "(" << D->getName() << "): " << D << " " << D->getCanonicalDecl() << " " << &D->getASTContext() /*<< " " << m_ast_up.get() */<< '\n';
+    m_template_decl_defaults_map[D] = std::move(defaults);
+  }
 
 // CompilerDecl override functions
 

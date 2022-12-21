@@ -1394,43 +1394,14 @@ static TemplateParameterList *CreateTemplateParameterList(
     TemplateArgument const &targ = args[i];
     if (IsValueParam(targ)) {
       QualType template_param_type = targ.getIntegralType();
-      auto *decl = NonTypeTemplateParmDecl::Create(
+      template_param_decls.push_back(NonTypeTemplateParmDecl::Create(
           ast, decl_context, SourceLocation(), SourceLocation(), depth, i,
           identifier_info, template_param_type, parameter_pack,
-          ast.getTrivialTypeSourceInfo(template_param_type));
-
-      if (template_param_infos.IsDefaultArg(i)) {
-        if (targ.getKind() == TemplateArgument::Integral) {
-          Expr *LiteralExpr = nullptr;
-          if (template_param_type->isBooleanType()) {
-            LiteralExpr = CXXBoolLiteralExpr::Create(
-                ast, !targ.getAsIntegral().isZero(), template_param_type, {});
-          } else {
-            LiteralExpr = IntegerLiteral::Create(ast, targ.getAsIntegral(),
-                                                 template_param_type, {});
-          }
-
-          decl->setDefaultArgument(LiteralExpr);
-        }
-      }
-
-      template_param_decls.push_back(decl);
+          ast.getTrivialTypeSourceInfo(template_param_type)));
     } else {
-      auto *decl = TemplateTypeParmDecl::Create(
+      template_param_decls.push_back(TemplateTypeParmDecl::Create(
           ast, decl_context, SourceLocation(), SourceLocation(), depth, i,
-          identifier_info, is_typename, parameter_pack);
-
-      if (template_param_infos.IsDefaultArg(i)) {
-        if (targ.getKind() == TemplateArgument::Type) {
-          decl->setDefaultArgument(
-              ast.getTrivialTypeSourceInfo(targ.getAsType()));
-        } else if (targ.getKind() == TemplateArgument::Template) {
-          decl->setDefaultArgument(ast.getTemplateSpecializationTypeInfo(
-              targ.getAsTemplate(), {}, {}));
-        }
-      }
-
-      template_param_decls.push_back(decl);
+          identifier_info, is_typename, parameter_pack));
     }
   }
 

@@ -2093,20 +2093,26 @@ bool DWARFASTParserClang::ParseTemplateDIE(
           if (!size)
             return false;
           llvm::APInt apint(*size, uval64, is_signed);
+          auto TA = clang::TemplateArgument(ast, llvm::APSInt(apint, !is_signed),
+                                      ClangUtil::GetQualType(clang_type));
+          TA.setIsDefaulted(is_default_template_arg);
           template_param_infos.InsertArg(
               name,
-              clang::TemplateArgument(ast, llvm::APSInt(apint, !is_signed),
-                                      ClangUtil::GetQualType(clang_type)),
+              std::move(TA),
               is_default_template_arg);
         } else {
+          auto TA = clang::TemplateArgument(ClangUtil::GetQualType(clang_type));
+          TA.setIsDefaulted(is_default_template_arg);
           template_param_infos.InsertArg(
-              name, clang::TemplateArgument(ClangUtil::GetQualType(clang_type)),
+              name, std::move(TA),
               is_default_template_arg);
         }
       } else {
         auto *tplt_type = m_ast.CreateTemplateTemplateParmDecl(template_name);
+        auto TA = clang::TemplateArgument(clang::TemplateName(tplt_type));
+        TA.setIsDefaulted(is_default_template_arg);
         template_param_infos.InsertArg(
-            name, clang::TemplateArgument(clang::TemplateName(tplt_type)),
+            name, std::move(TA),
             is_default_template_arg);
       }
     }

@@ -103,12 +103,14 @@ private:
   /// The kind of template argument we're storing.
 
   struct DA {
-    unsigned Kind;
+    unsigned Kind : 31;
+    unsigned IsDefaulted : 1;
     void *QT;
     ValueDecl *D;
   };
   struct I {
-    unsigned Kind;
+    unsigned Kind : 31;
+    unsigned IsDefaulted : 1;
     // We store a decomposed APSInt with the data allocated by ASTContext if
     // BitWidth > 64. The memory may be shared between multiple
     // TemplateArgument instances.
@@ -124,17 +126,20 @@ private:
     void *Type;
   };
   struct A {
-    unsigned Kind;
+    unsigned Kind : 31;
+    unsigned IsDefaulted : 1;
     unsigned NumArgs;
     const TemplateArgument *Args;
   };
   struct TA {
-    unsigned Kind;
+    unsigned Kind : 31;
+    unsigned IsDefaulted : 1;
     unsigned NumExpansions;
     void *Name;
   };
   struct TV {
-    unsigned Kind;
+    unsigned Kind : 31;
+    unsigned IsDefaulted : 1;
     uintptr_t V;
   };
   union {
@@ -147,11 +152,12 @@ private:
 
 public:
   /// Construct an empty, invalid template argument.
-  constexpr TemplateArgument() : TypeOrValue({Null, 0}) {}
+  constexpr TemplateArgument() : TypeOrValue({Null, /* IsDefaulted */ 0, 0}) {}
 
   /// Construct a template type argument.
   TemplateArgument(QualType T, bool isNullPtr = false) {
     TypeOrValue.Kind = isNullPtr ? NullPtr : Type;
+    TypeOrValue.IsDefaulted = false;
     TypeOrValue.V = reinterpret_cast<uintptr_t>(T.getAsOpaquePtr());
   }
 
@@ -161,6 +167,7 @@ public:
   TemplateArgument(ValueDecl *D, QualType QT) {
     assert(D && "Expected decl");
     DeclArg.Kind = Declaration;
+    DeclArg.IsDefaulted = false;
     DeclArg.QT = QT.getAsOpaquePtr();
     DeclArg.D = D;
   }
@@ -186,6 +193,7 @@ public:
   /// \param Name The template name.
   TemplateArgument(TemplateName Name) {
     TemplateArg.Kind = Template;
+    TemplateArg.IsDefaulted = false;
     TemplateArg.Name = Name.getAsVoidPointer();
     TemplateArg.NumExpansions = 0;
   }
@@ -203,6 +211,7 @@ public:
   /// instantiating
   TemplateArgument(TemplateName Name, Optional<unsigned> NumExpansions) {
     TemplateArg.Kind = TemplateExpansion;
+    TemplateArg.IsDefaulted = false;
     TemplateArg.Name = Name.getAsVoidPointer();
     if (NumExpansions)
       TemplateArg.NumExpansions = *NumExpansions + 1;
@@ -217,6 +226,7 @@ public:
   /// occur in a non-dependent, canonical template argument list.
   TemplateArgument(Expr *E) {
     TypeOrValue.Kind = Expression;
+    TypeOrValue.IsDefaulted = false;
     TypeOrValue.V = reinterpret_cast<uintptr_t>(E);
   }
 
@@ -226,6 +236,7 @@ public:
   /// outlives the TemplateArgument itself.
   explicit TemplateArgument(ArrayRef<TemplateArgument> Args) {
     this->Args.Kind = Pack;
+    this->Args.IsDefaulted = false;
     this->Args.Args = Args.data();
     this->Args.NumArgs = Args.size();
   }
@@ -332,6 +343,49 @@ public:
   void setIntegralType(QualType T) {
     assert(getKind() == Integral && "Unexpected kind");
     Integer.Type = T.getAsOpaquePtr();
+  }
+
+  void setIsDefaulted(bool v) {
+      switch (getKind()) {
+         case ArgKind::Declaration:
+             DeclArg.IsDefaulted = v;
+             break;
+         case ArgKind::Null:
+         case ArgKind::NullPtr:
+         case ArgKind::Type:
+         case ArgKind::Expression:
+             TypeOrValue.IsDefaulted = v;
+             break;
+         case ArgKind::TemplateExpansion:
+         case ArgKind::Template:
+             TemplateArg.IsDefaulted = v;
+             break;
+         case ArgKind::Integral:
+             Integer.IsDefaulted = v;
+             break;
+         case ArgKind::Pack:
+             Args.IsDefaulted = v;
+             break;
+      }
+  }
+
+  bool getIsDefaulted() const {
+      switch (getKind()) {
+         case ArgKind::Declaration:
+             return DeclArg.IsDefaulted;
+         case ArgKind::Null:
+         case ArgKind::NullPtr:
+         case ArgKind::Type:
+         case ArgKind::Expression:
+             return TypeOrValue.IsDefaulted;
+         case ArgKind::TemplateExpansion:
+         case ArgKind::Template:
+             return TemplateArg.IsDefaulted;
+         case ArgKind::Integral:
+             return Integer.IsDefaulted;
+         case ArgKind::Pack:
+             return Args.IsDefaulted;
+      }
   }
 
   /// If this is a non-type template argument, get its type. Otherwise,

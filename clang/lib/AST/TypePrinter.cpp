@@ -2093,19 +2093,26 @@ dropDefaultedArguments(ArrayRef<TA> Args, const PrintingPolicy &Policy,
   auto const *Callbacks = Policy.Callbacks;
 
   while (!Args.empty()) {
-    auto IsDefaulted = PrintingCallbacks::TriState::kUnknown;
-    if (Callbacks != nullptr)
-      IsDefaulted =
-          Callbacks->IsTemplateArgumentDefaulted(CTSD, Args.size() - 1);
+    //auto IsDefaulted = PrintingCallbacks::TriState::kUnknown;
+    //if (Callbacks != nullptr)
+    //  IsDefaulted =
+    //      Callbacks->IsTemplateArgumentDefaulted(CTSD, Args.size() - 1);
 
-    if (IsDefaulted == TriState::kUnknown)
-      IsDefaulted = isSubstitutedDefaultArgument(Ctx, getArgument(Args.back()),
-                                                 TPL->getParam(Args.size() - 1),
-                                                 OrigArgs, TPL->getDepth())
-                        ? TriState::kYes
-                        : TriState::kNo;
+    //if (IsDefaulted == TriState::kUnknown)
+    //  IsDefaulted = isSubstitutedDefaultArgument(Ctx, getArgument(Args.back()),
+    //                                             TPL->getParam(Args.size() - 1),
+    //                                             OrigArgs, TPL->getDepth())
+    //                    ? TriState::kYes
+    //                    : TriState::kNo;
 
-    if (IsDefaulted != TriState::kYes)
+    //if (IsDefaulted != TriState::kYes)
+    //  break;
+    
+    bool IsDefaulted = getArgument(Args.back()).getIsDefaulted()
+                       || isSubstitutedDefaultArgument(Ctx, getArgument(Args.back()),
+                                                       TPL->getParam(Args.size() - 1),
+                                                       OrigArgs, TPL->getDepth());
+    if (!IsDefaulted)
       break;
 
     Args = Args.drop_back();

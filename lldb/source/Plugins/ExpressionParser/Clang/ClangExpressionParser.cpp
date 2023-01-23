@@ -317,6 +317,8 @@ static void RemoveCppKeyword(IdentifierTable &idents, llvm::StringRef token) {
   LangOptions cpp_lang_opts;
   cpp_lang_opts.CPlusPlus = true;
   cpp_lang_opts.CPlusPlus11 = true;
+  cpp_lang_opts.CPlusPlus14 = true;
+  cpp_lang_opts.CPlusPlus17 = true;
   cpp_lang_opts.CPlusPlus20 = true;
 
   clang::IdentifierInfo &ii = idents.get(token);
@@ -539,11 +541,19 @@ ClangExpressionParser::ClangExpressionParser(
     // two lines below) so we decide to be consistent with that, but this could
     // be re-evaluated in the future.
     lang_opts.CPlusPlus11 = true;
+    lang_opts.CPlusPlus14 = true;
+    lang_opts.CPlusPlus17 = true;
+    lang_opts.CPlusPlus20 = true;
     break;
   case lldb::eLanguageTypeC_plus_plus:
   case lldb::eLanguageTypeC_plus_plus_11:
   case lldb::eLanguageTypeC_plus_plus_14:
+  case lldb::eLanguageTypeC_plus_plus_17:
+  case lldb::eLanguageTypeC_plus_plus_20:
     lang_opts.CPlusPlus11 = true;
+    lang_opts.CPlusPlus14 = true;
+    lang_opts.CPlusPlus17 = true;
+    lang_opts.CPlusPlus20 = true;
     m_compiler->getHeaderSearchOpts().UseLibcxx = true;
     [[fallthrough]];
   case lldb::eLanguageTypeC_plus_plus_03:
@@ -558,6 +568,9 @@ ClangExpressionParser::ClangExpressionParser(
     lang_opts.ObjC = true;
     lang_opts.CPlusPlus = true;
     lang_opts.CPlusPlus11 = true;
+    lang_opts.CPlusPlus14 = true;
+    lang_opts.CPlusPlus17 = true;
+    lang_opts.CPlusPlus20 = true;
     m_compiler->getHeaderSearchOpts().UseLibcxx = true;
     break;
   }
@@ -598,6 +611,9 @@ ClangExpressionParser::ClangExpressionParser(
     lang_opts.GNUKeywords = true;
     lang_opts.DoubleSquareBracketAttributes = true;
     lang_opts.CPlusPlus11 = true;
+    lang_opts.CPlusPlus14 = true;
+    lang_opts.CPlusPlus17 = true;
+    lang_opts.CPlusPlus20 = true;
 
     // The Darwin libc expects this macro to be set.
     lang_opts.GNUCVersion = 40201;

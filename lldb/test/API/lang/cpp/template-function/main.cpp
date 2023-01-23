@@ -42,6 +42,8 @@ template <typename T> bool operator>>(const T &, const T &) { return true; }
 
 template <typename T> bool operator==(const T &, const T &) { return true; }
 
+template <typename T> bool operator<=>(const T &, const T &) { return true; }
+
 struct B {};
 } // namespace A
 
@@ -53,6 +55,7 @@ bool operator>(const D &, const D &) { return true; }
 bool operator>>(const D &, const D &) { return true; }
 bool operator<<(const D &, const D &) { return true; }
 bool operator==(const D &, const D &) { return true; }
+bool operator<=>(const D &, const D &) { return true; }
 
 int main() {
   A::B b1;
@@ -60,8 +63,10 @@ int main() {
   D d1;
   D d2;
 
-  bool result_b = b1 < b2 && b1 << b2 && b1 == b2 && b1 > b2 && b1 >> b2;
-  bool result_c = d1 < d2 && d1 << d2 && d1 == d2 && d1 > d2 && d1 >> d2;
+  bool result_b =
+      b1 < b2 && b1 << b2 && b1 == b2 && b1 > b2 && b1 >> b2 && b1 <=> b2;
+  bool result_c =
+      d1 < d2 && d1 << d2 && d1 == d2 && d1 > d2 && d1 >> d2 && d1 <=> d2;
 
   return foo(42) + result_b + result_c + f(A::C{}) + g(A::C{}) + h(10) + h(1.) +
          var(1) + var(1, 2); // break here

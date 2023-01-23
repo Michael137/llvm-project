@@ -262,7 +262,10 @@ TokenVerifier::TokenVerifier(std::string body) {
   LangOptions Opts;
   Opts.ObjC = true;
   Opts.DollarIdents = true;
+  Opts.CPlusPlus11 = true;
+  Opts.CPlusPlus14 = true;
   Opts.CPlusPlus17 = true;
+  Opts.CPlusPlus20 = true;
   Opts.LineComment = true;
 
   Lexer lex(FID, buf->getMemBufferRef(), SM, Opts);

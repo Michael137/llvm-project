@@ -17,8 +17,6 @@ class TemplateFunctionsTestCase(TestBase):
         if add_cast:
           self.expect_expr("(int) foo(42)", result_type="int", result_value="42")
         else:
-          self.expect("expr b1 <=> b2",  error=True, substrs=["warning: <user expression 0>:1:4: '<=>' is a single token in C++20; add a space to avoid a change in behavior"])
-
           self.expect_expr("foo(42)", result_type="int", result_value="42")
 
           # overload with template case
@@ -39,12 +37,14 @@ class TemplateFunctionsTestCase(TestBase):
           self.expect_expr("b1 >> b2", result_type="bool", result_value="true")
           self.expect_expr("b1 << b2", result_type="bool", result_value="true")
           self.expect_expr("b1 == b2", result_type="bool", result_value="true")
+          self.expect_expr("b1 <=> b2", result_type="bool", result_value="true")
 
           # Overloaded operator case
           self.expect_expr("d1 > d2", result_type="bool", result_value="true")
           self.expect_expr("d1 >> d2", result_type="bool", result_value="true")
           self.expect_expr("d1 << d2", result_type="bool", result_value="true")
           self.expect_expr("d1 == d2", result_type="bool", result_value="true")
+          self.expect_expr("d1 <=> d2", result_type="bool", result_value="true")
 
     @skipIfWindows
     def test_template_function_with_cast(self):

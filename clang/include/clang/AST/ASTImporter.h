@@ -18,6 +18,7 @@
 #include "clang/AST/DeclBase.h"
 #include "clang/AST/DeclarationName.h"
 #include "clang/AST/ExprCXX.h"
+#include "clang/AST/ExprConcepts.h"
 #include "clang/AST/NestedNameSpecifier.h"
 #include "clang/AST/TemplateName.h"
 #include "clang/AST/Type.h"
@@ -479,6 +480,8 @@ class TypeSourceInfo;
     /// \return the equivalent APValue in the "to" context or the import
     /// error.
     llvm::Expected<APValue> Import(const APValue &FromValue);
+
+    llvm::Expected<concepts::Requirement*> Import(const concepts::Requirement *FromValue);
 
     /// Import the definition of the given declaration, including all of
     /// the declarations it contains.

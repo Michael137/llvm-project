@@ -542,6 +542,7 @@ namespace clang {
     ExpectedDecl VisitObjCProtocolDecl(ObjCProtocolDecl *D);
     ExpectedDecl VisitLinkageSpecDecl(LinkageSpecDecl *D);
     ExpectedDecl VisitUsingDecl(UsingDecl *D);
+    ExpectedDecl VisitRequiresExprBodyDecl(RequiresExprBodyDecl *D);
     ExpectedDecl VisitUsingShadowDecl(UsingShadowDecl *D);
     ExpectedDecl VisitUsingDirectiveDecl(UsingDirectiveDecl *D);
     ExpectedDecl VisitUsingPackDecl(UsingPackDecl *D);
@@ -611,6 +612,8 @@ namespace clang {
 
     // Importing expressions
     ExpectedStmt VisitExpr(Expr *E);
+    ExpectedStmt VisitRequiresExpr(RequiresExpr *E);
+    ExpectedStmt VisitConceptSpecializationExpr(ConceptSpecializationExpr *E);
     ExpectedStmt VisitSourceLocExpr(SourceLocExpr *E);
     ExpectedStmt VisitVAArgExpr(VAArgExpr *E);
     ExpectedStmt VisitChooseExpr(ChooseExpr *E);
@@ -4811,6 +4814,21 @@ ExpectedDecl ASTNodeImporter::ImportUsingShadowDecls(BaseUsingDecl *D,
   return ToSI;
 }
 
+ExpectedDecl ASTNodeImporter::VisitRequiresExprBodyDecl(RequiresExprBodyDecl *D) {
+  DeclContext *ToDC, *ToLexicalDC;
+  if (Error Err =  ImportDeclContext(
+        D, ToDC, ToLexicalDC)) {
+    return std::move(Err);
+  }
+  
+  auto* ToDecl = RequiresExprBodyDecl::Create(Importer.getToContext(),
+                                      ToDC, D->getBeginLoc());
+
+  Importer.MapImported(D, ToDecl);
+
+  return ToDecl;
+}
+
 ExpectedDecl ASTNodeImporter::VisitUsingDecl(UsingDecl *D) {
   DeclContext *DC, *LexicalDC;
   DeclarationName Name;
@@ -6934,6 +6952,55 @@ ExpectedStmt ASTNodeImporter::VisitVAArgExpr(VAArgExpr *E) {
   return new (Importer.getToContext()) VAArgExpr(
       ToBuiltinLoc, ToSubExpr, ToWrittenTypeInfo, ToRParenLoc, ToType,
       E->isMicrosoftABI());
+}
+
+ExpectedStmt ASTNodeImporter::VisitConceptSpecializationExpr(ConceptSpecializationExpr *E) {
+  Error Err = Error::success();
+  //static ConceptSpecializationExpr *
+  //Create(const ASTContext &C, NestedNameSpecifierLoc NNS,
+  //       SourceLocation TemplateKWLoc, DeclarationNameInfo ConceptNameInfo,
+  //       NamedDecl *FoundDecl, ConceptDecl *NamedConcept,
+  //       const ASTTemplateArgumentListInfo *ArgsAsWritten,
+  //       ImplicitConceptSpecializationDecl *SpecDecl,
+  //       const ConstraintSatisfaction *Satisfaction);
+
+  //static ConceptSpecializationExpr *
+  //Create(const ASTContext &C, ConceptDecl *NamedConcept,
+  //       ImplicitConceptSpecializationDecl *SpecDecl,
+  //       const ConstraintSatisfaction *Satisfaction, bool Dependent,
+  //       bool ContainsUnexpandedParameterPack);
+ // TODO: implement
+ // TODO: check other unsupported nodes by grepping expr log for "cannot import unsupported"
+}
+
+ExpectedStmt ASTNodeImporter::VisitRequiresExpr(RequiresExpr *E) {
+  Error Err = Error::success();
+
+  SmallVector<ParmVarDecl *, 8> ToLocalParameters;
+  auto FromLocalParameters = E->getLocalParameters();
+  for (auto *P : FromLocalParameters) {
+    if (Expected<ParmVarDecl *> ToPOrErr = import(P))
+      ToLocalParameters.push_back(*ToPOrErr);
+    else
+      return ToPOrErr.takeError();
+  }
+
+  SmallVector<concepts::Requirement *, 8> ToRequirements;
+  auto FromRequirements = E->getRequirements();
+  for (auto *R : FromRequirements) {
+    if (Expected<concepts::Requirement *> ToPOrErr = import(R))
+      ToRequirements.push_back(*ToPOrErr);
+    else
+      return ToPOrErr.takeError();
+  }
+
+  auto* ToBody = importChecked(Err, E->getBody());
+  auto ToRequiresKWLoc = importChecked(Err, E->getRequiresKWLoc());
+  auto ToRBraceLoc = importChecked(Err, E->getEndLoc());
+  if (Err)
+    return std::move(Err);
+
+  return RequiresExpr::Create(Importer.getToContext(), ToRequiresKWLoc, ToBody, ToLocalParameters, ToRequirements, ToRBraceLoc);
 }
 
 ExpectedStmt ASTNodeImporter::VisitChooseExpr(ChooseExpr *E) {
@@ -9648,6 +9715,17 @@ Expected<CXXCtorInitializer *> ASTImporter::Import(CXXCtorInitializer *From) {
     // FIXME: assert?
     return make_error<ASTImportError>();
   }
+}
+
+llvm::Expected<concepts::Requirement*> ASTImporter::Import(const concepts::Requirement *FromRequirement) {
+  if (!FromRequirement)
+    return nullptr;
+
+  const bool FromIsDependent = FromRequirement->isDependent();
+  return new (ToContext) concepts::Requirement(FromRequirement->getKind(),
+                                               FromIsDependent,
+                                               FromRequirement->containsUnexpandedParameterPack(),
+                                               !FromIsDependent && FromRequirement->isSatisfied());
 }
 
 Expected<CXXBaseSpecifier *>

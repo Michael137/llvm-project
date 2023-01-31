@@ -789,6 +789,11 @@ private:
       std::memcpy(Data + A.size(), B.data(), B.size());
     return StringRef(Data, A.size() + B.size());
   }
+
+  /// Returns the QualType of the typedef that the PreferredNameAttr
+  /// of 'orig' refers to, if any such attribute exists. Returns 'orig'
+  /// otherwise.
+  QualType maybeGetPreferredNameType(QualType orig) const;
 };
 
 /// A scoped helper to set the current debug location to the specified

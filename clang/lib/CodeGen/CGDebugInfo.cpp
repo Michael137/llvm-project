@@ -250,7 +250,7 @@ PrintingPolicy CGDebugInfo::getPrintingPolicy() const {
 
   PP.SuppressInlineNamespace = false;
   PP.PrintCanonicalTypes = true;
-  PP.UsePreferredNames = false;
+  PP.UsePreferredNames = CGM.getCodeGenOpts().getDebuggerTuning() == llvm::DebuggerKind::LLDB;
   PP.AlwaysIncludeTypeForTemplateArgument = true;
   PP.UseEnumerators = false;
 
@@ -2016,7 +2016,8 @@ CGDebugInfo::CollectTemplateParams(std::optional<TemplateArgs> OArgs,
 
     switch (TA.getKind()) {
     case TemplateArgument::Type: {
-      llvm::DIType *TTy = getOrCreateType(TA.getAsType(), Unit);
+      llvm::DIType *TTy =
+          getOrCreateType(maybeGetPreferredNameType(TA.getAsType()), Unit);
       TemplateParams.push_back(DBuilder.createTemplateTypeParameter(
           TheCU, Name, TTy, defaultParameter));
 
@@ -2029,7 +2030,8 @@ CGDebugInfo::CollectTemplateParams(std::optional<TemplateArgs> OArgs,
     } break;
     case TemplateArgument::Declaration: {
       const ValueDecl *D = TA.getAsDecl();
-      QualType T = TA.getParamTypeForDecl().getDesugaredType(CGM.getContext());
+      QualType T = maybeGetPreferredNameType(
+          TA.getParamTypeForDecl().getDesugaredType(CGM.getContext()));
       llvm::DIType *TTy = getOrCreateType(T, Unit);
       llvm::Constant *V = nullptr;
       // Skip retrieve the value if that template parameter has cuda device
@@ -4461,7 +4463,7 @@ llvm::DILocalVariable *CGDebugInfo::EmitDeclare(const VarDecl *VD,
   if (VD->hasAttr<BlocksAttr>())
     Ty = EmitTypeForVarWithBlocksAttr(VD, &XOffset).WrappedType;
   else
-    Ty = getOrCreateType(VD->getType(), Unit);
+    Ty = getOrCreateType(maybeGetPreferredNameType(VD->getType()), Unit);
 
   // If there is no debug info for this type then do not emit debug info
   // for this variable.
@@ -5759,4 +5761,13 @@ llvm::DINode::DIFlags CGDebugInfo::getCallSiteRelatedAttrs() const {
     return llvm::DINode::FlagZero;
 
   return llvm::DINode::FlagAllCallsDescribed;
+}
+
+QualType CGDebugInfo::maybeGetPreferredNameType(QualType orig) const {
+  if (CGM.getCodeGenOpts().getDebuggerTuning() == llvm::DebuggerKind::LLDB)
+    if (auto *RecordDecl = orig->getAsCXXRecordDecl())
+      if (auto *Attr = RecordDecl->getAttr<PreferredNameAttr>())
+        return Attr->getTypedefType();
+
+  return orig;
 }

@@ -117,7 +117,7 @@ struct __fn {
 } // namespace __drop_while
 
 inline namespace __cpo {
-inline constexpr auto drop_while = __drop_while::__fn{};
+_LIBCPP_NODEBUG inline constexpr auto drop_while = __drop_while::__fn{};
 } // namespace __cpo
 } // namespace views
 } // namespace ranges

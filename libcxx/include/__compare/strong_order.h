@@ -127,7 +127,7 @@ namespace __strong_order {
 } // namespace __strong_order
 
 inline namespace __cpo {
-    inline constexpr auto strong_order = __strong_order::__fn{};
+_LIBCPP_NODEBUG inline constexpr auto strong_order = __strong_order::__fn{};
 } // namespace __cpo
 
 #endif // _LIBCPP_STD_VER > 17

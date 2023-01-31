@@ -452,7 +452,7 @@ struct __fn : __range_adaptor_closure<__fn> {
 } // namespace __lazy_split_view
 
 inline namespace __cpo {
-  inline constexpr auto lazy_split = __lazy_split_view::__fn{};
+  _LIBCPP_NODEBUG inline constexpr auto lazy_split = __lazy_split_view::__fn{};
 } // namespace __cpo
 } // namespace views
 

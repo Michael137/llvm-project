@@ -97,7 +97,7 @@ struct __fn {
 } // namespace __distance
 
 inline namespace __cpo {
-  inline constexpr auto distance = __distance::__fn{};
+_LIBCPP_NODEBUG inline constexpr auto distance = __distance::__fn{};
 } // namespace __cpo
 } // namespace ranges
 

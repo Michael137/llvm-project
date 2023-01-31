@@ -52,7 +52,7 @@ struct __fn {
 } // namespace __find_if_not
 
 inline namespace __cpo {
-  inline constexpr auto find_if_not = __find_if_not::__fn{};
+_LIBCPP_NODEBUG inline constexpr auto find_if_not = __find_if_not::__fn{};
 } // namespace __cpo
 } // namespace ranges
 

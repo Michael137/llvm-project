@@ -70,7 +70,7 @@ struct __fn {
 } // namespace __copy_if
 
 inline namespace __cpo {
-  inline constexpr auto copy_if = __copy_if::__fn{};
+_LIBCPP_NODEBUG inline constexpr auto copy_if = __copy_if::__fn{};
 } // namespace __cpo
 } // namespace ranges
 

@@ -89,7 +89,7 @@ struct __fn : __range_adaptor_closure<__fn> {
 } // namespace __single_view
 
 inline namespace __cpo {
-  inline constexpr auto single = __single_view::__fn{};
+_LIBCPP_NODEBUG inline constexpr auto single = __single_view::__fn{};
 } // namespace __cpo
 
 } // namespace views

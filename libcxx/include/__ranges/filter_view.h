@@ -267,7 +267,7 @@ namespace __filter {
 } // namespace __filter
 
 inline namespace __cpo {
-  inline constexpr auto filter = __filter::__fn{};
+_LIBCPP_NODEBUG inline constexpr auto filter = __filter::__fn{};
 } // namespace __cpo
 } // namespace views
 

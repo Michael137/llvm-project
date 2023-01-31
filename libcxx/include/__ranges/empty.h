@@ -71,7 +71,7 @@ namespace __empty {
 } // namespace __empty
 
 inline namespace __cpo {
-  inline constexpr auto empty = __empty::__fn{};
+_LIBCPP_NODEBUG inline constexpr auto empty = __empty::__fn{};
 } // namespace __cpo
 } // namespace ranges
 

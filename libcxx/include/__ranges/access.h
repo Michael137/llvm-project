@@ -97,7 +97,7 @@ namespace __begin {
 } // namespace __begin
 
 inline namespace __cpo {
-  inline constexpr auto begin = __begin::__fn{};
+_LIBCPP_NODEBUG inline constexpr auto begin = __begin::__fn{};
 } // namespace __cpo
 } // namespace ranges
 
@@ -163,7 +163,7 @@ namespace __end {
 } // namespace __end
 
 inline namespace __cpo {
-  inline constexpr auto end = __end::__fn{};
+_LIBCPP_NODEBUG inline constexpr auto end = __end::__fn{};
 } // namespace __cpo
 } // namespace ranges
 
@@ -191,7 +191,7 @@ namespace __cbegin {
 } // namespace __cbegin
 
 inline namespace __cpo {
-  inline constexpr auto cbegin = __cbegin::__fn{};
+_LIBCPP_NODEBUG inline constexpr auto cbegin = __cbegin::__fn{};
 } // namespace __cpo
 } // namespace ranges
 
@@ -219,7 +219,7 @@ namespace __cend {
 } // namespace __cend
 
 inline namespace __cpo {
-  inline constexpr auto cend = __cend::__fn{};
+_LIBCPP_NODEBUG inline constexpr auto cend = __cend::__fn{};
 } // namespace __cpo
 } // namespace ranges
 

@@ -454,7 +454,7 @@ namespace __transform {
 } // namespace __transform
 
 inline namespace __cpo {
-  inline constexpr auto transform = __transform::__fn{};
+  _LIBCPP_NODEBUG inline constexpr auto transform = __transform::__fn{};
 } // namespace __cpo
 } // namespace views
 

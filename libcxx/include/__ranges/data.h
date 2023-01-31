@@ -73,7 +73,7 @@ namespace __data {
 } // namespace __data
 
 inline namespace __cpo {
-  inline constexpr auto data = __data::__fn{};
+_LIBCPP_NODEBUG inline constexpr auto data = __data::__fn{};
 } // namespace __cpo
 } // namespace ranges
 
@@ -101,7 +101,7 @@ namespace __cdata {
 } // namespace __cdata
 
 inline namespace __cpo {
-  inline constexpr auto cdata = __cdata::__fn{};
+_LIBCPP_NODEBUG inline constexpr auto cdata = __cdata::__fn{};
 } // namespace __cpo
 } // namespace ranges
 

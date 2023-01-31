@@ -89,7 +89,7 @@ struct __fn {
 } // namespace __iter_move
 
 inline namespace __cpo {
-  inline constexpr auto iter_move = __iter_move::__fn{};
+_LIBCPP_NODEBUG inline constexpr auto iter_move = __iter_move::__fn{};
 } // namespace __cpo
 } // namespace ranges
 

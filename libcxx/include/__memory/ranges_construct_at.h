@@ -50,7 +50,7 @@ struct __fn {
 } // namespace __construct_at
 
 inline namespace __cpo {
-  inline constexpr auto construct_at = __construct_at::__fn{};
+_LIBCPP_NODEBUG inline constexpr auto construct_at = __construct_at::__fn{};
 } // namespace __cpo
 
 // destroy_at
@@ -68,7 +68,7 @@ struct __fn {
 } // namespace __destroy_at
 
 inline namespace __cpo {
-  inline constexpr auto destroy_at = __destroy_at::__fn{};
+_LIBCPP_NODEBUG inline constexpr auto destroy_at = __destroy_at::__fn{};
 } // namespace __cpo
 
 // destroy
@@ -94,7 +94,7 @@ struct __fn {
 } // namespace __destroy
 
 inline namespace __cpo {
-  inline constexpr auto destroy = __destroy::__fn{};
+_LIBCPP_NODEBUG inline constexpr auto destroy = __destroy::__fn{};
 } // namespace __cpo
 
 // destroy_n
@@ -113,7 +113,7 @@ struct __fn {
 } // namespace __destroy_n
 
 inline namespace __cpo {
-  inline constexpr auto destroy_n = __destroy_n::__fn{};
+_LIBCPP_NODEBUG inline constexpr auto destroy_n = __destroy_n::__fn{};
 } // namespace __cpo
 
 } // namespace ranges

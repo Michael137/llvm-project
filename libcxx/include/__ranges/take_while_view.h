@@ -171,7 +171,7 @@ struct __fn {
 } // namespace __take_while
 
 inline namespace __cpo {
-inline constexpr auto take_while = __take_while::__fn{};
+_LIBCPP_NODEBUG inline constexpr auto take_while = __take_while::__fn{};
 } // namespace __cpo
 } // namespace views
 } // namespace ranges

@@ -114,7 +114,7 @@ struct __fn {
 } // namespace __size
 
 inline namespace __cpo {
-  inline constexpr auto size = __size::__fn{};
+_LIBCPP_NODEBUG inline constexpr auto size = __size::__fn{};
 } // namespace __cpo
 } // namespace ranges
 
@@ -137,7 +137,7 @@ struct __fn {
 } // namespace __ssize
 
 inline namespace __cpo {
-  inline constexpr auto ssize = __ssize::__fn{};
+_LIBCPP_NODEBUG inline constexpr auto ssize = __ssize::__fn{};
 } // namespace __cpo
 } // namespace ranges
 

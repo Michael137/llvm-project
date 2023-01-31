@@ -399,7 +399,7 @@ struct __fn : __range_adaptor_closure<__fn> {
 };
 } // namespace __join_view
 inline namespace __cpo {
-  inline constexpr auto join = __join_view::__fn{};
+  _LIBCPP_NODEBUG inline constexpr auto join = __join_view::__fn{};
 } // namespace __cpo
 } // namespace views
 } // namespace ranges

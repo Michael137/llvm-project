@@ -328,7 +328,7 @@ struct __fn {
 } // namespace __take
 
 inline namespace __cpo {
-  inline constexpr auto take = __take::__fn{};
+  _LIBCPP_NODEBUG inline constexpr auto take = __take::__fn{};
 } // namespace __cpo
 } // namespace views
 

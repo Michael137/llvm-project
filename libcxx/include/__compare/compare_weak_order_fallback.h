@@ -61,7 +61,7 @@ namespace __compare_weak_order_fallback {
 } // namespace __compare_weak_order_fallback
 
 inline namespace __cpo {
-    inline constexpr auto compare_weak_order_fallback = __compare_weak_order_fallback::__fn{};
+_LIBCPP_NODEBUG inline constexpr auto compare_weak_order_fallback = __compare_weak_order_fallback::__fn{};
 } // namespace __cpo
 
 #endif // _LIBCPP_STD_VER > 17

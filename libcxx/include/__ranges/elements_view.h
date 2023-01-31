@@ -409,9 +409,9 @@ struct __fn : __range_adaptor_closure<__fn<_Np>> {
 
 inline namespace __cpo {
 template <size_t _Np>
-inline constexpr auto elements = __elements::__fn<_Np>{};
-inline constexpr auto keys     = elements<0>;
-inline constexpr auto values   = elements<1>;
+_LIBCPP_NODEBUG inline constexpr auto elements = __elements::__fn<_Np>{};
+_LIBCPP_NODEBUG inline constexpr auto keys     = elements<0>;
+_LIBCPP_NODEBUG inline constexpr auto values   = elements<1>;
 } // namespace __cpo
 } // namespace views
 } // namespace ranges

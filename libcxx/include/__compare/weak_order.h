@@ -92,7 +92,7 @@ namespace __weak_order {
 } // namespace __weak_order
 
 inline namespace __cpo {
-    inline constexpr auto weak_order = __weak_order::__fn{};
+_LIBCPP_NODEBUG inline constexpr auto weak_order = __weak_order::__fn{};
 } // namespace __cpo
 
 #endif // _LIBCPP_STD_VER > 17

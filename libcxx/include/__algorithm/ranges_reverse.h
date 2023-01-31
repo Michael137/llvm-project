@@ -72,7 +72,7 @@ struct __fn {
 } // namespace __reverse
 
 inline namespace __cpo {
-  inline constexpr auto reverse = __reverse::__fn{};
+_LIBCPP_NODEBUG inline constexpr auto reverse = __reverse::__fn{};
 } // namespace __cpo
 } // namespace ranges
 

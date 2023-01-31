@@ -125,7 +125,7 @@ namespace __common {
 } // namespace __common
 
 inline namespace __cpo {
-  inline constexpr auto common = __common::__fn{};
+_LIBCPP_NODEBUG inline constexpr auto common = __common::__fn{};
 } // namespace __cpo
 } // namespace views
 } // namespace ranges

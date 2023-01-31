@@ -92,7 +92,7 @@ namespace __iter_swap {
 } // namespace __iter_swap
 
 inline namespace __cpo {
-  inline constexpr auto iter_swap = __iter_swap::__fn{};
+_LIBCPP_NODEBUG inline constexpr auto iter_swap = __iter_swap::__fn{};
 } // namespace __cpo
 } // namespace ranges
 

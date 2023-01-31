@@ -69,7 +69,7 @@ struct __fn {
 } // namespace __make_heap
 
 inline namespace __cpo {
-  inline constexpr auto make_heap = __make_heap::__fn{};
+_LIBCPP_NODEBUG inline constexpr auto make_heap = __make_heap::__fn{};
 } // namespace __cpo
 } // namespace ranges
 

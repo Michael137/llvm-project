@@ -97,7 +97,7 @@ namespace __swap {
 } // namespace __swap
 
 inline namespace __cpo {
-  inline constexpr auto swap = __swap::__fn{};
+_LIBCPP_NODEBUG inline constexpr auto swap = __swap::__fn{};
 } // namespace __cpo
 } // namespace ranges
 

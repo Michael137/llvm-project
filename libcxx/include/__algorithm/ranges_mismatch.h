@@ -74,7 +74,7 @@ struct __fn {
 } // namespace __mismatch
 
 inline namespace __cpo {
-  constexpr inline auto mismatch = __mismatch::__fn{};
+_LIBCPP_NODEBUG constexpr inline auto mismatch = __mismatch::__fn{};
 } // namespace __cpo
 } // namespace ranges
 

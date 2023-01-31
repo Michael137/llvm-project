@@ -96,7 +96,7 @@ public:
 } // namespace __rend
 
 inline namespace __cpo {
-  inline constexpr auto rend = __rend::__fn{};
+_LIBCPP_NODEBUG inline constexpr auto rend = __rend::__fn{};
 } // namespace __cpo
 } // namespace ranges
 
@@ -124,7 +124,7 @@ struct __fn {
 } // namespace __crend
 
 inline namespace __cpo {
-  inline constexpr auto crend = __crend::__fn{};
+_LIBCPP_NODEBUG inline constexpr auto crend = __crend::__fn{};
 } // namespace __cpo
 } // namespace ranges
 

@@ -69,7 +69,7 @@ namespace __all {
 } // namespace __all
 
 inline namespace __cpo {
-  inline constexpr auto all = __all::__fn{};
+_LIBCPP_NODEBUG inline constexpr auto all = __all::__fn{};
 } // namespace __cpo
 
 template<ranges::viewable_range _Range>

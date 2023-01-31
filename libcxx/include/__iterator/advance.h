@@ -192,7 +192,7 @@ public:
 } // namespace __advance
 
 inline namespace __cpo {
-  inline constexpr auto advance = __advance::__fn{};
+_LIBCPP_NODEBUG inline constexpr auto advance = __advance::__fn{};
 } // namespace __cpo
 } // namespace ranges
 

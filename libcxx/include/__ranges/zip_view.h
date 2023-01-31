@@ -498,7 +498,7 @@ struct __fn {
 
 } // namespace __zip
 inline namespace __cpo {
-  inline constexpr auto zip = __zip::__fn{};
+  _LIBCPP_NODEBUG inline constexpr auto zip = __zip::__fn{};
 } // namespace __cpo
 } // namespace views
 } // namespace ranges

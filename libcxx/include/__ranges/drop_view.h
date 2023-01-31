@@ -293,7 +293,7 @@ struct __fn {
 } // namespace __drop
 
 inline namespace __cpo {
-  inline constexpr auto drop = __drop::__fn{};
+  _LIBCPP_NODEBUG inline constexpr auto drop = __drop::__fn{};
 } // namespace __cpo
 } // namespace views
 

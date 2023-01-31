@@ -64,7 +64,7 @@ namespace __partial_order {
 } // namespace __partial_order
 
 inline namespace __cpo {
-    inline constexpr auto partial_order = __partial_order::__fn{};
+_LIBCPP_NODEBUG inline constexpr auto partial_order = __partial_order::__fn{};
 } // namespace __cpo
 
 #endif // _LIBCPP_STD_VER > 17

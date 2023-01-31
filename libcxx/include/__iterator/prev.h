@@ -66,7 +66,7 @@ struct __fn {
 } // namespace __prev
 
 inline namespace __cpo {
-  inline constexpr auto prev = __prev::__fn{};
+_LIBCPP_NODEBUG inline constexpr auto prev = __prev::__fn{};
 } // namespace __cpo
 } // namespace ranges
 

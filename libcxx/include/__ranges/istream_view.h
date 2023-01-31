@@ -136,7 +136,7 @@ struct __fn {
 
 inline namespace __cpo {
 template <class _Tp>
-inline constexpr auto istream = __istream::__fn<_Tp>{};
+_LIBCPP_NODEBUG inline constexpr auto istream = __istream::__fn<_Tp>{};
 } // namespace __cpo
 } // namespace views
 

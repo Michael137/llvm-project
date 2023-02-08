@@ -555,7 +555,7 @@ void ASTDeclReader::Visit(Decl *D) {
           cast<TypedefNameDecl>(Reader.GetDecl(NamedDeclForTagDecl));
   } else if (auto *ID = dyn_cast<ObjCInterfaceDecl>(D)) {
     // if we have a fully initialized TypeDecl, we can safely read its type now.
-    ID->TypeForDecl = Reader.GetType(DeferredTypeID).getTypePtrOrNull();
+    ID->setTypeForDecl(Reader.GetType(DeferredTypeID).getTypePtrOrNull());
   } else if (auto *FD = dyn_cast<FunctionDecl>(D)) {
     // FunctionDecl's body was written last after all other Stmts/Exprs.
     // We only read it if FD doesn't already have a body (e.g., from another

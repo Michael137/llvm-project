@@ -4733,6 +4733,18 @@ RecordDecl *RecordDecl::CreateDeserialized(const ASTContext &C, unsigned ID) {
   return R;
 }
 
+[[clang::noinline]]
+void RecordDecl::setTypeForDecl(Type const* t) const
+{
+    std::string str;
+    llvm::raw_string_ostream ss(str);
+    t->dump(ss, getASTContext());
+    if (str.find("struct std::remove_extent") != std::string::npos) {
+      assert(true);
+    }
+    TypeForDecl = t;
+  }
+
 bool RecordDecl::isInjectedClassName() const {
   return isImplicit() && getDeclName() && getDeclContext()->isRecord() &&
     cast<RecordDecl>(getDeclContext())->getDeclName() == getDeclName();
@@ -5175,6 +5187,17 @@ SourceRange EnumConstantDecl::getSourceRange() const {
 }
 
 void TypeDecl::anchor() {}
+
+void TypeDecl::setTypeForDecl(const Type *TD) const {
+    std::string str;
+    llvm::raw_string_ostream ss(str);
+    TD->dump(ss, getASTContext());
+    if (str.find("struct std::remove_extent") != std::string::npos) {
+      assert(true);
+    }
+
+    TypeForDecl = TD;
+}
 
 TypedefDecl *TypedefDecl::Create(ASTContext &C, DeclContext *DC,
                                  SourceLocation StartLoc, SourceLocation IdLoc,

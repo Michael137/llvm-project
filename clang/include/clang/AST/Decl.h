@@ -3246,18 +3246,17 @@ public:
 class TypeDecl : public NamedDecl {
   friend class ASTContext;
 
-  /// This indicates the Type object that represents
-  /// this TypeDecl.  It is a cache maintained by
-  /// ASTContext::getTypedefType, ASTContext::getTagDeclType, and
-  /// ASTContext::getTemplateTypeParmType, and TemplateTypeParmDecl.
-  mutable const Type *TypeForDecl = nullptr;
-
   /// The start of the source range for this declaration.
   SourceLocation LocStart;
 
   void anchor() override;
 
 protected:
+  /// This indicates the Type object that represents
+  /// this TypeDecl.  It is a cache maintained by
+  /// ASTContext::getTypedefType, ASTContext::getTagDeclType, and
+  /// ASTContext::getTemplateTypeParmType, and TemplateTypeParmDecl.
+  mutable const Type *TypeForDecl = nullptr;
   TypeDecl(Kind DK, DeclContext *DC, SourceLocation L, IdentifierInfo *Id,
            SourceLocation StartL = SourceLocation())
     : NamedDecl(DK, DC, L, Id), LocStart(StartL) {}
@@ -3268,7 +3267,7 @@ public:
   // ASTContext::getTypedefType, ASTContext::getRecordType, etc. if you
   // already know the specific kind of node this is.
   const Type *getTypeForDecl() const { return TypeForDecl; }
-  void setTypeForDecl(const Type *TD) { TypeForDecl = TD; }
+  void setTypeForDecl(const Type *TD) const;
 
   SourceLocation getBeginLoc() const LLVM_READONLY { return LocStart; }
   void setLocStart(SourceLocation L) { LocStart = L; }
@@ -4032,6 +4031,9 @@ public:
                             SourceLocation StartLoc, SourceLocation IdLoc,
                             IdentifierInfo *Id, RecordDecl* PrevDecl = nullptr);
   static RecordDecl *CreateDeserialized(const ASTContext &C, unsigned ID);
+
+  [[clang::noinline]]
+  void setTypeForDecl(Type const* t) const;
 
   RecordDecl *getPreviousDecl() {
     return cast_or_null<RecordDecl>(

@@ -4698,12 +4698,12 @@ QualType ASTContext::getInjectedClassNameType(CXXRecordDecl *Decl,
     assert(isa<InjectedClassNameType>(Decl->TypeForDecl));
   } else if (CXXRecordDecl *PrevDecl = Decl->getPreviousDecl()) {
     assert(PrevDecl->TypeForDecl && "previous declaration has no type");
-    Decl->TypeForDecl = PrevDecl->TypeForDecl;
-    assert(isa<InjectedClassNameType>(Decl->TypeForDecl));
+    assert(isa<InjectedClassNameType>(PrevDecl->TypeForDecl));
+    Decl->setTypeForDecl(PrevDecl->TypeForDecl);
   } else {
     Type *newType =
       new (*this, TypeAlignment) InjectedClassNameType(Decl, TST);
-    Decl->TypeForDecl = newType;
+    Decl->setTypeForDecl(newType);
     Types.push_back(newType);
   }
   return QualType(Decl->TypeForDecl, 0);
@@ -4745,7 +4745,7 @@ QualType ASTContext::getTypedefType(const TypedefNameDecl *Decl,
       Underlying = Decl->getUnderlyingType();
     auto *NewType = new (*this, TypeAlignment) TypedefType(
         Type::Typedef, Decl, QualType(), getCanonicalType(Underlying));
-    Decl->TypeForDecl = NewType;
+    Decl->setTypeForDecl(NewType);
     Types.push_back(NewType);
     return QualType(NewType, 0);
   }
@@ -4803,11 +4803,13 @@ QualType ASTContext::getRecordType(const RecordDecl *Decl) const {
   if (Decl->TypeForDecl) return QualType(Decl->TypeForDecl, 0);
 
   if (const RecordDecl *PrevDecl = Decl->getPreviousDecl())
-    if (PrevDecl->TypeForDecl)
-      return QualType(Decl->TypeForDecl = PrevDecl->TypeForDecl, 0);
+    if (PrevDecl->TypeForDecl) {
+      Decl->setTypeForDecl(PrevDecl->TypeForDecl);
+      return QualType(Decl->TypeForDecl, 0);
+    }
 
   auto *newType = new (*this, TypeAlignment) RecordType(Decl);
-  Decl->TypeForDecl = newType;
+  Decl->setTypeForDecl(newType);
   Types.push_back(newType);
   return QualType(newType, 0);
 }
@@ -4816,11 +4818,13 @@ QualType ASTContext::getEnumType(const EnumDecl *Decl) const {
   if (Decl->TypeForDecl) return QualType(Decl->TypeForDecl, 0);
 
   if (const EnumDecl *PrevDecl = Decl->getPreviousDecl())
-    if (PrevDecl->TypeForDecl)
-      return QualType(Decl->TypeForDecl = PrevDecl->TypeForDecl, 0);
+    if (PrevDecl->TypeForDecl) {
+      Decl->setTypeForDecl(PrevDecl->TypeForDecl);
+      return QualType(Decl->TypeForDecl, 0);
+    }
 
   auto *newType = new (*this, TypeAlignment) EnumType(Decl);
-  Decl->TypeForDecl = newType;
+  Decl->setTypeForDecl(newType);
   Types.push_back(newType);
   return QualType(newType, 0);
 }
@@ -4832,11 +4836,13 @@ QualType ASTContext::getUnresolvedUsingType(
 
   if (const UnresolvedUsingTypenameDecl *CanonicalDecl =
           Decl->getCanonicalDecl())
-    if (CanonicalDecl->TypeForDecl)
-      return QualType(Decl->TypeForDecl = CanonicalDecl->TypeForDecl, 0);
+    if (CanonicalDecl->TypeForDecl) {
+      Decl->setTypeForDecl(CanonicalDecl->TypeForDecl);
+      return QualType(Decl->TypeForDecl, 0);
+    }
 
   Type *newType = new (*this, TypeAlignment) UnresolvedUsingType(Decl);
-  Decl->TypeForDecl = newType;
+  Decl->setTypeForDecl(newType);
   Types.push_back(newType);
   return QualType(newType, 0);
 }
@@ -5674,7 +5680,7 @@ QualType ASTContext::getObjCInterfaceType(const ObjCInterfaceDecl *Decl,
 
   if (PrevDecl) {
     assert(PrevDecl->TypeForDecl && "previous decl has no TypeForDecl");
-    Decl->TypeForDecl = PrevDecl->TypeForDecl;
+    Decl->setTypeForDecl(PrevDecl->TypeForDecl);
     return QualType(PrevDecl->TypeForDecl, 0);
   }
 
@@ -5684,7 +5690,7 @@ QualType ASTContext::getObjCInterfaceType(const ObjCInterfaceDecl *Decl,
 
   void *Mem = Allocate(sizeof(ObjCInterfaceType), TypeAlignment);
   auto *T = new (Mem) ObjCInterfaceType(Decl);
-  Decl->TypeForDecl = T;
+  Decl->setTypeForDecl(T);
   Types.push_back(T);
   return QualType(T, 0);
 }

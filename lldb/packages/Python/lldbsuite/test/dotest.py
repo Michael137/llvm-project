@@ -869,6 +869,28 @@ def checkForkVForkSupport():
     if platform not in ["freebsd", "linux", "netbsd"]:
         configuration.skip_categories.append("fork")
 
+def checkDarwinBinutilsPath():
+    from lldbsuite.test import lldbplatformutil
+
+    if not lldbplatformutil.platformIsDarwin():
+        return
+
+    cmd = ["strip", "--version"]
+    process = subprocess.Popen(
+        cmd,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT)
+    cmd_output = process.stdout.read()
+    output_str = cmd_output.decode("utf-8")
+    if "GNU strip (GNU Binutils)" in output_str:
+        print("""
+The tool 'strip' in your path is not the one from the Xcode
+toolchain. Please make sure the Xcode tools are before any
+other tools in your path. Run `xcode -f strip` for the correct
+toolchain path.
+Exiting...
+        """)
+        sys.exit(0)
 
 def run_suite():
     # On MacOS X, check to make sure that domain for com.apple.DebugSymbols defaults
@@ -956,6 +978,7 @@ def run_suite():
     checkDebugServerSupport()
     checkObjcSupport()
     checkForkVForkSupport()
+    checkDarwinBinutilsPath()
 
     skipped_categories_list = ", ".join(configuration.skip_categories)
     print("Skipping the following test categories: {}".format(configuration.skip_categories))

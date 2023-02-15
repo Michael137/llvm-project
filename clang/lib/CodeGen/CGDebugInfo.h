@@ -305,6 +305,10 @@ class CGDebugInfo {
   /// A helper function to collect debug info for btf_decl_tag annotations.
   llvm::DINodeArray CollectBTFDeclTagAnnotations(const Decl *D);
 
+  /// A helper function to collect debug info for abi_tag annotations.
+  /// Returns a null DINodeArray if 'D' doesn't have any 'clang::AbiTagAttr's.
+  llvm::DINodeArray CollectAbiTagAnnotations(const Decl *D);
+
   llvm::DIType *createFieldType(StringRef name, QualType type,
                                 SourceLocation loc, AccessSpecifier AS,
                                 uint64_t offsetInBits, uint32_t AlignInBits,

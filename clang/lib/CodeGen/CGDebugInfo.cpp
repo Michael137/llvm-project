@@ -1853,11 +1853,20 @@ llvm::DISubprogram *CGDebugInfo::CreateCXXMemberFunction(
       SPFlags |= llvm::DISubprogram::SPFlagDeleted;
   };
 
+  llvm::DINodeArray AbiTagAnnotations = nullptr;
+
   switch (Method->getKind()) {
 
   case Decl::CXXConstructor:
   case Decl::CXXDestructor:
     checkAttrDeleted(Method);
+
+    // Add annotations for abi_tag's for constructors/destructors
+    // because their declarations don't carry linkage names (which
+    // encodes the existance of abi-tags). LLDB uses these annotations
+    // to resolve calls to abi-tagged constructors/destructors.
+    if (CGM.getCodeGenOpts().getDebuggerTuning() == llvm::DebuggerKind::LLDB)
+      AbiTagAnnotations = CollectAbiTagAnnotations(Method);
     break;
   case Decl::CXXMethod:
     if (Method->isCopyAssignmentOperator() ||
@@ -1904,7 +1913,7 @@ llvm::DISubprogram *CGDebugInfo::CreateCXXMemberFunction(
   llvm::DISubprogram *SP = DBuilder.createMethod(
       RecordTy, MethodName, MethodLinkageName, MethodDefUnit, MethodLine,
       MethodTy, VIndex, ThisAdjustment, ContainingType, Flags, SPFlags,
-      TParamsArray.get());
+      TParamsArray.get(), nullptr, AbiTagAnnotations);
 
   SPCache[Method->getCanonicalDecl()].reset(SP);
 
@@ -2201,6 +2210,21 @@ llvm::DINodeArray CGDebugInfo::CollectBTFDeclTagAnnotations(const Decl *D) {
     llvm::Metadata *Ops[2] = {
         llvm::MDString::get(CGM.getLLVMContext(), StringRef("btf_decl_tag")),
         llvm::MDString::get(CGM.getLLVMContext(), I->getBTFDeclTag())};
+    Annotations.push_back(llvm::MDNode::get(CGM.getLLVMContext(), Ops));
+  }
+  return DBuilder.getOrCreateArray(Annotations);
+}
+
+llvm::DINodeArray CGDebugInfo::CollectAbiTagAnnotations(const Decl *D) {
+  if (!D->hasAttr<AbiTagAttr>())
+    return nullptr;
+
+  SmallVector<llvm::Metadata *, 4> Annotations;
+  auto const *Attr = D->getAttr<AbiTagAttr>();
+  for (const auto Tag : Attr->tags()) {
+    llvm::Metadata *Ops[2] = {
+        llvm::MDString::get(CGM.getLLVMContext(), StringRef("abi_tag")),
+        llvm::MDString::get(CGM.getLLVMContext(), Tag)};
     Annotations.push_back(llvm::MDNode::get(CGM.getLLVMContext(), Ops));
   }
   return DBuilder.getOrCreateArray(Annotations);

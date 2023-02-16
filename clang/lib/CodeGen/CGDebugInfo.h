@@ -646,6 +646,7 @@ private:
              std::optional<StringRef> Source);
 
   /// Get the type from the cache or create a new type if necessary.
+  llvm::DIType *getOrCreatePreferredType(QualType Ty, llvm::DIFile *Fg);
   llvm::DIType *getOrCreateType(QualType Ty, llvm::DIFile *Fg);
 
   /// Get a reference to a clang module.  If \p CreateSkeletonCU is true,

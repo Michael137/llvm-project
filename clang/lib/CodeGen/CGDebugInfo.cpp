@@ -2017,7 +2017,8 @@ CGDebugInfo::CollectTemplateParams(std::optional<TemplateArgs> OArgs,
     switch (TA.getKind()) {
     case TemplateArgument::Type: {
       llvm::DIType *TTy =
-          getOrCreateType(maybeGetPreferredNameType(TA.getAsType()), Unit);
+          //getOrCreateType(maybeGetPreferredNameType(TA.getAsType()), Unit);
+          getOrCreateType(TA.getAsType(), Unit);
       TemplateParams.push_back(DBuilder.createTemplateTypeParameter(
           TheCU, Name, TTy, defaultParameter));
 
@@ -2030,8 +2031,8 @@ CGDebugInfo::CollectTemplateParams(std::optional<TemplateArgs> OArgs,
     } break;
     case TemplateArgument::Declaration: {
       const ValueDecl *D = TA.getAsDecl();
-      QualType T = maybeGetPreferredNameType(
-          TA.getParamTypeForDecl().getDesugaredType(CGM.getContext()));
+      //QualType T = maybeGetPreferredNameType(TA.getParamTypeForDecl().getDesugaredType(CGM.getContext()));
+      QualType T = TA.getParamTypeForDecl().getDesugaredType(CGM.getContext());
       llvm::DIType *TTy = getOrCreateType(T, Unit);
       llvm::Constant *V = nullptr;
       // Skip retrieve the value if that template parameter has cuda device
@@ -3348,7 +3349,7 @@ static QualType UnwrapTypeForDebugInfo(QualType T, const ASTContext &C) {
 }
 
 llvm::DIType *CGDebugInfo::getTypeOrNull(QualType Ty) {
-  assert(Ty == UnwrapTypeForDebugInfo(Ty, CGM.getContext()));
+  //assert(Ty == UnwrapTypeForDebugInfo(Ty, CGM.getContext()));
   auto It = TypeCache.find(Ty.getAsOpaquePtr());
   if (It != TypeCache.end()) {
     // Verify that the debug info still exists.
@@ -3374,6 +3375,19 @@ void CGDebugInfo::completeUnusedClass(const CXXRecordDecl &D) {
   RetainedTypes.push_back(CGM.getContext().getRecordType(&D).getAsOpaquePtr());
 }
 
+static int indent = -1;
+struct Indenter {
+    Indenter() { ++indent; }
+    ~Indenter() { --indent; }
+};
+
+llvm::DenseSet<const void*> UnwrapCache;
+static bool didUnwrap(QualType Ty) {
+  //assert(Ty == UnwrapTypeForDebugInfo(Ty, CGM.getContext()));
+  auto It = UnwrapCache.find(Ty.getAsOpaquePtr());
+  return (It != UnwrapCache.end());
+}
+
 llvm::DIType *CGDebugInfo::getOrCreateType(QualType Ty, llvm::DIFile *Unit) {
   if (Ty.isNull())
     return nullptr;
@@ -3385,8 +3399,18 @@ llvm::DIType *CGDebugInfo::getOrCreateType(QualType Ty, llvm::DIFile *Unit) {
     return Name;
   });
 
+  //llvm::errs() << Ty->getTypeClass() << '\n';
+  //if (Ty->getTypeClass() != Type::Elaborated)
+  //if (!didUnwrap(Ty)) {
+  //Ty = maybeGetPreferredNameType(Ty);
+  //  UnwrapCache.insert(Ty.getAsOpaquePtr());
+  //}
+  // TODO: is the unwrap below undoing the work here?
+
   // Unwrap the type as needed for debug information.
   Ty = UnwrapTypeForDebugInfo(Ty, CGM.getContext());
+  //if (Ty->getTypeClass() != Type::Elaborated)
+  //  Ty = maybeGetPreferredNameType(Ty);
 
   if (auto *T = getTypeOrNull(Ty))
     return T;
@@ -3747,6 +3771,8 @@ void CGDebugInfo::collectVarDeclProps(const VarDecl *VD, llvm::DIFile *&Unit,
 
     T = CGM.getContext().getConstantArrayType(ET, ConstVal, nullptr,
                                               ArrayType::Normal, 0);
+  } else {
+      //T = maybeGetPreferredNameType(T);
   }
 
   Name = VD->getName();
@@ -4463,7 +4489,8 @@ llvm::DILocalVariable *CGDebugInfo::EmitDeclare(const VarDecl *VD,
   if (VD->hasAttr<BlocksAttr>())
     Ty = EmitTypeForVarWithBlocksAttr(VD, &XOffset).WrappedType;
   else
-    Ty = getOrCreateType(maybeGetPreferredNameType(VD->getType()), Unit);
+    //Ty = getOrCreateType(maybeGetPreferredNameType(VD->getType()), Unit);
+    Ty = getOrCreateType(VD->getType(), Unit);
 
   // If there is no debug info for this type then do not emit debug info
   // for this variable.

@@ -941,12 +941,12 @@ TypeSP DWARFASTParserClang::ParseSubroutine(const DWARFDIE &die,
     is_static = true;
   }
 
+  llvm::SmallVector<llvm::StringRef> abi_tags;
   if (die.HasChildren()) {
     bool skip_artificial = true;
     ParseChildParameters(containing_decl_ctx, die, skip_artificial, is_static,
-                         is_variadic, has_template_params,
-                         function_param_types, function_param_decls,
-                         type_quals);
+                         is_variadic, has_template_params, function_param_types,
+                         function_param_decls, type_quals, abi_tags);
   }
 
   bool ignore_containing_context = false;
@@ -1123,6 +1123,11 @@ TypeSP DWARFASTParserClang::ParseSubroutine(const DWARFDIE &die,
                           clang_type, attrs.accessibility, attrs.is_virtual,
                           is_static, attrs.is_inline, attrs.is_explicit,
                           is_attr_used, attrs.is_artificial);
+
+                  if (!abi_tags.empty())
+                    cxx_method_decl->addAttr(clang::AbiTagAttr::CreateImplicit(
+                        m_ast.getASTContext(), abi_tags.data(),
+                        abi_tags.size()));
 
                   type_handled = cxx_method_decl != nullptr;
                   // Artificial methods are always handled even when we
@@ -2366,11 +2371,13 @@ DWARFASTParserClang::ConstructDemangledNameFromDWARF(const DWARFDIE &die) {
   DWARFDeclContext decl_ctx = SymbolFileDWARF::GetDWARFDeclContext(die);
   sstr << decl_ctx.GetQualifiedName();
 
+  llvm::SmallVector<llvm::StringRef> abi_tags;
   clang::DeclContext *containing_decl_ctx =
       GetClangDeclContextContainingDIE(die, nullptr);
   ParseChildParameters(containing_decl_ctx, die, true, is_static, is_variadic,
                        has_template_params, param_types, param_decls,
-                       type_quals);
+                       type_quals, abi_tags);
+
   sstr << "(";
   for (size_t i = 0; i < param_types.size(); i++) {
     if (i > 0)
@@ -3049,7 +3056,7 @@ size_t DWARFASTParserClang::ParseChildParameters(
     bool skip_artificial, bool &is_static, bool &is_variadic,
     bool &has_template_params, std::vector<CompilerType> &function_param_types,
     std::vector<clang::ParmVarDecl *> &function_param_decls,
-    unsigned &type_quals) {
+    unsigned &type_quals, llvm::SmallVector<llvm::StringRef> &abi_tags) {
   if (!parent_die)
     return 0;
 
@@ -3159,6 +3166,15 @@ size_t DWARFASTParserClang::ParseChildParameters(
       has_template_params = true;
       break;
 
+    case DW_TAG_LLVM_annotation: {
+      const char *name = die.GetName();
+      if (!name || ::strcmp(name, "abi_tag") != 0)
+        break;
+
+      if (const char *tag =
+              die.GetAttributeValueAsString(DW_AT_const_value, nullptr))
+        abi_tags.push_back(tag);
+    } break;
     default:
       break;
     }

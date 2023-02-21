@@ -1130,6 +1130,19 @@ TypeSP DWARFASTParserClang::ParseSubroutine(const DWARFDIE &die,
                   type_handled |= attrs.is_artificial;
 
                   if (cxx_method_decl) {
+                    // TODO: read DW_AT_LLVM_complete_ctor
+                    // TODO: read DW_AT_LLVM_base_ctor
+                    // TODO: read DW_AT_LLVM_complete_dtor
+                    // TODO: read DW_AT_LLVM_base_dtor
+                    //
+                    // and attach appropriately (with C1/C2/D1/D2 prefix just as we specified in Mangle.cpp getStructorAsmLabel)
+                    if (!attrs.mangled_name && cxx_method_decl->getDeclKind() == clang::Decl::Kind::CXXConstructor) {
+                      cxx_method_decl->addAttr(clang::AsmLabelAttr::CreateImplicit(
+                          m_ast.getASTContext(), "TestLabel1", /*literal=*/false));
+                      cxx_method_decl->addAttr(clang::AsmLabelAttr::CreateImplicit(
+                          m_ast.getASTContext(), "TestLabel2", /*literal=*/false));
+                    }
+
                     LinkDeclContextToDIE(cxx_method_decl, die);
 
                     ClangASTMetadata metadata;

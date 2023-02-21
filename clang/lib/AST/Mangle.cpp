@@ -136,29 +136,23 @@ bool MangleContext::shouldMangleDeclName(const NamedDecl *D) {
   return shouldMangleCXXName(D);
 }
 
-void MangleContext::mangleName(GlobalDecl GD, raw_ostream &Out) {
-  const ASTContext &ASTContext = getASTContext();
-  const NamedDecl *D = cast<NamedDecl>(GD.getDecl());
+void MangleContext::mangleWithAsmLabel(const AsmLabelAttr *ALA, raw_ostream &Out) {
+  assert(ALA);
 
-  // Any decl can be declared with __asm("foo") on it, and this takes precedence
-  // over all other naming in the .o file.
-  if (const AsmLabelAttr *ALA = D->getAttr<AsmLabelAttr>()) {
-    // If we have an asm name, then we use it as the mangling.
+  // If the label isn't literal, or if this is an alias for an LLVM intrinsic,
+  // do not add a "\01" prefix.
+  if (!ALA->getIsLiteralLabel() || ALA->getLabel().startswith("llvm.")) {
+    Out << ALA->getLabel();
+    return;
+  }
 
-    // If the label isn't literal, or if this is an alias for an LLVM intrinsic,
-    // do not add a "\01" prefix.
-    if (!ALA->getIsLiteralLabel() || ALA->getLabel().startswith("llvm.")) {
-      Out << ALA->getLabel();
-      return;
-    }
-
-    // Adding the prefix can cause problems when one file has a "foo" and
-    // another has a "\01foo". That is known to happen on ELF with the
-    // tricks normally used for producing aliases (PR9177). Fortunately the
-    // llvm mangler on ELF is a nop, so we can just avoid adding the \01
-    // marker.
-    StringRef UserLabelPrefix =
-        getASTContext().getTargetInfo().getUserLabelPrefix();
+  // Adding the prefix can cause problems when one file has a "foo" and
+  // another has a "\01foo". That is known to happen on ELF with the
+  // tricks normally used for producing aliases (PR9177). Fortunately the
+  // llvm mangler on ELF is a nop, so we can just avoid adding the \01
+  // marker.
+  StringRef UserLabelPrefix =
+      getASTContext().getTargetInfo().getUserLabelPrefix();
 #ifndef NDEBUG
     char GlobalPrefix =
         llvm::DataLayout(getASTContext().getTargetInfo().getDataLayoutString())
@@ -166,10 +160,59 @@ void MangleContext::mangleName(GlobalDecl GD, raw_ostream &Out) {
     assert((UserLabelPrefix.empty() && !GlobalPrefix) ||
            (UserLabelPrefix.size() == 1 && UserLabelPrefix[0] == GlobalPrefix));
 #endif
-    if (!UserLabelPrefix.empty())
-      Out << '\01'; // LLVM IR Marker for __asm("foo")
+  if (!UserLabelPrefix.empty())
+    Out << '\01'; // LLVM IR Marker for __asm("foo")
 
-    Out << ALA->getLabel();
+  Out << ALA->getLabel();
+  return;
+}
+
+static const AsmLabelAttr* getStructorAsmLabel(GlobalDecl GD) {
+  const NamedDecl *D = cast<NamedDecl>(GD.getDecl());
+  const char* Needle = nullptr;
+  if (auto const* CtorDecl = dyn_cast<CXXConstructorDecl>(D)) {
+    switch (GD.getCtorType()) {
+      case CXXCtorType::Ctor_Base: {
+        Needle = "C1";
+      } break;
+      case CXXCtorType::Ctor_Complete: {
+        Needle = "C2";
+        break;
+      }
+      default: break;
+    }
+  } else if (auto const* CtorDecl = dyn_cast<CXXDestructorDecl>(D)) {
+    switch (GD.getDtorType()) {
+      case CXXDtorType::Dtor_Base: {
+        Needle = "D1";
+      } break;
+      case CXXDtorType::Dtor_Complete: {
+        Needle = "D2";
+        break;
+      }
+      default: break;
+    }
+  }
+
+  if (!Needle)
+    return D->getAttr<AsmLabelAttr>();
+
+  for (const auto* ALA : D->specific_attrs<AsmLabelAttr>())
+    if (ALA->getLabel().starts_with(Needle))
+      return ALA;
+
+  llvm_unreachable("Asm label attached in an unsupported way");
+}
+
+void MangleContext::mangleName(GlobalDecl GD, raw_ostream &Out) {
+  const ASTContext &ASTContext = getASTContext();
+  const NamedDecl *D = cast<NamedDecl>(GD.getDecl());
+
+  // If we have an asm name, then we use it as the mangling.
+  // Any decl can be declared with __asm("foo") on it, and this takes precedence
+  // over all other naming in the .o file.
+  if (D->hasAttr<AsmLabelAttr>()) {
+    mangleWithAsmLabel(getStructorAsmLabel(GD), Out);
     return;
   }
 

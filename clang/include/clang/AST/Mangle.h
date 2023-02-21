@@ -129,6 +129,7 @@ public:
 
   // FIXME: consider replacing raw_ostream & with something like SmallString &.
   void mangleName(GlobalDecl GD, raw_ostream &);
+  void mangleWithAsmLabel(const AsmLabelAttr *ALA, raw_ostream &Out);
   virtual void mangleCXXName(GlobalDecl GD, raw_ostream &) = 0;
   virtual void mangleThunk(const CXXMethodDecl *MD,
                           const ThunkInfo &Thunk,

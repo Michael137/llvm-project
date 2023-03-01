@@ -905,8 +905,15 @@ void DwarfUnit::constructTypeDIE(DIE &Buffer, const DICompositeType *CTy) {
 
     // Add template parameters to a class, structure or union types.
     if (Tag == dwarf::DW_TAG_class_type ||
-        Tag == dwarf::DW_TAG_structure_type || Tag == dwarf::DW_TAG_union_type)
+        Tag == dwarf::DW_TAG_structure_type ||
+        Tag == dwarf::DW_TAG_union_type) {
       addTemplateParams(Buffer, CTy->getTemplateParams());
+
+      // A [[clang::preferred_name]] attribute can only live on class
+      // templates, so add it here if present.
+      if (auto const *PreferredNameTy = CTy->getPreferredName())
+        addType(Buffer, PreferredNameTy, dwarf::DW_AT_LLVM_preferred_name);
+    }
 
     // Add elements to structure type.
     DINodeArray Elements = CTy->getElements();

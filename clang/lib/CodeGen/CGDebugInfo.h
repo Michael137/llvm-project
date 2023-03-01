@@ -267,6 +267,12 @@ class CGDebugInfo {
                        SmallVectorImpl<llvm::Metadata *> &EltTys,
                        llvm::DIType *RecordTy);
 
+  /// Helper class that retrieves returns llvm::DIType the that
+  /// PreferredNameAttr attribute on \ref RD refers to. If no such
+  /// attribute exists, returns nullptr.
+  llvm::DIType *GetPreferredNameType(const CXXRecordDecl *RD,
+                                     llvm::DIFile *Unit);
+
   /// Helper function for CollectCXXBases.
   /// Adds debug info entries for types in Bases that are not in SeenTypes.
   void CollectCXXBasesAux(

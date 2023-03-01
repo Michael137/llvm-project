@@ -298,6 +298,8 @@ public:
   /// Add DW_TAG_LLVM_annotation.
   void addAnnotation(DIE &Buffer, DINodeArray Annotations);
 
+  void addPreferredName(DIE &Buffer, DIType *PreferredNameTy);
+
   /// Get context owner's DIE.
   DIE *createTypeDIE(const DICompositeType *Ty);
 

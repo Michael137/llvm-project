@@ -514,7 +514,17 @@ TypeSP DWARFASTParserClang::ParseTypeFromDWARF(const SymbolContext &sc,
   // TODO: We should consider making the switch above exhaustive to simplify
   // control flow in ParseTypeFromDWARF. Then, we could simply replace this
   // return statement with a call to llvm_unreachable.
-  return UpdateSymbolContextScopeForType(sc, die, type_sp);
+  auto parsed_type = UpdateSymbolContextScopeForType(sc, die, type_sp);
+
+  // Set clang::PreferredNameAttr on forward declaration in case LLDB
+  // wants to format a structure without having completed it.
+  if (DWARFDIE pref_name_die =
+          die.GetAttributeValueAsReferenceDIE(DW_AT_LLVM_preferred_name))
+    if (clang::CXXRecordDecl *record_decl =
+            m_ast.GetAsCXXRecordDecl(type_sp->GetForwardCompilerType().GetOpaqueQualType()))
+      AttachPreferredNameAttr(pref_name_die, record_decl);
+
+  return parsed_type;
 }
 
 lldb::TypeSP
@@ -3693,4 +3703,23 @@ bool DWARFASTParserClang::CopyUniqueClassMethodTypes(
   }
 
   return !failures.empty();
+}
+
+void DWARFASTParserClang::AttachPreferredNameAttr(
+    DWARFDIE pref_die, clang::CXXRecordDecl *record_decl) {
+  assert(record_decl != nullptr);
+
+  Type *lldb_type = pref_die.ResolveType();
+  if (!lldb_type)
+    return;
+
+  CompilerType pref_name = lldb_type->GetForwardCompilerType();
+  if (!pref_name)
+    return;
+
+  clang::QualType pref_name_type = ClangUtil::GetQualType(pref_name);
+  if (!pref_name_type.isNull())
+    record_decl->addAttr(clang::PreferredNameAttr::CreateImplicit(
+        m_ast.getASTContext(),
+        m_ast.getASTContext().getTrivialTypeSourceInfo(pref_name_type)));
 }

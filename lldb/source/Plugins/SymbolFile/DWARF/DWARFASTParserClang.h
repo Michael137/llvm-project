@@ -297,6 +297,11 @@ private:
       const lldb::ModuleSP &module_sp,
       std::vector<std::unique_ptr<clang::CXXBaseSpecifier>> &base_classes,
       lldb_private::ClangASTImporter::LayoutInfo &layout_info);
+
+  /// Add to 'record_decl' a 'clang::PreferredNameAttr' pointing to the type
+  /// represented by 'pref_die'.
+  void AttachPreferredNameAttr(DWARFDIE pref_die,
+                               clang::CXXRecordDecl *record_decl);
 };
 
 /// Parsed form of all attributes that are relevant for type reconstruction.

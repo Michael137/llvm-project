@@ -482,8 +482,13 @@ const Declaration &Type::GetDeclaration() const { return m_decl; }
 bool Type::ResolveCompilerType(ResolveState compiler_type_resolve_state) {
   // TODO: This needs to consider the correct type system to use.
   Type *encoding_type = nullptr;
-  if (!m_compiler_type.IsValid()) {
+  if (!m_compiler_type.IsValid())
     encoding_type = GetEncodingType();
+
+  // Check m_compiler_type again in case
+  // GetEncodingType above resolved this
+  // type.
+  if (!m_compiler_type.IsValid()) {
     if (encoding_type) {
       switch (m_encoding_uid_type) {
       case eEncodingIsUID: {

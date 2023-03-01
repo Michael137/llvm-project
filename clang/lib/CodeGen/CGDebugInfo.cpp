@@ -2585,6 +2585,18 @@ llvm::DIType *CGDebugInfo::CreateType(const RecordType *Ty) {
   return CreateTypeDefinition(Ty);
 }
 
+llvm::DIType *CGDebugInfo::GetPreferredNameType(const CXXRecordDecl *RD,
+                                                llvm::DIFile *Unit) {
+  if (!RD)
+    return nullptr;
+
+  auto const *PNA = RD->getAttr<PreferredNameAttr>();
+  if (!PNA)
+    return nullptr;
+
+  return getOrCreateType(PNA->getTypedefType(), Unit);
+}
+
 llvm::DIType *CGDebugInfo::CreateTypeDefinition(const RecordType *Ty) {
   RecordDecl *RD = Ty->getDecl();
 
@@ -2638,6 +2650,9 @@ llvm::DIType *CGDebugInfo::CreateTypeDefinition(const RecordType *Ty) {
   if (FwdDecl->isTemporary())
     FwdDecl =
         llvm::MDNode::replaceWithPermanent(llvm::TempDICompositeType(FwdDecl));
+
+  if (CGM.getCodeGenOpts().getDebuggerTuning() == llvm::DebuggerKind::LLDB)
+    FwdDecl->replacePreferredName(GetPreferredNameType(CXXDecl, DefUnit));
 
   RegionMap[Ty->getDecl()].reset(FwdDecl);
   return FwdDecl;

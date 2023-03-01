@@ -2200,6 +2200,15 @@ bool DWARFASTParserClang::CompleteRecordType(const DWARFDIE &die,
       GetClangASTImporter().SetRecordLayout(record_decl, layout_info);
   }
 
+  // Need to set preferred name here instead of ParseStructureLikeDIE
+  // since the type that the typedef links back to is probably in the
+  // process of being created.
+  if (DWARFDIE pref_name_die =
+          die.GetAttributeValueAsReferenceDIE(DW_AT_LLVM_preferred_name))
+    if (clang::CXXRecordDecl *record_decl =
+            m_ast.GetAsCXXRecordDecl(clang_type.GetOpaqueQualType()))
+      AttachPreferredNameAttr(pref_name_die, record_decl);
+
   return (bool)clang_type;
 }
 
@@ -3692,4 +3701,23 @@ bool DWARFASTParserClang::CopyUniqueClassMethodTypes(
   }
 
   return !failures.empty();
+}
+
+void DWARFASTParserClang::AttachPreferredNameAttr(
+    DWARFDIE pref_die, clang::CXXRecordDecl *record_decl) {
+  assert(record_decl != nullptr);
+
+  Type *lldb_type = pref_die.ResolveType();
+  if (!lldb_type)
+    return;
+
+  CompilerType pref_name = lldb_type->GetFullCompilerType();
+  if (!pref_name)
+    return;
+
+  clang::QualType pref_name_type = ClangUtil::GetQualType(pref_name);
+  if (!pref_name_type.isNull())
+    record_decl->addAttr(clang::PreferredNameAttr::CreateImplicit(
+        m_ast.getASTContext(),
+        m_ast.getASTContext().getTrivialTypeSourceInfo(pref_name_type)));
 }

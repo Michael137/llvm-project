@@ -2202,24 +2202,35 @@ llvm::DINodeArray CGDebugInfo::CollectCXXTemplateParams(const RecordDecl *RD,
 }
 
 llvm::DINodeArray CGDebugInfo::CollectBTFDeclTagAnnotations(const Decl *D) {
-  if (!D->hasAttr<BTFDeclTagAttr>())
-    return nullptr;
+  llvm::SmallVector<llvm::Metadata*> Annotations;
+  CollectBTFDeclTagAnnotationsImpl(D, Annotations);
 
-  SmallVector<llvm::Metadata *, 4> Annotations;
+  return Annotations.size() ? DBuilder.getOrCreateArray(Annotations) : nullptr;
+}
+
+llvm::DINodeArray CGDebugInfo::CollectAbiTagAnnotations(const Decl *D) {
+  llvm::SmallVector<llvm::Metadata*> Annotations;
+  CollectAbiTagAnnotationsImpl(D, Annotations);
+
+  return Annotations.size() ? DBuilder.getOrCreateArray(Annotations) : nullptr;
+}
+
+void CGDebugInfo::CollectBTFDeclTagAnnotationsImpl(const Decl *D, SmallVector<llvm::Metadata*> &Annotations) {
+  if (!D->hasAttr<BTFDeclTagAttr>())
+    return;
+
   for (const auto *I : D->specific_attrs<BTFDeclTagAttr>()) {
     llvm::Metadata *Ops[2] = {
         llvm::MDString::get(CGM.getLLVMContext(), StringRef("btf_decl_tag")),
         llvm::MDString::get(CGM.getLLVMContext(), I->getBTFDeclTag())};
     Annotations.push_back(llvm::MDNode::get(CGM.getLLVMContext(), Ops));
   }
-  return DBuilder.getOrCreateArray(Annotations);
 }
 
-llvm::DINodeArray CGDebugInfo::CollectAbiTagAnnotations(const Decl *D) {
+void CGDebugInfo::CollectAbiTagAnnotationsImpl(const Decl *D, SmallVector<llvm::Metadata*> &Annotations) {
   if (!D->hasAttr<AbiTagAttr>())
-    return nullptr;
+    return;
 
-  SmallVector<llvm::Metadata *, 4> Annotations;
   auto const *Attr = D->getAttr<AbiTagAttr>();
   for (const auto Tag : Attr->tags()) {
     llvm::Metadata *Ops[2] = {
@@ -2227,7 +2238,14 @@ llvm::DINodeArray CGDebugInfo::CollectAbiTagAnnotations(const Decl *D) {
         llvm::MDString::get(CGM.getLLVMContext(), Tag)};
     Annotations.push_back(llvm::MDNode::get(CGM.getLLVMContext(), Ops));
   }
-  return DBuilder.getOrCreateArray(Annotations);
+}
+
+llvm::DINodeArray CGDebugInfo::CollectAllAnnotations(const Decl *D) {
+  SmallVector<llvm::Metadata*> Annotations;
+  CollectBTFDeclTagAnnotationsImpl(D, Annotations);
+  CollectAbiTagAnnotationsImpl(D, Annotations);
+
+  return Annotations.size() ? DBuilder.getOrCreateArray(Annotations) : nullptr;
 }
 
 llvm::DIType *CGDebugInfo::getOrCreateVTablePtrType(llvm::DIFile *Unit) {
@@ -3641,7 +3659,7 @@ llvm::DICompositeType *CGDebugInfo::CreateLimitedType(const RecordType *Ty) {
                            dyn_cast<CXXRecordDecl>(CXXRD->getDeclContext()));
   }
 
-  llvm::DINodeArray Annotations = CollectBTFDeclTagAnnotations(D);
+  llvm::DINodeArray Annotations = CollectAllAnnotations(D);
   llvm::DICompositeType *RealDecl = DBuilder.createReplaceableCompositeType(
       getTagForRecord(RD), RDName, RDContext, DefUnit, Line, 0, Size, Align,
       Flags, Identifier, Annotations);

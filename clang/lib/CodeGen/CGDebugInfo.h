@@ -304,10 +304,14 @@ class CGDebugInfo {
 
   /// A helper function to collect debug info for btf_decl_tag annotations.
   llvm::DINodeArray CollectBTFDeclTagAnnotations(const Decl *D);
+  void CollectBTFDeclTagAnnotationsImpl(const Decl *D, SmallVector<llvm::Metadata*> &Annotations);
 
   /// A helper function to collect debug info for abi_tag annotations.
   /// Returns a null DINodeArray if 'D' doesn't have any 'clang::AbiTagAttr's.
   llvm::DINodeArray CollectAbiTagAnnotations(const Decl *D);
+  void CollectAbiTagAnnotationsImpl(const Decl *D, SmallVector<llvm::Metadata*> &Annotations);
+
+  llvm::DINodeArray CollectAllAnnotations(const Decl *D);
 
   llvm::DIType *createFieldType(StringRef name, QualType type,
                                 SourceLocation loc, AccessSpecifier AS,

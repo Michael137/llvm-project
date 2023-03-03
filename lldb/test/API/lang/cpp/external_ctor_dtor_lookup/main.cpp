@@ -25,6 +25,13 @@ struct D : B {
 
 struct X : public virtual A {};
 
+struct [[gnu::abi_tag("StructTag")]] TaggedStruct {
+    TaggedStruct() {}
+    ~TaggedStruct() {}
+
+    void sink(TaggedStruct) {}
+};
+
 int main() {
   Bar b;
   Wrapper<int> w1;
@@ -36,5 +43,7 @@ int main() {
   A a;
   auto *ptr = new X();
   delete ptr;
+  TaggedStruct ts;
+  ts.sink({});
   return b.sinkWrapper(b.getWrapper());
 }

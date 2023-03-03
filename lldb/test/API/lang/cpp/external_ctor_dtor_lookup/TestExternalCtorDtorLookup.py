@@ -49,3 +49,6 @@ class ExternalCtorDtorLookupTestCase(TestBase):
         # Confirm that we can call the D2 destructor for 'struct A'
         self.expect('expression Derived* $derived_ptr = new Derived()')
         self.expect('expression delete $derived_ptr')
+
+        # Confirm we can call constructor/destructor of a tagged structure
+        self.expect_expr('ts.sink({})')

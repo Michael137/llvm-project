@@ -5711,6 +5711,12 @@ void CGDebugInfo::finalize() {
     DBuilder.replaceArrays(InterfaceDecl, Elements);
   }
 
+  // TODO:
+  // 0. Create replaceableDerivedType
+  // 1. create temporary DIDerivedType's for typedefs
+  // wherever a preferred name is present when we emit a type.
+  // 2. replace all the temporary nodes with real typedeftypes
+  // here.
   for (const auto &P : ReplaceMap) {
     assert(P.second);
     auto *Ty = cast<llvm::DIType>(P.second);

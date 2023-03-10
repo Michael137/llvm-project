@@ -11,8 +11,8 @@ from lldbsuite.test.lldbtest import *
 from lldbsuite.test import lldbutil
 
 class TestInlineNamespace(TestBase):
-    def do_test(self, params):
-        self.build(dictionary=params)
+    def do_test(self):
+        self.build()
 
         lldbutil.run_to_source_breakpoint(self,
                                           "return A::B::C::a", lldb.SBFileSpec("main.cpp"))
@@ -28,10 +28,6 @@ class TestInlineNamespace(TestBase):
         self.expect_expr("F::a", result_type="int", result_value="-1")
         self.expect_expr("G::a", result_type="int", result_value="-1")
 
-    @skipUnlessDarwin
+    @skipIf(compiler="clang", compiler_version=['<', '16.0'])
     def test_dsym(self):
-        self.do_test({})
-
-    @skipIfDarwin
-    def test_dwarf(self):
-        self.do_test({'CFLAGS_EXTRAS':'-gdwarf-5 -gpubnames'})
+        self.do_test()

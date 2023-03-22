@@ -1338,6 +1338,7 @@ void ASTReader::ParseLineTable(ModuleFile &F, const RecordData &Record) {
   for (unsigned I = 0; Record[Idx]; ++I) {
     // Extract the file name
     auto Filename = ReadPath(F, Record, Idx);
+    //llvm::errs() << "Parsed filename: " << Filename << '\n';
     FileIDs[I] = LineTable.getLineTableFilenameID(Filename);
   }
   ++Idx;
@@ -1592,7 +1593,7 @@ bool ASTReader::ReadSLocEntry(int ID) {
     if (Record[3]) {
       auto &FileInfo =
           const_cast<SrcMgr::FileInfo &>(SourceMgr.getSLocEntry(FID).getFile());
-      FileInfo.setHasLineDirectives();
+      FileInfo.setHasLineDirectives(); // TODO: CAUSES CRASH
     }
     break;
   }
@@ -2524,6 +2525,10 @@ void ASTReader::ResolveImportedPath(ModuleFile &M, std::string &Filename) {
 
 void ASTReader::ResolveImportedPath(std::string &Filename, StringRef Prefix) {
   if (Filename.empty() || llvm::sys::path::is_absolute(Filename))
+    return;
+
+  if (Filename == "<built-in>"
+      || Filename == "<command-line>")
     return;
 
   SmallString<128> Buffer;
@@ -3505,6 +3510,8 @@ llvm::Error ASTReader::ReadASTBlock(ModuleFile &F,
       break;
 
     case SOURCE_MANAGER_LINE_TABLE:
+      if (F.ModuleName == "CoreGraphics")
+        assert(true);
       ParseLineTable(F, Record);
       break;
 
@@ -4278,6 +4285,9 @@ ASTReader::ASTReadResult ASTReader::ReadAST(StringRef FileName,
                                             unsigned ClientLoadCapabilities,
                                             SmallVectorImpl<ImportedSubmodule> *Imported) {
   llvm::TimeTraceScope scope("ReadAST", FileName);
+
+  if (FileName.contains("Cocoa"))
+    assert(true);
 
   llvm::SaveAndRestore SetCurImportLocRAII(CurrentImportLoc, ImportLoc);
   llvm::SaveAndRestore<std::optional<ModuleKind>> SetCurModuleKindRAII(

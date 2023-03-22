@@ -1823,6 +1823,10 @@ private:
   }
 
   FileID getFileID(SourceLocation::UIntTy SLocOffset) const {
+    if (SLocOffset == 2068864938) {
+      assert(true);
+    }
+
     // If our one-entry cache covers this offset, just return it.
     if (isOffsetInFileID(LastFileIDLookup, SLocOffset))
       return LastFileIDLookup;

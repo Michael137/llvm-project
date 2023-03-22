@@ -261,7 +261,7 @@ def execute_in_tmp_dir(run, lit_config):
         if tmp_dir:
             try:
                 import shutil
-                shutil.rmtree(tmp_dir)
+                #shutil.rmtree(tmp_dir)
             except Exception as e: 
                 lit_config.warning("Failed to delete temp directory '%s', try upgrading your version of Python to fix this" % tmp_dir)
 

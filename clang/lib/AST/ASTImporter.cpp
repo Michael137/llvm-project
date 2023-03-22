@@ -9500,6 +9500,13 @@ Expected<SourceLocation> ASTImporter::Import(SourceLocation FromLoc) {
   SourceManager &FromSM = FromContext.getSourceManager();
   bool IsBuiltin = FromSM.isWrittenInBuiltinFile(FromLoc);
 
+  //auto name = FromLoc.printToString(FromSM);
+  //if (name.find("AvailabilityInternal.h:214:67") != std::string::npos) {
+  //  assert(true);
+  //}
+  //llvm::errs() << "Importing:\n";
+  //FromLoc.dump(FromSM);
+
   std::pair<FileID, unsigned> Decomposed = FromSM.getDecomposedLoc(FromLoc);
   Expected<FileID> ToFileIDOrErr = Import(Decomposed.first, IsBuiltin);
   if (!ToFileIDOrErr)

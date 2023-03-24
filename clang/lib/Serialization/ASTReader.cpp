@@ -2526,6 +2526,10 @@ void ASTReader::ResolveImportedPath(std::string &Filename, StringRef Prefix) {
   if (Filename.empty() || llvm::sys::path::is_absolute(Filename))
     return;
 
+  if (Filename == "<built-in>"
+      || Filename == "<command-line>")
+    return;
+
   SmallString<128> Buffer;
   llvm::sys::path::append(Buffer, Prefix, Filename);
   Filename.assign(Buffer.begin(), Buffer.end());

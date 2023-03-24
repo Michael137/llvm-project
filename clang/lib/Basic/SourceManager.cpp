@@ -293,8 +293,6 @@ void SourceManager::AddLineNote(SourceLocation Loc, unsigned LineNo,
   else if (IsFileExit)
     EntryExit = 2;
 
-  if (FilenameID == 822)
-    assert(true);
   LineTable->AddLineNote(LocInfo.first, LocInfo.second, LineNo, FilenameID,
                          EntryExit, FileKind);
 }
@@ -1557,15 +1555,10 @@ PresumedLoc SourceManager::getPresumedLoc(SourceLocation Loc,
   // If we have #line directives in this file, update and overwrite the physical
   // location info if appropriate.
   if (UseLineDirectives && FI.hasLineDirectives()) {
-    //llvm::errs() << "Overwriting " << Filename << '\n';
-    //llvm::errs() << "Overwriting " << LineNo << '\n';
-    //llvm::errs().flush();
     assert(LineTable && "Can't have linetable entries without a LineTable!");
     // See if there is a #line directive before this.  If so, get it.
     if (const LineEntry *Entry =
           LineTable->FindNearestLineEntry(LocInfo.first, LocInfo.second)) {
-      if (LineNo == 409)
-        assert(true);
       // If the LineEntry indicates a filename, use it.
       if (Entry->FilenameID != -1) {
         Filename = LineTable->getFilename(Entry->FilenameID);
@@ -1589,9 +1582,6 @@ PresumedLoc SourceManager::getPresumedLoc(SourceLocation Loc,
         IncludeLoc = IncludeLoc.getLocWithOffset(Entry->IncludeOffset);
       }
     }
-    //llvm::errs() << "...to " << Filename << " | LineNo = " << LineNo << '\n';
-    //llvm::errs() << "...to " << LineNo << '\n';
-    //llvm::errs().flush();
   }
 
   return PresumedLoc(Filename.data(), FID, LineNo, ColNo, IncludeLoc);
@@ -1617,13 +1607,11 @@ bool SourceManager::isInMainFile(SourceLocation Loc) const {
   const SrcMgr::FileInfo &FI = Entry->getFile();
 
   // Check if there is a line directive for this location.
-  if (FI.hasLineDirectives()) {
-    //Loc.dump(*this);
+  if (FI.hasLineDirectives())
     if (const LineEntry *Entry =
             LineTable->FindNearestLineEntry(LocInfo.first, LocInfo.second))
       if (Entry->IncludeOffset)
         return false;
-  }
 
   return FI.getIncludeLoc().isInvalid();
 }

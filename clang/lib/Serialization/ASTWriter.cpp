@@ -2089,8 +2089,6 @@ void ASTWriter::WriteSourceManagerBlock(SourceManager &SourceMgr,
       AddSourceLocation(File.getIncludeLoc(), Record);
       Record.push_back(File.getFileCharacteristic()); // FIXME: stable encoding
       Record.push_back(File.hasLineDirectives());
-      if (File.hasLineDirectives())
-        assert(true);
 
       bool EmitBlob = false;
       if (Content->OrigEntry) {
@@ -2212,11 +2210,8 @@ void ASTWriter::WriteSourceManagerBlock(SourceManager &SourceMgr,
         continue;
       for (auto &LE : L.second) {
         if (FilenameMap.insert(std::make_pair(LE.FilenameID,
-                                              FilenameMap.size() - 1)).second) {
-          auto fname = LineTable.getFilename(LE.FilenameID);
-          //llvm::errs() << "Adding path: " << fname << '\n';
-          AddPath(fname, Record);
-        }
+                                              FilenameMap.size() - 1)).second)
+          AddPath(LineTable.getFilename(LE.FilenameID), Record);
       }
     }
     Record.push_back(0);
@@ -4465,9 +4460,6 @@ bool ASTWriter::PreparePathForOutput(SmallVectorImpl<char> &Path) {
     Path.erase(Path.begin(), Path.begin() + (PathPtr - PathBegin));
     Changed = true;
   }
-
-  //StringRef NewPathStr(Path.data(), Path.size());
-  //llvm::errs() << "Prepared: " << NewPathStr << '\n';
 
   return Changed;
 }

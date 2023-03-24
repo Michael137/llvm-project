@@ -1221,7 +1221,7 @@ static void InitializePredefinedMacros(const TargetInfo &TI,
   if (TI.getTriple().isOSDarwin()) {
     Builder.defineMacro("__nonnull", "_Nonnull");
     Builder.defineMacro("__null_unspecified", "_Null_unspecified");
-    Builder.defineMacro("__nullable", "_Nullable"); // TODO: THIS IS THE BUILT-IN MACRO THAT'S CAUSING PROBLEMS
+    Builder.defineMacro("__nullable", "_Nullable");
   }
 
   // Add a macro to differentiate between regular iOS/tvOS/watchOS targets and

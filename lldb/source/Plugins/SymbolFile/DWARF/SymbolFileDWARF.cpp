@@ -334,8 +334,7 @@ void SymbolFileDWARF::GetTypes(const DWARFDIE &die, dw_offset_t min_die_offset,
       }
 
       if (add_type) {
-        const bool assert_not_being_parsed = true;
-        Type *type = ResolveTypeUID(die, assert_not_being_parsed);
+        Type *type = ResolveTypeUID(die);
         if (type)
           type_set.insert(type);
       }
@@ -1463,11 +1462,10 @@ std::optional<SymbolFile::ArrayInfo> SymbolFileDWARF::GetDynamicArrayInfoForUID(
 }
 
 Type *SymbolFileDWARF::ResolveTypeUID(const DIERef &die_ref) {
-  return ResolveType(GetDIE(die_ref), true);
+  return ResolveType(GetDIE(die_ref));
 }
 
-Type *SymbolFileDWARF::ResolveTypeUID(const DWARFDIE &die,
-                                      bool assert_not_being_parsed) {
+Type *SymbolFileDWARF::ResolveTypeUID(const DWARFDIE &die) {
   if (die) {
     Log *log = GetLog(DWARFLog::DebugInfo);
     if (log)
@@ -1572,23 +1570,8 @@ bool SymbolFileDWARF::CompleteType(CompilerType &compiler_type) {
 }
 
 Type *SymbolFileDWARF::ResolveType(const DWARFDIE &die,
-                                   bool assert_not_being_parsed,
                                    bool resolve_function_context) {
-  if (die) {
-    Type *type = GetTypeForDIE(die, resolve_function_context).get();
-
-    if (assert_not_being_parsed) {
-      if (type != DIE_IS_BEING_PARSED)
-        return type;
-
-      GetObjectFile()->GetModule()->ReportError(
-          "Parsing a die that is being parsed die: {0:x16}: {1} {2}",
-          die.GetOffset(), die.GetTagAsCString(), die.GetName());
-
-    } else
-      return type;
-  }
-  return nullptr;
+  return die ? GetTypeForDIE(die, resolve_function_context).get() : nullptr;
 }
 
 CompileUnit *
@@ -2498,7 +2481,7 @@ void SymbolFileDWARF::FindTypes(
     if (!DIEInDeclContext(parent_decl_ctx, die))
       return true; // The containing decl contexts don't match
 
-    Type *matching_type = ResolveType(die, true, true);
+    Type *matching_type = ResolveType(die, true);
     if (!matching_type)
       return true;
 
@@ -2542,7 +2525,7 @@ void SymbolFileDWARF::FindTypes(
         if (template_params != base_name_template_params)
           return true;
 
-        Type *matching_type = ResolveType(die, true, true);
+        Type *matching_type = ResolveType(die, true);
         if (!matching_type)
           return true;
 
@@ -2611,7 +2594,7 @@ void SymbolFileDWARF::FindTypes(
     if (!contextMatches(die_context, pattern))
       return true;
 
-    if (Type *matching_type = ResolveType(die, true, true)) {
+    if (Type *matching_type = ResolveType(die, true)) {
       // We found a type pointer, now find the shared pointer form our type
       // list.
       types.InsertUnique(matching_type->shared_from_this());
@@ -2698,7 +2681,7 @@ TypeSP SymbolFileDWARF::GetTypeForDIE(const DWARFDIE &die,
         sc = sc_backup;
 
       type_sp = ParseType(sc, die, nullptr);
-    } else if (type_ptr != DIE_IS_BEING_PARSED) {
+    } else {
       // Get the original shared pointer for this type
       type_sp = type_ptr->shared_from_this();
     }
@@ -2838,8 +2821,8 @@ TypeSP SymbolFileDWARF::FindCompleteObjCDefinitionTypeForDIE(
         if (!try_resolving_type)
           return true;
 
-        Type *resolved_type = ResolveType(type_die, false, true);
-        if (!resolved_type || resolved_type == DIE_IS_BEING_PARSED)
+        Type *resolved_type = ResolveType(type_die, true);
+        if (!resolved_type)
           return true;
 
         DEBUG_PRINTF(
@@ -3054,8 +3037,8 @@ SymbolFileDWARF::FindDefinitionTypeForDWARFDeclContext(const DWARFDIE &die) {
       if (GetDWARFDeclContext(die) != type_dwarf_decl_ctx)
         return true;
 
-      Type *resolved_type = ResolveType(type_die, false);
-      if (!resolved_type || resolved_type == DIE_IS_BEING_PARSED)
+      Type *resolved_type = ResolveType(type_die);
+      if (!resolved_type)
         return true;
 
       // With -gsimple-template-names, the DIE name may not contain the template

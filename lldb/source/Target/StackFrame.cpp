@@ -1892,6 +1892,7 @@ bool StackFrame::HasCachedData() const {
 
 bool StackFrame::GetStatus(Stream &strm, bool show_frame_info, bool show_source,
                            bool show_unique, const char *frame_marker) {
+  auto start = std::chrono::steady_clock::now();
   if (show_frame_info) {
     strm.Indent();
     DumpUsingSettingsFormat(&strm, show_unique, frame_marker);
@@ -1977,6 +1978,10 @@ bool StackFrame::GetStatus(Stream &strm, bool show_frame_info, bool show_source,
       }
     }
   }
+
+  auto end = std::chrono::steady_clock::now();
+  auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
+  strm.Printf("Finished StackFrame::GetStatus in: %" PRIu64 " ms", duration.count());
   return true;
 }
 

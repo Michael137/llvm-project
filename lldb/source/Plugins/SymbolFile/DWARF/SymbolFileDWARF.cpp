@@ -14,6 +14,7 @@
 #include "llvm/Support/Format.h"
 #include "llvm/Support/Threading.h"
 
+#include "DWARFDefines.h"
 #include "lldb/Core/Module.h"
 #include "lldb/Core/ModuleList.h"
 #include "lldb/Core/ModuleSpec.h"
@@ -1690,9 +1691,8 @@ Type *SymbolFileDWARF::ResolveType(const DWARFDIE &die,
         return type;
 
       GetObjectFile()->GetModule()->ReportError(
-          "Parsing a die that is being parsed die: {0:x16}: {1} ({2}) {3}",
-          die.GetOffset(), DW_TAG_value_to_name(die.Tag()), die.Tag(),
-          die.GetName());
+          "Parsing a die that is being parsed die: {0:x16}: {1} {2}",
+          die.GetOffset(), DW_TAG_value_to_name(die.Tag()), die.GetName());
 
     } else
       return type;
@@ -3233,17 +3233,17 @@ TypeSP SymbolFileDWARF::ParseType(const SymbolContext &sc, const DWARFDIE &die,
     return {};
 
   TypeSP type_sp = dwarf_ast->ParseTypeFromDWARF(sc, die, type_is_new_ptr);
-  if (type_sp) {
-    if (die.Tag() == DW_TAG_subprogram) {
-      std::string scope_qualified_name(GetDeclContextForUID(die.GetID())
-                                           .GetScopeQualifiedName()
-                                           .AsCString(""));
-      if (scope_qualified_name.size()) {
-        m_function_scope_qualified_name_map[scope_qualified_name].insert(
-            *die.GetDIERef());
-      }
-    }
-  }
+  //if (type_sp) {
+  //  if (die.Tag() == DW_TAG_subprogram) {
+  //    std::string scope_qualified_name(GetDeclContextForUID(die.GetID())
+  //                                         .GetScopeQualifiedName()
+  //                                         .AsCString(""));
+  //    if (scope_qualified_name.size()) {
+  //      m_function_scope_qualified_name_map[scope_qualified_name].insert(
+  //          *die.GetDIERef());
+  //    }
+  //  }
+  //}
 
   return type_sp;
 }

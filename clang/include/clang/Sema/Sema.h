@@ -9204,7 +9204,8 @@ public:
   /// @returns True if any decls were found (but possibly ambiguous)
   bool LookupParsedName(LookupResult &R, Scope *S, CXXScopeSpec *SS,
                         QualType ObjectType, bool AllowBuiltinCreation = false,
-                        bool EnteringContext = false);
+                        bool EnteringContext = false,
+                        bool BuildingMemberRefExpr = false);
 
   /// Perform qualified name lookup into all base classes of the given
   /// class.

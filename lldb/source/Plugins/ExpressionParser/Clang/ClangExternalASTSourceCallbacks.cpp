@@ -12,6 +12,7 @@
 #include "clang/AST/Decl.h"
 #include "clang/AST/DeclObjC.h"
 #include "clang/Basic/Module.h"
+#include "llvm/Support/Casting.h"
 #include <optional>
 
 using namespace lldb_private;
@@ -25,6 +26,25 @@ void ClangExternalASTSourceCallbacks::CompleteType(clang::TagDecl *tag_decl) {
 void ClangExternalASTSourceCallbacks::CompleteType(
     clang::ObjCInterfaceDecl *objc_decl) {
   m_ast.CompleteObjCInterfaceDecl(objc_decl);
+}
+
+void ClangExternalASTSourceCallbacks::CompleteRedeclChain(
+    const clang::Decl *d) {
+  if (!TypeSystemClang::UseRedeclCompletion())
+    return;
+
+  if (const clang::TagDecl *td = llvm::dyn_cast<clang::TagDecl>(d)) {
+    if (td->isBeingDefined())
+      return;
+    if (td->getDefinition())
+      return;
+    m_ast.CompleteTagDecl(const_cast<clang::TagDecl *>(td));
+  }
+  if (const auto *od = llvm::dyn_cast<clang::ObjCInterfaceDecl>(d)) {
+    if (od->getDefinition())
+      return;
+    m_ast.CompleteObjCInterfaceDecl(const_cast<clang::ObjCInterfaceDecl *>(od));
+  }
 }
 
 bool ClangExternalASTSourceCallbacks::layoutRecordType(

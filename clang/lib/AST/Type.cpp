@@ -4095,6 +4095,8 @@ static TagDecl *getInterestingTagDecl(TagDecl *decl) {
   return decl;
 }
 
+TagDecl *TagType::getCanonicalDecl() const { return decl->getCanonicalDecl(); }
+
 TagDecl *TagType::getDecl() const {
   return getInterestingTagDecl(decl);
 }

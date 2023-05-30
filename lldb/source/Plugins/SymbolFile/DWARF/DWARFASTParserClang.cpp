@@ -41,6 +41,7 @@
 #include "clang/AST/DeclObjC.h"
 #include "clang/AST/DeclTemplate.h"
 #include "clang/AST/Type.h"
+#include "llvm/BinaryFormat/Dwarf.h"
 #include "llvm/Demangle/Demangle.h"
 
 #include <map>
@@ -2483,6 +2484,7 @@ struct MemberAttributes {
   /// structure.
   uint32_t member_byte_offset;
   bool is_artificial = false;
+  bool can_overlap = false;
 };
 
 /// Parsed form of all attributes that are relevant for parsing Objective-C
@@ -2560,6 +2562,9 @@ MemberAttributes::MemberAttributes(const DWARFDIE &die,
         break;
       case DW_AT_artificial:
         is_artificial = form_value.Boolean();
+        break;
+      case DW_AT_LLVM_no_unique_address:
+        can_overlap = form_value.Boolean();
         break;
       default:
         break;
@@ -2988,7 +2993,7 @@ void DWARFASTParserClang::ParseSingleMember(
 
   clang::FieldDecl *field_decl = TypeSystemClang::AddFieldToRecordType(
       class_clang_type, attrs.name, member_clang_type, attrs.accessibility,
-      attrs.bit_size);
+      attrs.bit_size, attrs.can_overlap);
 
   m_ast.SetMetadataAsUserID(field_decl, die.GetID());
 

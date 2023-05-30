@@ -321,15 +321,17 @@ class CGDebugInfo {
                                 uint64_t offsetInBits, uint32_t AlignInBits,
                                 llvm::DIFile *tunit, llvm::DIScope *scope,
                                 const RecordDecl *RD = nullptr,
-                                llvm::DINodeArray Annotations = nullptr);
+                                llvm::DINodeArray Annotations = nullptr,
+                                bool CanOverlap = false);
 
   llvm::DIType *createFieldType(StringRef name, QualType type,
                                 SourceLocation loc, AccessSpecifier AS,
                                 uint64_t offsetInBits, llvm::DIFile *tunit,
                                 llvm::DIScope *scope,
-                                const RecordDecl *RD = nullptr) {
+                                const RecordDecl *RD = nullptr,
+                                bool CanOverlap = false) {
     return createFieldType(name, type, loc, AS, offsetInBits, 0, tunit, scope,
-                           RD);
+                           RD, nullptr, CanOverlap);
   }
 
   /// Create new bit field member.

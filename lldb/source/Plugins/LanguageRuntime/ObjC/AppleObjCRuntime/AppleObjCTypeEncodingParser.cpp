@@ -140,7 +140,7 @@ clang::QualType AppleObjCTypeEncodingParser::BuildAggregate(
       }
       TypeSystemClang::AddFieldToRecordType(
           union_type, element.name.c_str(), ast_ctx.GetType(element.type),
-          lldb::eAccessPublic, element.bitfield);
+          lldb::eAccessPublic, element.bitfield, false);
       ++count;
     }
     TypeSystemClang::CompleteTagDeclarationDefinition(union_type);

@@ -21,6 +21,7 @@
 #include "TargetInfo.h"
 #include "clang/AST/ASTContext.h"
 #include "clang/AST/Attr.h"
+#include "clang/AST/Attrs.inc"
 #include "clang/AST/DeclFriend.h"
 #include "clang/AST/DeclObjC.h"
 #include "clang/AST/DeclTemplate.h"
@@ -693,7 +694,7 @@ llvm::DIType *CGDebugInfo::CreateType(const BuiltinType *BT) {
 
     DBuilder.replaceArrays(
         ObjTy, DBuilder.getOrCreateArray(&*DBuilder.createMemberType(
-                   ObjTy, "isa", TheCU->getFile(), 0, Size, 0, 0,
+                   ObjTy, "isa", TheCU->getFile(), 0, Size, 0, 0, false,
                    llvm::DINode::FlagZero, ISATy)));
     return ObjTy;
   }
@@ -1255,7 +1256,7 @@ uint64_t CGDebugInfo::collectDefaultElementTypesForBlockPointer(
     uint32_t FieldAlign = CGM.getContext().getTypeAlign(Ty);
     EltTys.push_back(DBuilder.createMemberType(
         Unit, "__descriptor", nullptr, LineNo, FieldSize, FieldAlign,
-        FieldOffset, llvm::DINode::FlagZero, DescTy));
+        FieldOffset, false, llvm::DINode::FlagZero, DescTy));
     FieldOffset += FieldSize;
   }
 
@@ -1593,7 +1594,8 @@ llvm::DIDerivedType *CGDebugInfo::createBitFieldSeparatorIfNeeded(
 llvm::DIType *CGDebugInfo::createFieldType(
     StringRef name, QualType type, SourceLocation loc, AccessSpecifier AS,
     uint64_t offsetInBits, uint32_t AlignInBits, llvm::DIFile *tunit,
-    llvm::DIScope *scope, const RecordDecl *RD, llvm::DINodeArray Annotations) {
+    llvm::DIScope *scope, const RecordDecl *RD, llvm::DINodeArray Annotations,
+    bool CanOverlap) {
   llvm::DIType *debugType = getOrCreateType(type, tunit);
 
   // Get the location for the field.
@@ -1611,7 +1613,7 @@ llvm::DIType *CGDebugInfo::createFieldType(
 
   llvm::DINode::DIFlags flags = getAccessFlag(AS, RD);
   return DBuilder.createMemberType(scope, name, file, line, SizeInBits, Align,
-                                   offsetInBits, flags, debugType, Annotations);
+                                   offsetInBits, CanOverlap, flags, debugType, Annotations);
 }
 
 void CGDebugInfo::CollectRecordLambdaFields(
@@ -1648,7 +1650,8 @@ void CGDebugInfo::CollectRecordLambdaFields(
       QualType type = f->getType();
       llvm::DIType *fieldType = createFieldType(
           "this", type, f->getLocation(), f->getAccess(),
-          layout.getFieldOffset(fieldno), VUnit, RecordTy, CXXDecl);
+          layout.getFieldOffset(fieldno),
+          VUnit, RecordTy, CXXDecl);
 
       elements.push_back(fieldType);
     }
@@ -1708,7 +1711,8 @@ void CGDebugInfo::CollectRecordNormalField(
     llvm::DINodeArray Annotations = CollectBTFDeclTagAnnotations(field);
     FieldType =
         createFieldType(name, type, field->getLocation(), field->getAccess(),
-                        OffsetInBits, Align, tunit, RecordTy, RD, Annotations);
+                        OffsetInBits, Align, tunit, RecordTy, RD, Annotations,
+                        field->hasAttr<NoUniqueAddressAttr>());
   }
 
   elements.push_back(FieldType);
@@ -2431,7 +2435,7 @@ void CGDebugInfo::CollectVTableInfo(const CXXRecordDecl *RD, llvm::DIFile *Unit,
 
   unsigned Size = CGM.getContext().getTypeSize(CGM.getContext().VoidPtrTy);
   llvm::DIType *VPtrMember =
-      DBuilder.createMemberType(Unit, getVTableName(RD), Unit, 0, Size, 0, 0,
+      DBuilder.createMemberType(Unit, getVTableName(RD), Unit, 0, Size, 0, 0, false,
                                 llvm::DINode::FlagArtificial, VPtrTy);
   EltTys.push_back(VPtrMember);
 }
@@ -3815,7 +3819,7 @@ llvm::DIType *CGDebugInfo::CreateMemberType(llvm::DIFile *Unit, QualType FType,
   auto FieldAlign = getTypeAlignIfRequired(FType, CGM.getContext());
   llvm::DIType *Ty =
       DBuilder.createMemberType(Unit, Name, Unit, 0, FieldSize, FieldAlign,
-                                *Offset, llvm::DINode::FlagZero, FieldTy);
+                                *Offset, false, llvm::DINode::FlagZero, FieldTy);
   *Offset += FieldSize;
   return Ty;
 }
@@ -4569,7 +4573,7 @@ CGDebugInfo::EmitTypeForVarWithBlocksAttr(const VarDecl *VD,
   *XOffset = FieldOffset;
   llvm::DIType *FieldTy = DBuilder.createMemberType(
       Unit, VD->getName(), Unit, 0, FieldSize, FieldAlign, FieldOffset,
-      llvm::DINode::FlagZero, WrappedTy);
+      false, llvm::DINode::FlagZero, WrappedTy);
   EltTys.push_back(FieldTy);
   FieldOffset += FieldSize;
 
@@ -5113,7 +5117,7 @@ void CGDebugInfo::EmitDeclareOfBlockLiteralArgVariable(const CGBlockInfo &block,
       fieldType = DBuilder.createPointerType(fieldType, PtrInfo.Width);
       fieldType = DBuilder.createMemberType(tunit, name, tunit, line,
                                             PtrInfo.Width, Align, offsetInBits,
-                                            llvm::DINode::FlagZero, fieldType);
+                                            false, llvm::DINode::FlagZero, fieldType);
     } else {
       auto Align = getDeclAlignIfRequired(variable, CGM.getContext());
       fieldType = createFieldType(name, variable->getType(), loc, AS_public,

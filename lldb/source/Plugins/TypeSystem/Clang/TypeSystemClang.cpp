@@ -7393,7 +7393,8 @@ TypeSystemClang::GetAsObjCInterfaceDecl(const CompilerType &type) {
 clang::FieldDecl *TypeSystemClang::AddFieldToRecordType(
     const CompilerType &type, llvm::StringRef name,
     const CompilerType &field_clang_type, AccessType access,
-    uint32_t bitfield_bit_size) {
+    uint32_t bitfield_bit_size,
+    bool can_overlap) {
   if (!type.IsValid() || !field_clang_type.IsValid())
     return nullptr;
   auto ts = type.GetTypeSystem();
@@ -7441,6 +7442,9 @@ clang::FieldDecl *TypeSystemClang::AddFieldToRecordType(
     }
 
     if (field) {
+      if (can_overlap)
+        field->addAttr(clang::NoUniqueAddressAttr::CreateImplicit(clang_ast, {}));
+
       clang::AccessSpecifier access_specifier =
           TypeSystemClang::ConvertAccessTypeToAccessSpecifier(access);
       field->setAccess(access_specifier);

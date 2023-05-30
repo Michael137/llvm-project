@@ -17,6 +17,7 @@
 #include "llvm/ADT/APFloat.h"
 #include "llvm/ADT/APInt.h"
 #include "llvm/ADT/iterator_range.h"
+#include "llvm/BinaryFormat/Dwarf.h"
 #include "llvm/CodeGen/TargetRegisterInfo.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/DataLayout.h"
@@ -1595,6 +1596,9 @@ DIE &DwarfUnit::constructMemberDIE(DIE &Buffer, const DIDerivedType *DT) {
     addString(MemberDie, dwarf::DW_AT_name, Name);
 
   addAnnotation(MemberDie, DT->getAnnotations());
+
+  if (DT->getCanOverlap())
+    addFlag(MemberDie, dwarf::DW_AT_LLVM_no_unique_address);
 
   if (DIType *Resolved = DT->getBaseType())
     addType(MemberDie, Resolved);

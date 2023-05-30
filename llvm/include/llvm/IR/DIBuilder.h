@@ -313,7 +313,7 @@ namespace llvm {
     DIDerivedType *createMemberType(DIScope *Scope, StringRef Name,
                                     DIFile *File, unsigned LineNo,
                                     uint64_t SizeInBits, uint32_t AlignInBits,
-                                    uint64_t OffsetInBits,
+                                    uint64_t OffsetInBits, bool CanOverlap,
                                     DINode::DIFlags Flags, DIType *Ty,
                                     DINodeArray Annotations = nullptr);
 

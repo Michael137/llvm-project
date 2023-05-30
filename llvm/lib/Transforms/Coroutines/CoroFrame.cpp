@@ -1065,7 +1065,7 @@ static DIType *solveDIType(DIBuilder &Builder, Type *Ty,
       assert(DITy);
       Elements.push_back(Builder.createMemberType(
           Scope, DITy->getName(), Scope->getFile(), LineNum,
-          DITy->getSizeInBits(), DITy->getAlignInBits(),
+          DITy->getSizeInBits(), DITy->getAlignInBits(), false,
           Layout.getStructLayout(StructTy)->getElementOffsetInBits(I),
           llvm::DINode::FlagArtificial, DITy));
     }
@@ -1240,7 +1240,7 @@ static void buildFrameDebugInfo(Function &F, coro::Shape &Shape,
     }
 
     Elements.push_back(DBuilder.createMemberType(
-        FrameDITy, Name, DFile, LineNum, SizeInBits, AlignInBits, OffsetInBits,
+        FrameDITy, Name, DFile, LineNum, SizeInBits, AlignInBits, OffsetInBits, false,
         llvm::DINode::FlagArtificial, DITy));
   }
 

@@ -1306,7 +1306,7 @@ LLVMMetadataRef LLVMDIBuilderCreateMemberType(
     LLVMMetadataRef Ty) {
   return wrap(unwrap(Builder)->createMemberType(unwrapDI<DIScope>(Scope),
       {Name, NameLen}, unwrapDI<DIFile>(File), LineNo, SizeInBits, AlignInBits,
-      OffsetInBits, map_from_llvmDIFlags(Flags), unwrapDI<DIType>(Ty)));
+      OffsetInBits, false, map_from_llvmDIFlags(Flags), unwrapDI<DIType>(Ty)));
 }
 
 LLVMMetadataRef

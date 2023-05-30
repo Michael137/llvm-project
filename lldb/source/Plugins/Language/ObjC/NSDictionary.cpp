@@ -86,9 +86,11 @@ static CompilerType GetLLDBNSPairType(TargetSP target_sp) {
         CompilerType id_compiler_type =
             scratch_ts_sp->GetBasicType(eBasicTypeObjCID);
         TypeSystemClang::AddFieldToRecordType(
-            compiler_type, "key", id_compiler_type, lldb::eAccessPublic, 0);
+            compiler_type, "key", id_compiler_type, lldb::eAccessPublic, 0,
+            false);
         TypeSystemClang::AddFieldToRecordType(
-            compiler_type, "value", id_compiler_type, lldb::eAccessPublic, 0);
+            compiler_type, "value", id_compiler_type, lldb::eAccessPublic, 0,
+            false);
         TypeSystemClang::CompleteTagDeclarationDefinition(compiler_type);
       }
     }

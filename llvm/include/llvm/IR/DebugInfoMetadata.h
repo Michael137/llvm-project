@@ -968,32 +968,36 @@ class DIDerivedType : public DIType {
   /// pointer or reference type respectively.
   std::optional<unsigned> DWARFAddressSpace;
 
+  /// For C++ signifies that member has a [[no_unique_address]]
+  /// attribute.
+  bool CanOverlap;
+
   DIDerivedType(LLVMContext &C, StorageType Storage, unsigned Tag,
                 unsigned Line, uint64_t SizeInBits, uint32_t AlignInBits,
                 uint64_t OffsetInBits,
-                std::optional<unsigned> DWARFAddressSpace, DIFlags Flags,
-                ArrayRef<Metadata *> Ops)
+                std::optional<unsigned> DWARFAddressSpace, bool CanOverlap,
+                DIFlags Flags, ArrayRef<Metadata *> Ops)
       : DIType(C, DIDerivedTypeKind, Storage, Tag, Line, SizeInBits,
                AlignInBits, OffsetInBits, Flags, Ops),
-        DWARFAddressSpace(DWARFAddressSpace) {}
+        DWARFAddressSpace(DWARFAddressSpace), CanOverlap(CanOverlap) {}
   ~DIDerivedType() = default;
   static DIDerivedType *
   getImpl(LLVMContext &Context, unsigned Tag, StringRef Name, DIFile *File,
           unsigned Line, DIScope *Scope, DIType *BaseType, uint64_t SizeInBits,
           uint32_t AlignInBits, uint64_t OffsetInBits,
-          std::optional<unsigned> DWARFAddressSpace, DIFlags Flags,
-          Metadata *ExtraData, DINodeArray Annotations, StorageType Storage,
+          std::optional<unsigned> DWARFAddressSpace, bool CanOverlap,
+          DIFlags Flags, Metadata *ExtraData, DINodeArray Annotations, StorageType Storage,
           bool ShouldCreate = true) {
     return getImpl(Context, Tag, getCanonicalMDString(Context, Name), File,
                    Line, Scope, BaseType, SizeInBits, AlignInBits, OffsetInBits,
-                   DWARFAddressSpace, Flags, ExtraData, Annotations.get(),
+                   DWARFAddressSpace, CanOverlap, Flags, ExtraData, Annotations.get(),
                    Storage, ShouldCreate);
   }
   static DIDerivedType *
   getImpl(LLVMContext &Context, unsigned Tag, MDString *Name, Metadata *File,
           unsigned Line, Metadata *Scope, Metadata *BaseType,
           uint64_t SizeInBits, uint32_t AlignInBits, uint64_t OffsetInBits,
-          std::optional<unsigned> DWARFAddressSpace, DIFlags Flags,
+          std::optional<unsigned> DWARFAddressSpace, bool CanOverlap, DIFlags Flags,
           Metadata *ExtraData, Metadata *Annotations, StorageType Storage,
           bool ShouldCreate = true);
 
@@ -1001,7 +1005,8 @@ class DIDerivedType : public DIType {
     return getTemporary(
         getContext(), getTag(), getName(), getFile(), getLine(), getScope(),
         getBaseType(), getSizeInBits(), getAlignInBits(), getOffsetInBits(),
-        getDWARFAddressSpace(), getFlags(), getExtraData(), getAnnotations());
+        getDWARFAddressSpace(), getCanOverlap(), getFlags(), getExtraData(),
+        getAnnotations());
   }
 
 public:
@@ -1010,19 +1015,19 @@ public:
       (unsigned Tag, MDString *Name, Metadata *File, unsigned Line,
        Metadata *Scope, Metadata *BaseType, uint64_t SizeInBits,
        uint32_t AlignInBits, uint64_t OffsetInBits,
-       std::optional<unsigned> DWARFAddressSpace, DIFlags Flags,
+       std::optional<unsigned> DWARFAddressSpace, bool CanOverlap, DIFlags Flags,
        Metadata *ExtraData = nullptr, Metadata *Annotations = nullptr),
       (Tag, Name, File, Line, Scope, BaseType, SizeInBits, AlignInBits,
-       OffsetInBits, DWARFAddressSpace, Flags, ExtraData, Annotations))
+       OffsetInBits, DWARFAddressSpace, CanOverlap, Flags, ExtraData, Annotations))
   DEFINE_MDNODE_GET(DIDerivedType,
                     (unsigned Tag, StringRef Name, DIFile *File, unsigned Line,
                      DIScope *Scope, DIType *BaseType, uint64_t SizeInBits,
                      uint32_t AlignInBits, uint64_t OffsetInBits,
-                     std::optional<unsigned> DWARFAddressSpace, DIFlags Flags,
-                     Metadata *ExtraData = nullptr,
+                     std::optional<unsigned> DWARFAddressSpace, bool CanOverlap,
+                     DIFlags Flags, Metadata *ExtraData = nullptr,
                      DINodeArray Annotations = nullptr),
                     (Tag, Name, File, Line, Scope, BaseType, SizeInBits,
-                     AlignInBits, OffsetInBits, DWARFAddressSpace, Flags,
+                     AlignInBits, OffsetInBits, DWARFAddressSpace, CanOverlap, Flags,
                      ExtraData, Annotations))
 
   TempDIDerivedType clone() const { return cloneImpl(); }
@@ -1035,6 +1040,10 @@ public:
   /// a pointer or reference type respectively.
   std::optional<unsigned> getDWARFAddressSpace() const {
     return DWARFAddressSpace;
+  }
+
+  bool getCanOverlap() const {
+    return CanOverlap;
   }
 
   /// Get extra data associated with this derived type.

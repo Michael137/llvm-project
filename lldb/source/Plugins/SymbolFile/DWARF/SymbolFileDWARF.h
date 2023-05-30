@@ -58,8 +58,6 @@ namespace llvm {
 class DWARFDebugAbbrev;
 }
 
-#define DIE_IS_BEING_PARSED ((lldb_private::Type *)1)
-
 class SymbolFileDWARF : public lldb_private::SymbolFileCommon {
   /// LLVM RTTI support.
   static char ID;
@@ -147,7 +145,6 @@ public:
   bool CompleteType(lldb_private::CompilerType &compiler_type) override;
 
   lldb_private::Type *ResolveType(const DWARFDIE &die,
-                                  bool assert_not_being_parsed = true,
                                   bool resolve_function_context = false);
 
   lldb_private::CompilerDecl GetDeclForUID(lldb::user_id_t uid) override;
@@ -393,8 +390,7 @@ protected:
   bool ParseSupportFiles(DWARFUnit &dwarf_cu, const lldb::ModuleSP &module,
                          lldb_private::FileSpecList &support_files);
 
-  lldb_private::Type *ResolveTypeUID(const DWARFDIE &die,
-                                     bool assert_not_being_parsed);
+  lldb_private::Type *ResolveTypeUID(const DWARFDIE &die);
 
   lldb_private::Type *ResolveTypeUID(const DIERef &die_ref);
 

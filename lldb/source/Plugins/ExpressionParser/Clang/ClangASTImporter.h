@@ -18,6 +18,7 @@
 #include "clang/AST/CharUnits.h"
 #include "clang/AST/Decl.h"
 #include "clang/AST/DeclCXX.h"
+#include "clang/AST/ExternalASTSource.h"
 #include "clang/Basic/FileManager.h"
 #include "clang/Basic/FileSystemOptions.h"
 
@@ -65,14 +66,11 @@ class ClangASTImporter {
 public:
   struct LayoutInfo {
     LayoutInfo() = default;
-    typedef llvm::DenseMap<const clang::CXXRecordDecl *, clang::CharUnits>
-        OffsetMap;
-
     uint64_t bit_size = 0;
     uint64_t alignment = 0;
-    llvm::DenseMap<const clang::FieldDecl *, uint64_t> field_offsets;
-    OffsetMap base_offsets;
-    OffsetMap vbase_offsets;
+    clang::ExternalASTSource::FieldOffsetMap field_offsets;
+    clang::ExternalASTSource::BaseOffsetMap base_offsets;
+    clang::ExternalASTSource::BaseOffsetMap vbase_offsets;
   };
 
   ClangASTImporter()
@@ -116,16 +114,15 @@ public:
   ///
   /// \param decl The RecordDecl to set the layout for.
   /// \param layout The layout for the record.
-  void SetRecordLayout(clang::RecordDecl *decl, const LayoutInfo &layout);
+  void SetRecordLayout(const clang::RecordDecl *decl, const LayoutInfo &layout);
 
-  bool LayoutRecordType(
-      const clang::RecordDecl *record_decl, uint64_t &bit_size,
-      uint64_t &alignment,
-      llvm::DenseMap<const clang::FieldDecl *, uint64_t> &field_offsets,
-      llvm::DenseMap<const clang::CXXRecordDecl *, clang::CharUnits>
-          &base_offsets,
-      llvm::DenseMap<const clang::CXXRecordDecl *, clang::CharUnits>
-          &vbase_offsets);
+  bool LayoutRecordType(const clang::RecordDecl *record_decl,
+                        uint64_t &bit_size, uint64_t &alignment,
+                        clang::ExternalASTSource::FieldOffsetMap &field_offsets,
+                        clang::ExternalASTSource::BaseOffsetMap &base_offsets,
+                        clang::ExternalASTSource::BaseOffsetMap &vbase_offsets);
+
+  bool HasRecordLayout(const clang::RecordDecl *decl);
 
   /// Returns true iff the given type was copied from another TypeSystemClang
   /// and the original type in this other TypeSystemClang might contain
@@ -134,6 +131,7 @@ public:
   ///
   /// \see ClangASTImporter::Import
   bool CanImport(const CompilerType &type);
+  bool CanImport(const clang::Decl *d);
 
   /// If the given type was copied from another TypeSystemClang then copy over
   /// all missing information (e.g., the definition of a 'class' type).
@@ -147,11 +145,13 @@ public:
 
   bool CompleteType(const CompilerType &compiler_type);
 
-  bool CompleteTagDecl(clang::TagDecl *decl);
+  bool CompleteTagDecl(const clang::TagDecl *decl);
 
-  bool CompleteTagDeclWithOrigin(clang::TagDecl *decl, clang::TagDecl *origin);
+  bool CompleteTagDeclWithOrigin(const clang::TagDecl *decl,
+                                 clang::TagDecl *origin);
 
-  bool CompleteObjCInterfaceDecl(clang::ObjCInterfaceDecl *interface_decl);
+  bool
+  CompleteObjCInterfaceDecl(const clang::ObjCInterfaceDecl *interface_decl);
 
   bool CompleteAndFetchChildren(clang::QualType type);
 
@@ -307,8 +307,6 @@ public:
         }
       }
     };
-
-    void ImportDefinitionTo(clang::Decl *to, clang::Decl *from);
 
     void Imported(clang::Decl *from, clang::Decl *to) override;
 

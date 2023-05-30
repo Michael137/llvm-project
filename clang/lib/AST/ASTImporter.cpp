@@ -1013,8 +1013,8 @@ Expected<LambdaCapture> ASTNodeImporter::import(const LambdaCapture &From) {
 
 template <typename T>
 bool ASTNodeImporter::hasSameVisibilityContextAndLinkage(T *Found, T *From) {
-  if (Found->getLinkageInternal() != From->getLinkageInternal())
-    return false;
+  // if (Found->getLinkageInternal() != From->getLinkageInternal())
+  //   return false;
 
   if (From->hasExternalFormalLinkage())
     return Found->hasExternalFormalLinkage();
@@ -1476,7 +1476,7 @@ ExpectedType ASTNodeImporter::VisitInjectedClassNameType(
 }
 
 ExpectedType ASTNodeImporter::VisitRecordType(const RecordType *T) {
-  Expected<RecordDecl *> ToDeclOrErr = import(T->getDecl());
+  Expected<RecordDecl *> ToDeclOrErr = import(T->getCanonicalDecl());
   if (!ToDeclOrErr)
     return ToDeclOrErr.takeError();
 
@@ -1892,8 +1892,7 @@ Error ASTNodeImporter::ImportDefinitionIfNeeded(Decl *FromD, Decl *ToD) {
 
   if (RecordDecl *FromRecord = dyn_cast<RecordDecl>(FromD)) {
     if (RecordDecl *ToRecord = cast<RecordDecl>(ToD)) {
-      if (FromRecord->getDefinition() && FromRecord->isCompleteDefinition() &&
-          !ToRecord->getDefinition()) {
+      if (FromRecord->getDefinition() && !ToRecord->getDefinition()) {
         if (Error Err = ImportDefinition(FromRecord, ToRecord))
           return Err;
       }
@@ -2158,7 +2157,7 @@ Error ASTNodeImporter::ImportDefinition(
     To->completeDefinition();
   };
 
-  if (To->getDefinition() || To->isBeingDefined()) {
+  if (To->isThisDeclarationADefinition() || To->isBeingDefined()) {
     if (Kind == IDK_Everything ||
         // In case of lambdas, the class already has a definition ptr set, but
         // the contained decls are not imported yet. Also, isBeingDefined was
@@ -2679,6 +2678,9 @@ ASTNodeImporter::VisitTypedefNameDecl(TypedefNameDecl *D, bool IsAlias) {
                 !hasSameVisibilityContextAndLinkage(FoundR, FromR))
               continue;
           }
+
+          if (Importer.isMinimalImport())
+            return Importer.MapImported(D, FoundTypedef);
           // If the "From" context has a complete underlying type but we
           // already have a complete underlying type then return with that.
           if (!FromUT->isIncompleteType() && !FoundUT->isIncompleteType())
@@ -2945,7 +2947,7 @@ ExpectedDecl ASTNodeImporter::VisitEnumDecl(EnumDecl *D) {
 
   // Import the definition
   if (D->isCompleteDefinition())
-    if (Error Err = ImportDefinition(D, D2))
+    if (Error Err = ImportDefinition(D, D2, IDK_Everything))
       return std::move(Err);
 
   return D2;
@@ -3027,7 +3029,7 @@ ExpectedDecl ASTNodeImporter::VisitRecordDecl(RecordDecl *D) {
 
         if (IsStructuralMatch(D, FoundRecord)) {
           RecordDecl *FoundDef = FoundRecord->getDefinition();
-          if (D->isThisDeclarationADefinition() && FoundDef) {
+          if (false && D->isThisDeclarationADefinition() && FoundDef) {
             // FIXME: Structural equivalence check should check for same
             // user-defined methods.
             Importer.MapImported(D, FoundDef);
@@ -3199,7 +3201,7 @@ ExpectedDecl ASTNodeImporter::VisitRecordDecl(RecordDecl *D) {
     D2->setAnonymousStructOrUnion(true);
 
   if (D->isCompleteDefinition())
-    if (Error Err = ImportDefinition(D, D2, IDK_Default))
+    if (Error Err = ImportDefinition(D, D2, IDK_Everything))
       return std::move(Err);
 
   return D2;
@@ -5323,9 +5325,8 @@ Error ASTNodeImporter::ImportDefinition(
                           diag::note_odr_objc_missing_superclass);
     }
 
-    if (shouldForceImportDeclContext(Kind))
-      if (Error Err = ImportDeclContext(From))
-        return Err;
+    if (Error Err = ImportDeclContext(From))
+      return Err;
     return Error::success();
   }
 
@@ -6199,7 +6200,7 @@ ExpectedDecl ASTNodeImporter::VisitClassTemplateSpecializationDecl(
   }
 
   if (D->isCompleteDefinition())
-    if (Error Err = ImportDefinition(D, D2))
+    if (Error Err = ImportDefinition(D, D2, IDK_Everything))
       return std::move(Err);
 
   return D2;

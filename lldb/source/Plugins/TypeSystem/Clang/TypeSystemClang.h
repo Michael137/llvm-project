@@ -244,11 +244,11 @@ public:
     return CompilerType(weak_from_this(), qt.getAsOpaquePtr());
   }
 
-  CompilerType GetTypeForDecl(clang::NamedDecl *decl);
+  CompilerType GetTypeForDecl(const clang::NamedDecl *decl);
 
-  CompilerType GetTypeForDecl(clang::TagDecl *decl);
+  CompilerType GetTypeForDecl(const clang::TagDecl *decl);
 
-  CompilerType GetTypeForDecl(clang::ObjCInterfaceDecl *objc_decl);
+  CompilerType GetTypeForDecl(const clang::ObjCInterfaceDecl *objc_decl);
 
   template <typename RecordDeclType>
   CompilerType
@@ -325,7 +325,20 @@ public:
                                 llvm::StringRef name, int kind,
                                 lldb::LanguageType language,
                                 ClangASTMetadata *metadata = nullptr,
-                                bool exports_symbols = false);
+                                bool exports_symbols = false) {
+    clang::NamedDecl *d =
+        CreateRecordDecl(decl_ctx, owning_module, access_type, name, kind,
+                         language, metadata, exports_symbols);
+    return GetTypeForDecl(d);
+  }
+
+  clang::NamedDecl *CreateRecordDecl(clang::DeclContext *decl_ctx,
+                                     OptionalClangModuleID owning_module,
+                                     lldb::AccessType access_type,
+                                     llvm::StringRef name, int kind,
+                                     lldb::LanguageType language,
+                                     ClangASTMetadata *metadata = nullptr,
+                                     bool exports_symbols = false);
 
   class TemplateParameterInfos {
   public:
@@ -336,10 +349,27 @@ public:
       assert(names.size() == args_in.size());
     }
 
-    TemplateParameterInfos(TemplateParameterInfos const &) = delete;
+    TemplateParameterInfos(const TemplateParameterInfos &o)
+        : names(o.names), args(o.args), pack_name(o.pack_name) {
+      if (o.packed_args)
+        packed_args = std::make_unique<TemplateParameterInfos>(*o.packed_args);
+    }
+
+    TemplateParameterInfos &operator=(const TemplateParameterInfos &o) {
+      auto tmp(o);
+      swap(tmp);
+      return *this;
+    }
+
+    void swap(TemplateParameterInfos &other) noexcept {
+      std::swap(names, other.names);
+      std::swap(args, other.args);
+      std::swap(pack_name, other.pack_name);
+      std::swap(packed_args, other.packed_args);
+    }
+
     TemplateParameterInfos(TemplateParameterInfos &&) = delete;
 
-    TemplateParameterInfos &operator=(TemplateParameterInfos const &) = delete;
     TemplateParameterInfos &operator=(TemplateParameterInfos &&) = delete;
 
     ~TemplateParameterInfos() = default;
@@ -388,14 +418,14 @@ public:
       return packed_args->GetArgs();
     }
 
-    bool HasPackName() const { return pack_name && pack_name[0]; }
+    bool HasPackName() const { return pack_name && !pack_name->empty(); }
 
     llvm::StringRef GetPackName() const {
       assert(HasPackName());
-      return pack_name;
+      return *pack_name;
     }
 
-    void SetPackName(char const *name) { pack_name = name; }
+    void SetPackName(std::string name) { pack_name.emplace(std::move(name)); }
 
     void SetParameterPack(std::unique_ptr<TemplateParameterInfos> args) {
       packed_args = std::move(args);
@@ -407,7 +437,7 @@ public:
     llvm::SmallVector<const char *, 2> names;
     llvm::SmallVector<clang::TemplateArgument, 2> args;
 
-    const char * pack_name = nullptr;
+    std::optional<std::string> pack_name;
     std::unique_ptr<TemplateParameterInfos> packed_args;
   };
 
@@ -436,6 +466,11 @@ public:
   CreateClassTemplateSpecializationType(clang::ClassTemplateSpecializationDecl *
                                             class_template_specialization_decl);
 
+  void BumpGenerationCounter() {
+    if (m_ast_up)
+      m_ast_up->getExternalSource()->incrementGeneration(*m_ast_up);
+  }
+
   static clang::DeclContext *
   GetAsDeclContext(clang::FunctionDecl *function_decl);
 
@@ -453,7 +488,16 @@ public:
                                clang::DeclContext *decl_ctx,
                                OptionalClangModuleID owning_module,
                                bool isForwardDecl, bool isInternal,
-                               ClangASTMetadata *metadata = nullptr);
+                               ClangASTMetadata *metadata = nullptr) {
+    clang::ObjCInterfaceDecl *d = CreateObjCDecl(
+        name, decl_ctx, owning_module, isForwardDecl, isInternal, metadata);
+    return GetTypeForDecl(d);
+  }
+
+  clang::ObjCInterfaceDecl *
+  CreateObjCDecl(llvm::StringRef name, clang::DeclContext *decl_ctx,
+                 OptionalClangModuleID owning_module, bool isForwardDecl,
+                 bool isInternal, ClangASTMetadata *metadata = nullptr);
 
   // Returns a mask containing bits from the TypeSystemClang::eTypeXXX
   // enumerations
@@ -519,17 +563,19 @@ public:
   npdb::PdbAstBuilder *GetNativePDBParser() override;
 
   // TypeSystemClang callbacks for external source lookups.
-  void CompleteTagDecl(clang::TagDecl *);
+  void CompleteTagDecl(const clang::TagDecl *);
 
-  void CompleteObjCInterfaceDecl(clang::ObjCInterfaceDecl *);
+  void CompleteObjCInterfaceDecl(const clang::ObjCInterfaceDecl *);
 
-  bool LayoutRecordType(
-      const clang::RecordDecl *record_decl, uint64_t &size, uint64_t &alignment,
-      llvm::DenseMap<const clang::FieldDecl *, uint64_t> &field_offsets,
-      llvm::DenseMap<const clang::CXXRecordDecl *, clang::CharUnits>
-          &base_offsets,
-      llvm::DenseMap<const clang::CXXRecordDecl *, clang::CharUnits>
-          &vbase_offsets);
+  // Creates redeclaration link between forward decl and definition
+  // for the specified 'ct'. Returns the type linked to the definition.
+  CompilerType RedeclTagDecl(CompilerType ct);
+
+  bool LayoutRecordType(const clang::RecordDecl *record_decl, uint64_t &size,
+                        uint64_t &alignment,
+                        clang::ExternalASTSource::FieldOffsetMap &field_offsets,
+                        clang::ExternalASTSource::BaseOffsetMap &base_offsets,
+                        clang::ExternalASTSource::BaseOffsetMap &vbase_offsets);
 
   /// Creates a CompilerDecl from the given Decl with the current
   /// TypeSystemClang instance as its typesystem.
@@ -1179,6 +1225,14 @@ private:
   typedef llvm::DenseMap<const clang::Type *, ClangASTMetadata> TypeMetadataMap;
   /// Maps Types to their associated ClangASTMetadata.
   TypeMetadataMap m_type_metadata;
+
+  struct ClassTemplateRedeclInfo {
+    TemplateParameterInfos m_template_args;
+  };
+
+  using ClassTemplateRedeclInfoMap =
+      llvm::DenseMap<const clang::Decl *, ClassTemplateRedeclInfo>;
+  ClassTemplateRedeclInfoMap m_class_template_redecl_infos;
 
   typedef llvm::DenseMap<const clang::CXXRecordDecl *, clang::AccessSpecifier>
       CXXRecordDeclAccessMap;

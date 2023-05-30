@@ -238,6 +238,9 @@ public:
   /// The default implementation of this method is a no-op.
   virtual void PrintStats();
 
+  using FieldOffsetMap = llvm::DenseMap<const FieldDecl *, uint64_t>;
+  using BaseOffsetMap = llvm::DenseMap<const CXXRecordDecl *, CharUnits>;
+
   /// Perform layout on the given record.
   ///
   /// This routine allows the external AST source to provide an specific
@@ -265,11 +268,11 @@ public:
   /// out according to the ABI.
   ///
   /// \returns true if the record layout was provided, false otherwise.
-  virtual bool layoutRecordType(
-      const RecordDecl *Record, uint64_t &Size, uint64_t &Alignment,
-      llvm::DenseMap<const FieldDecl *, uint64_t> &FieldOffsets,
-      llvm::DenseMap<const CXXRecordDecl *, CharUnits> &BaseOffsets,
-      llvm::DenseMap<const CXXRecordDecl *, CharUnits> &VirtualBaseOffsets);
+  virtual bool layoutRecordType(const RecordDecl *Record, uint64_t &Size,
+                                uint64_t &Alignment,
+                                FieldOffsetMap &FieldOffsets,
+                                BaseOffsetMap &BaseOffsets,
+                                BaseOffsetMap &VirtualBaseOffsets);
 
   //===--------------------------------------------------------------------===//
   // Queries for performance analysis.
@@ -299,6 +302,9 @@ public:
   static bool classof(const ExternalASTSource *S) { return S->isA(&ID); }
   /// \}
 
+  /// Increment the current generation.
+  uint32_t incrementGeneration(ASTContext &C);
+
 protected:
   static DeclContextLookupResult
   SetExternalVisibleDeclsForName(const DeclContext *DC,
@@ -306,11 +312,7 @@ protected:
                                  ArrayRef<NamedDecl*> Decls);
 
   static DeclContextLookupResult
-  SetNoExternalVisibleDeclsForName(const DeclContext *DC,
-                                   DeclarationName Name);
-
-  /// Increment the current generation.
-  uint32_t incrementGeneration(ASTContext &C);
+  SetNoExternalVisibleDeclsForName(const DeclContext *DC, DeclarationName Name);
 };
 
 /// A lazy pointer to an AST node (of base type T) that resides

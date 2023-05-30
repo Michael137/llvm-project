@@ -10,6 +10,8 @@
 
 #include "clang/AST/DeclBase.h"
 #include "llvm/Support/Casting.h"
+#include "clang/AST/Decl.h"
+#include "clang/AST/ExternalASTSource.h"
 #include "llvm/Support/FormatAdapters.h"
 #include "llvm/Support/FormatVariadic.h"
 
@@ -1204,21 +1206,25 @@ CompilerDeclContext TypeSystemClang::CreateDeclContext(DeclContext *ctx) {
   return CompilerDeclContext(this, ctx);
 }
 
-CompilerType TypeSystemClang::GetTypeForDecl(clang::NamedDecl *decl) {
-  if (clang::ObjCInterfaceDecl *interface_decl =
-      llvm::dyn_cast<clang::ObjCInterfaceDecl>(decl))
+CompilerType TypeSystemClang::GetTypeForDecl(const clang::NamedDecl *decl) {
+  if (const clang::ObjCInterfaceDecl *interface_decl =
+          llvm::dyn_cast<clang::ObjCInterfaceDecl>(decl))
     return GetTypeForDecl(interface_decl);
-  if (clang::TagDecl *tag_decl = llvm::dyn_cast<clang::TagDecl>(decl))
+  if (const clang::TagDecl *tag_decl = llvm::dyn_cast<clang::TagDecl>(decl))
     return GetTypeForDecl(tag_decl);
   return CompilerType();
 }
 
-CompilerType TypeSystemClang::GetTypeForDecl(TagDecl *decl) {
-  return GetType(getASTContext().getTagDeclType(decl));
+CompilerType TypeSystemClang::GetTypeForDecl(const TagDecl *decl) {
+  assert(decl != nullptr);
+  return GetType(
+      getASTContext().getTypeDeclType(decl, decl->getPreviousDecl()));
 }
 
-CompilerType TypeSystemClang::GetTypeForDecl(ObjCInterfaceDecl *decl) {
-  return GetType(getASTContext().getObjCInterfaceType(decl));
+CompilerType TypeSystemClang::GetTypeForDecl(const ObjCInterfaceDecl *decl) {
+  assert(decl != nullptr);
+  return GetType(getASTContext().getObjCInterfaceType(
+      decl, const_cast<ObjCInterfaceDecl *>(decl->getPreviousDecl())));
 }
 
 #pragma mark Structure, Unions, Classes
@@ -1268,7 +1274,7 @@ TypeSystemClang::GetOrCreateClangModule(llvm::StringRef name,
   return ast_source->RegisterModule(module);
 }
 
-CompilerType TypeSystemClang::CreateRecordType(
+clang::NamedDecl *TypeSystemClang::CreateRecordDecl(
     clang::DeclContext *decl_ctx, OptionalClangModuleID owning_module,
     AccessType access_type, llvm::StringRef name, int kind,
     LanguageType language, ClangASTMetadata *metadata, bool exports_symbols) {
@@ -1277,12 +1283,14 @@ CompilerType TypeSystemClang::CreateRecordType(
   if (decl_ctx == nullptr)
     decl_ctx = ast.getTranslationUnitDecl();
 
+  decl_ctx = decl_ctx->getPrimaryContext();
+
   if (language == eLanguageTypeObjC ||
       language == eLanguageTypeObjC_plus_plus) {
     bool isForwardDecl = true;
     bool isInternal = false;
-    return CreateObjCClass(name, decl_ctx, owning_module, isForwardDecl,
-                           isInternal, metadata);
+    return CreateObjCDecl(name, decl_ctx, owning_module, isForwardDecl,
+                          isInternal, metadata);
   }
 
   // NOTE: Eventually CXXRecordDecl will be merged back into RecordDecl and
@@ -1337,7 +1345,7 @@ CompilerType TypeSystemClang::CreateRecordType(
   if (decl_ctx)
     decl_ctx->addDecl(decl);
 
-  return GetType(ast.getTagDeclType(decl));
+  return decl;
 }
 
 namespace {
@@ -1368,6 +1376,10 @@ void AddAccessSpecifierDecl(clang::CXXRecordDecl *cxx_record_decl,
         AccessSpecDecl::Create(ct, access_specifier, cxx_record_decl,
                                SourceLocation(), SourceLocation()));
   }
+}
+
+static const clang::Decl *GetDeclForMetadataStorage(const clang::Decl *d) {
+  return ClangUtil::GetFirstDecl(d);
 }
 } // namespace
 
@@ -1408,6 +1420,7 @@ static TemplateParameterList *CreateTemplateParameterList(
     IdentifierInfo *identifier_info = nullptr;
     if (template_param_infos.HasPackName())
       identifier_info = &ast.Idents.get(template_param_infos.GetPackName());
+
     const bool parameter_pack_true = true;
 
     if (!template_param_infos.GetParameterPack().IsEmpty() &&
@@ -1600,6 +1613,8 @@ ClassTemplateDecl *TypeSystemClang::CreateClassTemplateDecl(
   if (decl_ctx == nullptr)
     decl_ctx = ast.getTranslationUnitDecl();
 
+  decl_ctx = decl_ctx->getPrimaryContext();
+
   IdentifierInfo &identifier_info = ast.Idents.get(class_name);
   DeclarationName decl_name(&identifier_info);
 
@@ -1691,6 +1706,7 @@ TypeSystemClang::CreateClassTemplateSpecializationDecl(
     DeclContext *decl_ctx, OptionalClangModuleID owning_module,
     ClassTemplateDecl *class_template_decl, int kind,
     const TemplateParameterInfos &template_param_infos) {
+  decl_ctx = decl_ctx->getPrimaryContext();
   ASTContext &ast = getASTContext();
   llvm::SmallVector<clang::TemplateArgument, 2> args(
       template_param_infos.Size() +
@@ -1718,6 +1734,11 @@ TypeSystemClang::CreateClassTemplateSpecializationDecl(
 
   class_template_specialization_decl->setSpecializationKind(
       TSK_ExplicitSpecialization);
+
+  ClassTemplateRedeclInfo redecl_info;
+  redecl_info.m_template_args = template_param_infos;
+  m_class_template_redecl_infos[class_template_specialization_decl] =
+      redecl_info;
 
   return class_template_specialization_decl;
 }
@@ -1844,7 +1865,7 @@ bool TypeSystemClang::RecordHasFields(const RecordDecl *record_decl) {
 
 #pragma mark Objective-C Classes
 
-CompilerType TypeSystemClang::CreateObjCClass(
+clang::ObjCInterfaceDecl *TypeSystemClang::CreateObjCDecl(
     llvm::StringRef name, clang::DeclContext *decl_ctx,
     OptionalClangModuleID owning_module, bool isForwardDecl, bool isInternal,
     ClangASTMetadata *metadata) {
@@ -1863,7 +1884,7 @@ CompilerType TypeSystemClang::CreateObjCClass(
   if (metadata)
     SetMetadata(decl, *metadata);
 
-  return GetType(ast.getObjCInterfaceType(decl));
+  return decl;
 }
 
 bool TypeSystemClang::BaseSpecifierIsEmpty(const CXXBaseSpecifier *b) {
@@ -2555,23 +2576,22 @@ bool TypeSystemClang::GetCompleteDecl(clang::ASTContext *ast,
     if (tag_decl->isCompleteDefinition())
       return true;
 
-    if (!tag_decl->hasExternalLexicalStorage())
-      return false;
-
     ast_source->CompleteType(tag_decl);
 
-    return !tag_decl->getTypeForDecl()->isIncompleteType();
+    tag_decl = tag_decl->getDefinition();
+
+    return tag_decl && !tag_decl->getTypeForDecl()->isIncompleteType();
   } else if (clang::ObjCInterfaceDecl *objc_interface_decl =
                  llvm::dyn_cast<clang::ObjCInterfaceDecl>(decl)) {
     if (objc_interface_decl->getDefinition())
       return true;
 
-    if (!objc_interface_decl->hasExternalLexicalStorage())
-      return false;
-
     ast_source->CompleteType(objc_interface_decl);
 
-    return !objc_interface_decl->getTypeForDecl()->isIncompleteType();
+    objc_interface_decl = objc_interface_decl->getDefinition();
+
+    return objc_interface_decl &&
+           !objc_interface_decl->getTypeForDecl()->isIncompleteType();
   } else {
     return false;
   }
@@ -2593,7 +2613,7 @@ void TypeSystemClang::SetMetadataAsUserID(const clang::Type *type,
 
 void TypeSystemClang::SetMetadata(const clang::Decl *object,
                                   ClangASTMetadata &metadata) {
-  m_decl_metadata[object] = metadata;
+  m_decl_metadata[GetDeclForMetadataStorage(object)] = metadata;
 }
 
 void TypeSystemClang::SetMetadata(const clang::Type *object,
@@ -2602,7 +2622,7 @@ void TypeSystemClang::SetMetadata(const clang::Type *object,
 }
 
 ClangASTMetadata *TypeSystemClang::GetMetadata(const clang::Decl *object) {
-  auto It = m_decl_metadata.find(object);
+  auto It = m_decl_metadata.find(GetDeclForMetadataStorage(object));
   if (It != m_decl_metadata.end())
     return &It->second;
   return nullptr;
@@ -2695,9 +2715,9 @@ TypeSystemClang::GetDeclContextForType(clang::QualType type) {
   return nullptr;
 }
 
-static bool GetCompleteQualType(clang::ASTContext *ast,
-                                clang::QualType qual_type,
-                                bool allow_completion = true) {
+static QualType GetCompleteQualType(clang::ASTContext *ast,
+                                    clang::QualType qual_type,
+                                    bool allow_completion = true) {
   qual_type = RemoveWrappingTypes(qual_type);
   const clang::Type::TypeClass type_class = qual_type->getTypeClass();
   switch (type_class) {
@@ -2713,33 +2733,10 @@ static bool GetCompleteQualType(clang::ASTContext *ast,
   } break;
   case clang::Type::Record: {
     clang::CXXRecordDecl *cxx_record_decl = qual_type->getAsCXXRecordDecl();
-    if (cxx_record_decl) {
-      if (cxx_record_decl->hasExternalLexicalStorage()) {
-        const bool is_complete = cxx_record_decl->isCompleteDefinition();
-        const bool fields_loaded =
-            cxx_record_decl->hasLoadedFieldsFromExternalStorage();
-        if (is_complete && fields_loaded)
-          return true;
-
-        if (!allow_completion)
-          return false;
-
-        // Call the field_begin() accessor to for it to use the external source
-        // to load the fields...
-        clang::ExternalASTSource *external_ast_source =
-            ast->getExternalSource();
-        if (external_ast_source) {
-          external_ast_source->CompleteType(cxx_record_decl);
-          if (cxx_record_decl->isCompleteDefinition()) {
-            cxx_record_decl->field_begin();
-            cxx_record_decl->setHasLoadedFieldsFromExternalStorage(true);
-          }
-        }
-      }
-    }
-    const clang::TagType *tag_type =
-        llvm::cast<clang::TagType>(qual_type.getTypePtr());
-    return !tag_type->isIncompleteType();
+    clang::CXXRecordDecl *def = cxx_record_decl->getDefinition();
+    if (!def)
+      return QualType();
+    return QualType(def->getTypeForDecl(), 0);
   } break;
 
   case clang::Type::Enum: {
@@ -2748,23 +2745,9 @@ static bool GetCompleteQualType(clang::ASTContext *ast,
     if (tag_type) {
       clang::TagDecl *tag_decl = tag_type->getDecl();
       if (tag_decl) {
-        if (tag_decl->getDefinition())
-          return true;
-
-        if (!allow_completion)
-          return false;
-
-        if (tag_decl->hasExternalLexicalStorage()) {
-          if (ast) {
-            clang::ExternalASTSource *external_ast_source =
-                ast->getExternalSource();
-            if (external_ast_source) {
-              external_ast_source->CompleteType(tag_decl);
-              return !tag_type->isIncompleteType();
-            }
-          }
-        }
-        return false;
+        if (clang::TagDecl *def = tag_decl->getDefinition())
+          return QualType(def->getTypeForDecl(), 0);
+        return QualType(tag_decl->getTypeForDecl(), 0);
       }
     }
 
@@ -2776,27 +2759,10 @@ static bool GetCompleteQualType(clang::ASTContext *ast,
     if (objc_class_type) {
       clang::ObjCInterfaceDecl *class_interface_decl =
           objc_class_type->getInterface();
-      // We currently can't complete objective C types through the newly added
-      // ASTContext because it only supports TagDecl objects right now...
-      if (class_interface_decl) {
-        if (class_interface_decl->getDefinition())
-          return true;
-
-        if (!allow_completion)
-          return false;
-
-        if (class_interface_decl->hasExternalLexicalStorage()) {
-          if (ast) {
-            clang::ExternalASTSource *external_ast_source =
-                ast->getExternalSource();
-            if (external_ast_source) {
-              external_ast_source->CompleteType(class_interface_decl);
-              return !objc_class_type->isIncompleteType();
-            }
-          }
-        }
-        return false;
-      }
+      if (!class_interface_decl)
+        return qual_type;
+      if (clang::ObjCInterfaceDecl *def = class_interface_decl->getDefinition())
+        return QualType(def->getTypeForDecl(), 0);
     }
   } break;
 
@@ -2809,7 +2775,7 @@ static bool GetCompleteQualType(clang::ASTContext *ast,
     break;
   }
 
-  return true;
+  return qual_type;
 }
 
 static clang::ObjCIvarDecl::AccessControl
@@ -3015,8 +2981,9 @@ bool TypeSystemClang::IsCompleteType(lldb::opaque_compiler_type_t type) {
   // the current (internal) completeness state of the type and most users don't
   // care (or even know) about this behavior.
   const bool allow_completion = true;
-  return GetCompleteQualType(&getASTContext(), GetQualType(type),
-                             allow_completion);
+  return !GetCompleteQualType(&getASTContext(), GetQualType(type),
+                              allow_completion)
+              .isNull();
 }
 
 bool TypeSystemClang::IsConst(lldb::opaque_compiler_type_t type) {
@@ -3485,7 +3452,7 @@ bool TypeSystemClang::IsDefined(lldb::opaque_compiler_type_t type) {
   if (tag_type) {
     clang::TagDecl *tag_decl = tag_type->getDecl();
     if (tag_decl)
-      return tag_decl->isCompleteDefinition();
+      return tag_decl->getDefinition() != nullptr;
     return false;
   } else {
     const clang::ObjCObjectType *objc_class_type =
@@ -3792,8 +3759,9 @@ bool TypeSystemClang::GetCompleteType(lldb::opaque_compiler_type_t type) {
   if (!type)
     return false;
   const bool allow_completion = true;
-  return GetCompleteQualType(&getASTContext(), GetQualType(type),
-                             allow_completion);
+  return !GetCompleteQualType(&getASTContext(), GetQualType(type),
+                              allow_completion)
+              .isNull();
 }
 
 ConstString TypeSystemClang::GetTypeName(lldb::opaque_compiler_type_t type,
@@ -4387,7 +4355,8 @@ TypeSystemClang::GetNumMemberFunctions(lldb::opaque_compiler_type_t type) {
     clang::QualType qual_type = RemoveWrappingTypes(GetCanonicalQualType(type));
     switch (qual_type->getTypeClass()) {
     case clang::Type::Record:
-      if (GetCompleteQualType(&getASTContext(), qual_type)) {
+      qual_type = GetCompleteQualType(&getASTContext(), qual_type);
+      if (!qual_type.isNull()) {
         const clang::RecordType *record_type =
             llvm::cast<clang::RecordType>(qual_type.getTypePtr());
         const clang::RecordDecl *record_decl = record_type->getDecl();
@@ -4451,7 +4420,8 @@ TypeSystemClang::GetMemberFunctionAtIndex(lldb::opaque_compiler_type_t type,
     clang::QualType qual_type = RemoveWrappingTypes(GetCanonicalQualType(type));
     switch (qual_type->getTypeClass()) {
     case clang::Type::Record:
-      if (GetCompleteQualType(&getASTContext(), qual_type)) {
+      qual_type = GetCompleteQualType(&getASTContext(), qual_type);
+      if (!qual_type.isNull()) {
         const clang::RecordType *record_type =
             llvm::cast<clang::RecordType>(qual_type.getTypePtr());
         const clang::RecordDecl *record_decl = record_type->getDecl();
@@ -4653,6 +4623,8 @@ CompilerType TypeSystemClang::CreateTypedef(
         TypeSystemClang::DeclContextGetAsDeclContext(compiler_decl_ctx);
     if (!decl_ctx)
       decl_ctx = getASTContext().getTranslationUnitDecl();
+
+    decl_ctx = decl_ctx->getPrimaryContext();
 
     clang::TypedefDecl *decl =
         clang::TypedefDecl::CreateDeserialized(clang_ast, 0);
@@ -5327,7 +5299,8 @@ uint32_t TypeSystemClang::GetNumChildren(lldb::opaque_compiler_type_t type,
   case clang::Type::Complex:
     return 0;
   case clang::Type::Record:
-    if (GetCompleteQualType(&getASTContext(), qual_type)) {
+    qual_type = GetCompleteQualType(&getASTContext(), qual_type);
+    if (!qual_type.isNull()) {
       const clang::RecordType *record_type =
           llvm::cast<clang::RecordType>(qual_type.getTypePtr());
       const clang::RecordDecl *record_decl = record_type->getDecl();
@@ -5368,7 +5341,8 @@ uint32_t TypeSystemClang::GetNumChildren(lldb::opaque_compiler_type_t type,
 
   case clang::Type::ObjCObject:
   case clang::Type::ObjCInterface:
-    if (GetCompleteQualType(&getASTContext(), qual_type)) {
+    qual_type = GetCompleteQualType(&getASTContext(), qual_type);
+    if (!qual_type.isNull()) {
       const clang::ObjCObjectType *objc_class_type =
           llvm::dyn_cast<clang::ObjCObjectType>(qual_type.getTypePtr());
       assert(objc_class_type);
@@ -5541,17 +5515,22 @@ void TypeSystemClang::ForEachEnumerator(
       llvm::dyn_cast<clang::EnumType>(GetCanonicalQualType(type));
   if (enum_type) {
     const clang::EnumDecl *enum_decl = enum_type->getDecl();
-    if (enum_decl) {
-      CompilerType integer_type = GetType(enum_decl->getIntegerType());
 
-      clang::EnumDecl::enumerator_iterator enum_pos, enum_end_pos;
-      for (enum_pos = enum_decl->enumerator_begin(),
-          enum_end_pos = enum_decl->enumerator_end();
-           enum_pos != enum_end_pos; ++enum_pos) {
-        ConstString name(enum_pos->getNameAsString().c_str());
-        if (!callback(integer_type, name, enum_pos->getInitVal()))
-          break;
-      }
+    if (enum_decl)
+      enum_decl = enum_decl->getDefinition();
+
+    if (!enum_decl)
+      return;
+
+    CompilerType integer_type = GetType(enum_decl->getIntegerType());
+
+    clang::EnumDecl::enumerator_iterator enum_pos, enum_end_pos;
+    for (enum_pos = enum_decl->enumerator_begin(),
+        enum_end_pos = enum_decl->enumerator_end();
+         enum_pos != enum_end_pos; ++enum_pos) {
+      ConstString name(enum_pos->getNameAsString().c_str());
+      if (!callback(integer_type, name, enum_pos->getInitVal()))
+        break;
     }
   }
 }
@@ -7610,6 +7589,9 @@ clang::CXXMethodDecl *TypeSystemClang::AddMethodToCXXRecordType(
   clang::CXXRecordDecl *cxx_record_decl =
       record_qual_type->getAsCXXRecordDecl();
 
+  if (cxx_record_decl)
+    cxx_record_decl = cxx_record_decl->getDefinition();
+
   if (cxx_record_decl == nullptr)
     return nullptr;
 
@@ -8084,6 +8066,9 @@ clang::ObjCMethodDecl *TypeSystemClang::AddMethodToObjCObjectType(
 
   clang::ObjCInterfaceDecl *class_interface_decl = GetAsObjCInterfaceDecl(type);
 
+  if (class_interface_decl)
+    class_interface_decl = class_interface_decl->getDefinition();
+
   if (class_interface_decl == nullptr)
     return nullptr;
   auto ts = type.GetTypeSystem();
@@ -8266,7 +8251,8 @@ bool TypeSystemClang::StartTagDeclarationDefinition(const CompilerType &type) {
     if (tag_type) {
       clang::TagDecl *tag_decl = tag_type->getDecl();
       if (tag_decl) {
-        tag_decl->startDefinition();
+        clang::TagDecl *def = tag_decl->getMostRecentDecl();
+        def->startDefinition();
         return true;
       }
     }
@@ -8276,7 +8262,8 @@ bool TypeSystemClang::StartTagDeclarationDefinition(const CompilerType &type) {
     if (object_type) {
       clang::ObjCInterfaceDecl *interface_decl = object_type->getInterface();
       if (interface_decl) {
-        interface_decl->startDefinition();
+        clang::ObjCInterfaceDecl *def = interface_decl->getMostRecentDecl();
+        def->startDefinition();
         return true;
       }
     }
@@ -8322,9 +8309,6 @@ bool TypeSystemClang::CompleteTagDeclarationDefinition(
 
       if (!cxx_record_decl->isCompleteDefinition())
         cxx_record_decl->completeDefinition();
-      cxx_record_decl->setHasLoadedFieldsFromExternalStorage(true);
-      cxx_record_decl->setHasExternalLexicalStorage(false);
-      cxx_record_decl->setHasExternalVisibleStorage(false);
       lldb_ast->SetCXXRecordDeclAccess(cxx_record_decl,
                                        clang::AccessSpecifier::AS_none);
       return true;
@@ -8677,7 +8661,10 @@ void TypeSystemClang::DumpValue(
       const clang::EnumType *enutype =
           llvm::cast<clang::EnumType>(qual_type.getTypePtr());
       const clang::EnumDecl *enum_decl = enutype->getDecl();
-      assert(enum_decl);
+      assert(enum_decl != nullptr);
+      enum_decl = enum_decl->getDefinition();
+      assert(enum_decl != nullptr);
+
       clang::EnumDecl::enumerator_iterator enum_pos, enum_end_pos;
       lldb::offset_t offset = data_byte_offset;
       const int64_t enum_value = data.GetMaxU64Bitfield(
@@ -8892,7 +8879,7 @@ static bool DumpEnumValue(const clang::QualType &qual_type, Stream &s,
                           uint32_t bitfield_bit_size) {
   const clang::EnumType *enutype =
       llvm::cast<clang::EnumType>(qual_type.getTypePtr());
-  const clang::EnumDecl *enum_decl = enutype->getDecl();
+  const clang::EnumDecl *enum_decl = enutype->getDecl()->getDefinition();
   assert(enum_decl);
   lldb::offset_t offset = byte_offset;
   const uint64_t enum_svalue = data.GetMaxS64Bitfield(
@@ -9171,7 +9158,7 @@ void TypeSystemClang::DumpTypeDescription(lldb::opaque_compiler_type_t type,
       if (!objc_class_type)
         break;
       clang::ObjCInterfaceDecl *class_interface_decl =
-            objc_class_type->getInterface();
+          objc_class_type->getInterface()->getDefinition();
       if (!class_interface_decl)
         break;
       if (level == eDescriptionLevelVerbose)
@@ -9327,7 +9314,7 @@ clang::ClassTemplateDecl *TypeSystemClang::ParseClassTemplateDecl(
   return nullptr;
 }
 
-void TypeSystemClang::CompleteTagDecl(clang::TagDecl *decl) {
+void TypeSystemClang::CompleteTagDecl(const clang::TagDecl *decl) {
   SymbolFile *sym_file = GetSymbolFile();
   if (sym_file) {
     CompilerType clang_type = GetTypeForDecl(decl);
@@ -9337,7 +9324,7 @@ void TypeSystemClang::CompleteTagDecl(clang::TagDecl *decl) {
 }
 
 void TypeSystemClang::CompleteObjCInterfaceDecl(
-    clang::ObjCInterfaceDecl *decl) {
+    const clang::ObjCInterfaceDecl *decl) {
   SymbolFile *sym_file = GetSymbolFile();
   if (sym_file) {
     CompilerType clang_type = GetTypeForDecl(decl);
@@ -9366,12 +9353,9 @@ npdb::PdbAstBuilder *TypeSystemClang::GetNativePDBParser() {
 
 bool TypeSystemClang::LayoutRecordType(
     const clang::RecordDecl *record_decl, uint64_t &bit_size,
-    uint64_t &alignment,
-    llvm::DenseMap<const clang::FieldDecl *, uint64_t> &field_offsets,
-    llvm::DenseMap<const clang::CXXRecordDecl *, clang::CharUnits>
-        &base_offsets,
-    llvm::DenseMap<const clang::CXXRecordDecl *, clang::CharUnits>
-        &vbase_offsets) {
+    uint64_t &alignment, ExternalASTSource::FieldOffsetMap &field_offsets,
+    ExternalASTSource::BaseOffsetMap &base_offsets,
+    ExternalASTSource::BaseOffsetMap &vbase_offsets) {
   lldb_private::ClangASTImporter *importer = nullptr;
   if (m_dwarf_ast_parser_up)
     importer = &m_dwarf_ast_parser_up->GetClangASTImporter();
@@ -9384,6 +9368,55 @@ bool TypeSystemClang::LayoutRecordType(
 
   return importer->LayoutRecordType(record_decl, bit_size, alignment,
                                     field_offsets, base_offsets, vbase_offsets);
+}
+
+CompilerType TypeSystemClang::RedeclTagDecl(CompilerType ct) {
+
+  if (clang::TagDecl *d = ClangUtil::GetAsTagDecl(ct)) {
+    if (clang::EnumDecl *e = dyn_cast<EnumDecl>(d)) {
+      Declaration decl;
+      CompilerType ct = CreateEnumerationType(
+          e->getNameAsString().c_str(), d->getDeclContext()->getRedeclContext(),
+          OptionalClangModuleID(), decl, GetType(e->getIntegerType()),
+          e->isScoped());
+      clang::TagDecl *def = ClangUtil::GetAsTagDecl(ct);
+      def->setPreviousDecl(e);
+      return GetTypeForDecl(def);
+    }
+    if (auto *c = dyn_cast<ClassTemplateSpecializationDecl>(d)) {
+      auto redecl_info = m_class_template_redecl_infos.find(c);
+      assert(redecl_info != m_class_template_redecl_infos.end());
+      TemplateParameterInfos template_infos =
+          redecl_info->second.m_template_args;
+      auto *ctd = CreateClassTemplateSpecializationDecl(
+          d->getDeclContext()->getRedeclContext(), OptionalClangModuleID(),
+          c->getSpecializedTemplate(), d->getTagKind(), template_infos);
+      ctd->setPreviousDecl(c);
+      return CompilerType(
+          weak_from_this(), clang::QualType(ctd->getTypeForDecl(), 0U).getAsOpaquePtr());
+    }
+    clang::NamedDecl *res = CreateRecordDecl(
+        d->getDeclContext()->getRedeclContext(), OptionalClangModuleID(),
+        lldb::eAccessPublic, d->getName(), d->getTagKind(),
+        eLanguageTypeC_plus_plus, nullptr);
+    clang::TagDecl *td = llvm::cast<TagDecl>(res);
+    td->setPreviousDecl(d);
+    CompilerType actual_res = GetTypeForDecl(td);
+    assert(d->getTypeForDecl() == td->getTypeForDecl());
+    return actual_res;
+  }
+  if (clang::ObjCInterfaceDecl *d = ClangUtil::GetAsObjCDecl(ct)) {
+    clang::NamedDecl *res = CreateRecordDecl(
+        d->getDeclContext()->getRedeclContext(), OptionalClangModuleID(),
+        lldb::eAccessPublic, d->getName(), /*tag_kind=*/0, eLanguageTypeObjC,
+        nullptr);
+    clang::ObjCInterfaceDecl *td = llvm::cast<ObjCInterfaceDecl>(res);
+    td->setPreviousDecl(d);
+    CompilerType actual_res = GetTypeForDecl(td);
+    assert(d->getTypeForDecl() == td->getTypeForDecl());
+    return actual_res;
+  }
+  return ct;
 }
 
 // CompilerDecl override functions

@@ -147,6 +147,8 @@ public:
   ///     The Decl to be completed in place.
   void CompleteType(clang::TagDecl *Tag) override;
 
+  void CompleteRedeclChain(const clang::Decl *D) override;
+
   /// Complete an ObjCInterfaceDecl.
   ///
   /// \param[in] Class
@@ -225,6 +227,10 @@ public:
 
     void CompleteType(clang::TagDecl *Tag) override {
       return m_original.CompleteType(Tag);
+    }
+
+    void CompleteRedeclChain(const clang::Decl *D) override {
+      return m_original.CompleteRedeclChain(D);
     }
 
     void CompleteType(clang::ObjCInterfaceDecl *Class) override {

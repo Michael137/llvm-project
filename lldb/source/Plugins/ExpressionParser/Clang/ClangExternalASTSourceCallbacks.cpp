@@ -36,6 +36,22 @@ bool ClangExternalASTSourceCallbacks::layoutRecordType(
                                 BaseOffsets, VirtualBaseOffsets);
 }
 
+void ClangExternalASTSourceCallbacks::CompleteRedeclChain(
+    const clang::Decl *d) {
+  if (const clang::TagDecl *td = llvm::dyn_cast<clang::TagDecl>(d)) {
+    if (td->isBeingDefined())
+      return;
+    if (td->getDefinition())
+      return;
+    m_ast.CompleteTagDecl(td);
+  }
+  if (const auto *od = llvm::dyn_cast<clang::ObjCInterfaceDecl>(d)) {
+    if (od->getDefinition())
+      return;
+    m_ast.CompleteObjCInterfaceDecl(od);
+  }
+}
+
 void ClangExternalASTSourceCallbacks::FindExternalLexicalDecls(
     const clang::DeclContext *decl_ctx,
     llvm::function_ref<bool(clang::Decl::Kind)> IsKindWeWant,

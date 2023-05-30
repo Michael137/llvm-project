@@ -119,13 +119,10 @@ public:
 
   void PrintStats() override;
 
-  bool layoutRecordType(
-      const clang::RecordDecl *Record, uint64_t &Size, uint64_t &Alignment,
-      llvm::DenseMap<const clang::FieldDecl *, uint64_t> &FieldOffsets,
-      llvm::DenseMap<const clang::CXXRecordDecl *, clang::CharUnits>
-          &BaseOffsets,
-      llvm::DenseMap<const clang::CXXRecordDecl *, clang::CharUnits>
-          &VirtualBaseOffsets) override {
+  bool layoutRecordType(const clang::RecordDecl *Record, uint64_t &Size,
+                        uint64_t &Alignment, FieldOffsetMap &FieldOffsets,
+                        BaseOffsetMap &BaseOffsets,
+                        BaseOffsetMap &VirtualBaseOffsets) override {
     return m_Source->layoutRecordType(Record, Size, Alignment, FieldOffsets,
                                       BaseOffsets, VirtualBaseOffsets);
   }
@@ -274,8 +271,12 @@ public:
   }
 
   void CompleteRedeclChain(const clang::Decl *D) override {
-    for (size_t i = 0; i < Sources.size(); ++i)
+    for (size_t i = 0; i < Sources.size(); ++i) {
       Sources[i]->CompleteRedeclChain(D);
+      if (auto *td = llvm::dyn_cast<clang::TagDecl>(D))
+        if (td->getDefinition())
+          return;
+    }
   }
 
   clang::Selector GetExternalSelector(uint32_t ID) override {
@@ -402,13 +403,10 @@ public:
     return nullptr;
   }
 
-  bool layoutRecordType(
-      const clang::RecordDecl *Record, uint64_t &Size, uint64_t &Alignment,
-      llvm::DenseMap<const clang::FieldDecl *, uint64_t> &FieldOffsets,
-      llvm::DenseMap<const clang::CXXRecordDecl *, clang::CharUnits>
-          &BaseOffsets,
-      llvm::DenseMap<const clang::CXXRecordDecl *, clang::CharUnits>
-          &VirtualBaseOffsets) override {
+  bool layoutRecordType(const clang::RecordDecl *Record, uint64_t &Size,
+                        uint64_t &Alignment, FieldOffsetMap &FieldOffsets,
+                        BaseOffsetMap &BaseOffsets,
+                        BaseOffsetMap &VirtualBaseOffsets) override {
     for (size_t i = 0; i < Sources.size(); ++i)
       if (Sources[i]->layoutRecordType(Record, Size, Alignment, FieldOffsets,
                                        BaseOffsets, VirtualBaseOffsets))

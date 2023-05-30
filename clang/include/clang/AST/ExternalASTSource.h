@@ -150,6 +150,11 @@ public:
   virtual bool
   FindExternalVisibleDeclsByName(const DeclContext *DC, DeclarationName Name);
 
+  virtual bool FindExternalVisibleMethodsByName(const DeclContext *DC,
+                                                DeclarationName Name) {
+    return false;
+  }
+
   /// Ensures that the table of all visible declarations inside this
   /// context is up to date.
   ///
@@ -293,6 +298,9 @@ public:
 
   virtual void getMemoryBufferSizes(MemoryBufferSizes &sizes) const;
 
+  /// Increment the current generation.
+  uint32_t incrementGeneration(ASTContext &C);
+
   /// LLVM-style RTTI.
   /// \{
   virtual bool isA(const void *ClassID) const { return ClassID == &ID; }
@@ -306,11 +314,7 @@ protected:
                                  ArrayRef<NamedDecl*> Decls);
 
   static DeclContextLookupResult
-  SetNoExternalVisibleDeclsForName(const DeclContext *DC,
-                                   DeclarationName Name);
-
-  /// Increment the current generation.
-  uint32_t incrementGeneration(ASTContext &C);
+  SetNoExternalVisibleDeclsForName(const DeclContext *DC, DeclarationName Name);
 };
 
 /// A lazy pointer to an AST node (of base type T) that resides

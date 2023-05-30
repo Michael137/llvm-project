@@ -1241,6 +1241,10 @@ void SymbolFileDWARFDebugMap::FindTypes(const TypeQuery &query,
                                         TypeResults &results) {
   std::lock_guard<std::recursive_mutex> guard(GetModuleMutex());
   ForEachSymbolFile([&](SymbolFileDWARF *oso_dwarf) {
+    if (query.GetTypeBasename().GetStringRef().starts_with("initializer_list"))
+      assert(true);
+    if (const_cast<TypeQuery&>(query).GetContextRef()[0].name.GetStringRef().contains("(anonymous namespace)"))
+      assert(true);
     oso_dwarf->FindTypes(query, results);
     return results.Done(query) ? IterationAction::Stop
                                : IterationAction::Continue;

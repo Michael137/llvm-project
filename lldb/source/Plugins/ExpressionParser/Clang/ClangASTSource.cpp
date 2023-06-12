@@ -65,6 +65,7 @@ void ClangASTSource::InstallASTContext(TypeSystemClang &clang_ast_context) {
   m_clang_ast_context = &clang_ast_context;
   m_file_manager = &m_ast_context->getSourceManager().getFileManager();
   m_ast_importer_sp->InstallMapCompleter(m_ast_context, *this);
+  llvm::errs() << __func__ << "(" << m_ast_context << ")\n";
 }
 
 ClangASTSource::~ClangASTSource() {
@@ -1440,6 +1441,7 @@ static bool ImportOffsetMap(llvm::DenseMap<const D *, O> &destination_map,
       return false;
     destination_map.insert(
         std::pair<const D *, O>(parser_decl.decl, item.second));
+    llvm::errs() << "[NField: " << parser_decl.decl << "]\n";
   }
 
   return true;
@@ -1496,8 +1498,13 @@ bool ClangASTSource::layoutRecordType(const RecordDecl *record, uint64_t &size,
                                       FieldOffsetMap &field_offsets,
                                       BaseOffsetMap &base_offsets,
                                       BaseOffsetMap &virtual_base_offsets) {
-
   Log *log = GetLog(LLDBLog::Expressions);
+
+  bool shouldLog = false;
+  if (record && record->getNameAsString() == "WithMember") {
+    shouldLog = true;
+    assert(record);
+  }
 
   LLDB_LOG(log,
            "LayoutRecordType on (ASTContext*){0} '{1}' for (RecordDecl*)"
@@ -1527,6 +1534,12 @@ bool ClangASTSource::layoutRecordType(const RecordDecl *record, uint64_t &size,
   const ASTRecordLayout &record_layout(
       origin_record->getASTContext().getASTRecordLayout(origin_record.decl));
 
+  if (shouldLog) {
+    llvm::errs() << "[Record: " << record << "] ";
+    llvm::errs() << "[Origin: " << origin_record.decl << "] ";
+    llvm::errs() << "[Def.  : " << definition << "] ";
+  }
+
   int field_idx = 0, field_count = record_layout.getFieldCount();
 
   for (RecordDecl::field_iterator fi = origin_record->field_begin(),
@@ -1537,10 +1550,18 @@ bool ClangASTSource::layoutRecordType(const RecordDecl *record, uint64_t &size,
 
     uint64_t field_offset = record_layout.getFieldOffset(field_idx);
 
+    if (shouldLog)
+      llvm::errs() << "[OField: " << *fi << "]\n";
+
     origin_field_offsets.insert(
         std::pair<const FieldDecl *, uint64_t>(*fi, field_offset));
 
     field_idx++;
+  }
+
+  if (shouldLog) {
+    record->dump();
+    origin_record->dump();
   }
 
   lldbassert(&record->getASTContext() == m_ast_context);

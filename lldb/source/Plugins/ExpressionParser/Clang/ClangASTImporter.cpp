@@ -69,6 +69,7 @@ clang::Decl *ClangASTImporter::CopyDecl(clang::ASTContext *dst_ast,
 
   clang::ASTContext *src_ast = &decl->getASTContext();
   delegate_sp = GetDelegate(dst_ast, src_ast);
+  llvm::errs() << "Getting delegate for " << dst_ast << " " << src_ast << " : " << delegate_sp.get() << '\n';
 
   ASTImporterDelegate::CxxModuleScope std_scope(*delegate_sp, dst_ast);
 
@@ -548,6 +549,7 @@ bool ClangASTImporter::LayoutRecordType(
 
 void ClangASTImporter::SetRecordLayout(clang::RecordDecl *decl,
                                         const LayoutInfo &layout) {
+  llvm::errs() << __func__ << ": " << decl << '\n';
   m_record_decl_to_layout_map.insert(std::make_pair(decl, layout));
 }
 
@@ -786,6 +788,7 @@ void ClangASTImporter::ForgetDestination(clang::ASTContext *dst_ast) {
            "    [ClangASTImporter] Forgetting destination (ASTContext*){0}",
            dst_ast);
 
+  llvm::errs() << __func__ << "(" << dst_ast << ")\n";
   m_metadata_map.erase(dst_ast);
 }
 

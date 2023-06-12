@@ -1354,6 +1354,8 @@ void ItaniumRecordLayoutBuilder::InitializeLayout(const Decl *D) {
   // If there is an external AST source, ask it for the various offsets.
   if (const RecordDecl *RD = dyn_cast<RecordDecl>(D))
     if (ExternalASTSource *Source = Context.getExternalSource()) {
+      if (RD->getNameAsString() == "WithMember")
+            assert(RD);
       UseExternalLayout = Source->layoutRecordType(
           RD, External.Size, External.Align, External.FieldOffsets,
           External.BaseOffsets, External.VirtualBaseOffsets);
@@ -2246,6 +2248,8 @@ void ItaniumRecordLayoutBuilder::UpdateAlignment(
 uint64_t
 ItaniumRecordLayoutBuilder::updateExternalFieldOffset(const FieldDecl *Field,
                                                       uint64_t ComputedOffset) {
+  if (Field && Field->getNameAsString() == "i")
+    assert(Field);
   uint64_t ExternalFieldOffset = External.getExternalFieldOffset(Field);
 
   if (InferAlignment && ExternalFieldOffset < ComputedOffset) {

@@ -10081,7 +10081,6 @@ Decl *ASTImporter::MapImported(Decl *From, Decl *To) {
       "Try to import an already imported Decl");
   if (Pos != ImportedDecls.end())
     return Pos->second;
-  llvm::errs() << "[this: " << this << "] Mapping: " << From << " <-> " << To << '\n';
   ImportedDecls[From] = To;
   // This mapping should be maintained only in this function. Therefore do not
   // check for additional consistency.

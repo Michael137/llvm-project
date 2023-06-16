@@ -29,6 +29,7 @@
 #include "clang/AST/DeclarationName.h"
 #include "clang/AST/Expr.h"
 #include "clang/AST/ExprCXX.h"
+#include "clang/AST/ExprConcepts.h"
 #include "clang/AST/ExprObjC.h"
 #include "clang/AST/ExternalASTSource.h"
 #include "clang/AST/LambdaCapture.h"
@@ -570,6 +571,8 @@ namespace clang {
     ExpectedDecl VisitVarTemplateDecl(VarTemplateDecl *D);
     ExpectedDecl VisitVarTemplateSpecializationDecl(VarTemplateSpecializationDecl *D);
     ExpectedDecl VisitFunctionTemplateDecl(FunctionTemplateDecl *D);
+    ExpectedDecl VisitRequiresExprBody(RequiresExprBodyDecl *D);
+    ExpectedDecl VisitConceptDecl(ConceptDecl *D);
 
     // Importing statements
     ExpectedStmt VisitStmt(Stmt *S);
@@ -684,6 +687,8 @@ namespace clang {
     ExpectedStmt VisitTypeTraitExpr(TypeTraitExpr *E);
     ExpectedStmt VisitCXXTypeidExpr(CXXTypeidExpr *E);
     ExpectedStmt VisitCXXFoldExpr(CXXFoldExpr *E);
+    ExpectedStmt VisitRequiresExpr(RequiresExpr *E);
+    ExpectedStmt VisitConceptSpecializationExpr(ConceptSpecializationExpr *E);
 
     // Helper for chaining together multiple imports. If an error is detected,
     // subsequent imports will return default constructed nodes, so that failure
@@ -6310,6 +6315,62 @@ ExpectedDecl ASTNodeImporter::VisitVarTemplateSpecializationDecl(
   return D2;
 }
 
+ExpectedDecl ASTNodeImporter::VisitRequiresExprBody(RequiresExprBodyDecl *D) {
+  DeclContext *DC, *LexicalDC;
+  if (Error Err = ImportDeclContext(D, DC, LexicalDC))
+    return std::move(Err);
+
+  // Import the location of this declaration.
+  ExpectedSLoc BeginLocOrErr = import(D->getBeginLoc());
+  if (!BeginLocOrErr)
+    return BeginLocOrErr.takeError();
+
+  RequiresExprBodyDecl *ToBody;
+  if (GetImportedOrCreateDecl(ToBody, D, Importer.getToContext(), DC, *BeginLocOrErr))
+    return ToBody;
+
+  return ToBody;
+}
+
+ExpectedDecl ASTNodeImporter::VisitConceptDecl(ConceptDecl *D) {
+  DeclContext *DC, *LexicalDC;
+  DeclarationName Name;
+  SourceLocation Loc;
+  NamedDecl *ToD;
+
+  if (Error Err = ImportDeclParts(D, DC, LexicalDC, Name, ToD, Loc))
+    return std::move(Err);
+
+  if (ToD)
+    return ToD;
+
+  // Import the location of this declaration.
+  ExpectedSLoc BeginLocOrErr = import(D->getBeginLoc());
+  if (!BeginLocOrErr)
+    return BeginLocOrErr.takeError();
+
+  auto NameOrErr = import(D->getDeclName());
+  if (!NameOrErr)
+    return NameOrErr.takeError();
+
+  auto ParamsOrErr = import(D->getTemplateParameters());
+  if (!ParamsOrErr)
+    return ParamsOrErr.takeError();
+
+  auto ConstraintExprOrErr = import(D->getConstraintExpr());
+  if (!ConstraintExprOrErr)
+    return ConstraintExprOrErr.takeError();
+
+  ConceptDecl *ToConcept;
+  if (GetImportedOrCreateDecl(ToConcept, D, Importer.getToContext(), DC, *BeginLocOrErr,
+                              *NameOrErr, *ParamsOrErr, *ConstraintExprOrErr))
+    return ToConcept;
+
+  ToConcept->setLexicalDeclContext(LexicalDC);
+  LexicalDC->addDeclInternal(ToConcept);
+  return ToConcept;
+}
+
 ExpectedDecl
 ASTNodeImporter::VisitFunctionTemplateDecl(FunctionTemplateDecl *D) {
   DeclContext *DC, *LexicalDC;
@@ -8558,6 +8619,39 @@ ExpectedStmt ASTNodeImporter::VisitCXXTypeidExpr(CXXTypeidExpr *E) {
 
   return new (Importer.getToContext()) CXXTypeidExpr(
       *ToTypeOrErr, *ToExprOperandOrErr, *ToSourceRangeOrErr);
+}
+
+ExpectedStmt ASTNodeImporter::VisitRequiresExpr(RequiresExpr *E) {
+  Error err = Error::success();
+
+  //Create(ASTContext &C, SourceLocation RequiresKWLoc,
+  //       RequiresExprBodyDecl *Body, ArrayRef<ParmVarDecl *> LocalParameters,
+  //       ArrayRef<concepts::Requirement *> Requirements,
+  //       SourceLocation RBraceLoc);
+  SourceLocation ToRequiresKWLoc = importChecked(err, E->getRequiresKWLoc());
+  auto const* ToBody = importChecked(err, E->getBody());
+
+  llvm_unreachable("TODO: finish implementation");
+
+  if (err)
+    return err;
+
+//  return ConceptSpecializationExpr::Create(Importer.getToContext(),
+//                                           ConceptDecl);
+}
+
+ExpectedStmt ASTNodeImporter::VisitConceptSpecializationExpr(ConceptSpecializationExpr *E) {
+  Error err = Error::success();
+
+  auto const* ConceptDecl = importChecked(err, E->getNamedConcept());
+
+  llvm_unreachable("TODO: finish implementation");
+
+  if (err)
+    return err;
+
+//  return ConceptSpecializationExpr::Create(Importer.getToContext(),
+//                                           ConceptDecl);
 }
 
 ExpectedStmt ASTNodeImporter::VisitCXXFoldExpr(CXXFoldExpr *E) {

@@ -1948,6 +1948,14 @@ llvm::DISubprogram *CGDebugInfo::CreateCXXMemberFunction(
   if (Method->getCanonicalDecl()->isDeleted())
     SPFlags |= llvm::DISubprogram::SPFlagDeleted;
 
+  // The defaulted-ness of an out-of-class method is a property of its
+  // definition. Hence, query the definition instead.
+  if (auto const *Def = Method->getDefinition())
+    if (Def->isExplicitlyDefaulted())
+      SPFlags |= (Def->isOutOfLine())
+                     ? llvm::DISubprogram::SPFlagDefaultedOutOfClass
+                     : llvm::DISubprogram::SPFlagDefaultedInClass;
+
   if (Method->isNoReturn())
     Flags |= llvm::DINode::FlagNoReturn;
 

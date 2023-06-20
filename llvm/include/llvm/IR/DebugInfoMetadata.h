@@ -1768,6 +1768,15 @@ public:
   /// member function declared deleted.
   bool isDeleted() const { return getSPFlags() & SPFlagDeleted; }
 
+  /// Returns true if this is an explicitly defaulted member
+  /// function where the default specifier was part of the declaration.
+  bool isDefaultedInLine() const { return getSPFlags() & SPFlagDefaultedInClass; }
+
+  /// Returns true if this is an explicitly defaulted member
+  /// function where the default specifier was written outside the
+  /// class.
+  bool isDefaultedOutOfLine() const { return getSPFlags() & SPFlagDefaultedOutOfClass; }
+
   /// Check if this is reference-qualified.
   ///
   /// Return true if this subprogram is a C++11 reference-qualified non-static

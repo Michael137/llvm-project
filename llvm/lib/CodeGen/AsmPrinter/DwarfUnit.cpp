@@ -31,6 +31,7 @@
 #include "llvm/Target/TargetLoweringObjectFile.h"
 #include <cassert>
 #include <cstdint>
+#include <optional>
 #include <string>
 #include <utility>
 
@@ -1345,8 +1346,17 @@ void DwarfUnit::applySubprogramAttributes(const DISubprogram *SP, DIE &SPDie,
   if (!SP->getTargetFuncName().empty())
     addString(SPDie, dwarf::DW_AT_trampoline, SP->getTargetFuncName());
 
-  if (DD->getDwarfVersion() >= 5 && SP->isDeleted())
-    addFlag(SPDie, dwarf::DW_AT_deleted);
+  if (DD->getDwarfVersion() >= 5) {
+    if (SP->isDeleted())
+      addFlag(SPDie, dwarf::DW_AT_deleted);
+
+    if (SP->isDefaultedOutOfLine())
+      addUInt(SPDie, dwarf::DW_AT_defaulted, std::nullopt,
+              dwarf::DW_DEFAULTED_out_of_class);
+    else if (SP->isDefaultedInLine())
+      addUInt(SPDie, dwarf::DW_AT_defaulted, std::nullopt,
+              dwarf::DW_DEFAULTED_in_class);
+  }
 }
 
 void DwarfUnit::constructSubrangeDIE(DIE &Buffer, const DISubrange *SR,

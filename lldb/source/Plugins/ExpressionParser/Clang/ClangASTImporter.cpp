@@ -773,14 +773,19 @@ ClangASTImporter::ASTImporterDelegate::ImportImpl(Decl *From) {
   // though all these different source ASTContexts just got a copy from
   // one source AST).
   while (origin.Valid()) {
-    ImporterDelegateSP delegate =
-        m_main.GetDelegate(&this->getToContext(), origin.ctx);
-    if (clang::Decl *imported =
-            delegate->GetAlreadyImportedOrNull(origin.decl)) {
-      RegisterImportedDecl(From, imported);
-      return imported;
-    }
-    origin = m_main.GetDeclOrigin(origin.decl);
+    //ImporterDelegateSP delegate =
+    //    m_main.GetDelegate(&this->getToContext(), origin.ctx);
+    //if (clang::Decl *imported =
+    //        delegate->GetAlreadyImportedOrNull(origin.decl)) {
+    //  RegisterImportedDecl(From, imported);
+    //  return imported;
+    //}
+    //origin = m_main.GetDeclOrigin(origin.decl);
+    auto R = m_main.CopyDecl(&getToContext(),origin.decl);
+    if (R) {                                                                             
+      RegisterImportedDecl(From, R);                                         
+      return R;                                                                          
+    }                                                                                    
   }
 
   if (clang::TagDecl *td = dyn_cast<TagDecl>(From))

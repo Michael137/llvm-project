@@ -469,7 +469,7 @@ TypeSP DWARFASTParserClang::ParseTypeFromDWARF(const SymbolContext &sc,
   }
 
   if (auto const* name = die.GetName();
-      name && strcmp(name, "+[BaseClass baseClassWithBackedInt:]") == 0)
+      name && strcmp(name, "-[Container getMember]") == 0)
     assert(dwarf);
 
   Type *type_ptr = dwarf->GetDIEToType().lookup(die.GetDIE());

@@ -261,6 +261,9 @@ public:
     // Filter out decls that we can't complete later.
     if (!isa<TagDecl>(to) && !isa<ObjCInterfaceDecl>(to))
       return;
+
+    to = ClangUtil::GetFirstDecl(to);
+
     RecordDecl *from_record_decl = dyn_cast<RecordDecl>(from);
     // We don't need to complete injected class name decls.
     if (from_record_decl && from_record_decl->isInjectedClassName())
@@ -967,6 +970,13 @@ void ClangASTImporter::ASTImporterDelegate::Imported(clang::Decl *from,
                  ((Decl *)to_container_decl)->getDeclKindName());
       }
     }
+  }
+
+  if (clang::ObjCInterfaceDecl *td = dyn_cast<ObjCInterfaceDecl>(to)) {
+    if (clang::ExternalASTSource *s = getToContext().getExternalSource())
+      if (td->isThisDeclarationADefinition())
+        s->CompleteRedeclChain(td);
+    td->setHasExternalVisibleStorage();
   }
 }
 

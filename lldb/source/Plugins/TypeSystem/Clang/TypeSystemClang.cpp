@@ -5353,18 +5353,22 @@ uint32_t TypeSystemClang::GetNumChildren(lldb::opaque_compiler_type_t type,
             objc_class_type->getInterface();
 
         if (class_interface_decl) {
+          auto* def = class_interface_decl->getDefinition();
+          class_interface_decl = def;
+          if (class_interface_decl) {
 
-          clang::ObjCInterfaceDecl *superclass_interface_decl =
-              class_interface_decl->getSuperClass();
-          if (superclass_interface_decl) {
-            if (omit_empty_base_classes) {
-              if (ObjCDeclHasIVars(superclass_interface_decl, true))
+            clang::ObjCInterfaceDecl *superclass_interface_decl =
+                class_interface_decl->getSuperClass();
+            if (superclass_interface_decl) {
+              if (omit_empty_base_classes) {
+                if (ObjCDeclHasIVars(superclass_interface_decl, true))
+                  ++num_children;
+              } else
                 ++num_children;
-            } else
-              ++num_children;
-          }
+            }
 
-          num_children += class_interface_decl->ivar_size();
+            num_children += class_interface_decl->ivar_size();
+          }
         }
       }
     }
@@ -8142,8 +8146,7 @@ clang::ObjCMethodDecl *TypeSystemClang::AddMethodToObjCObjectType(
   auto *objc_method_decl = clang::ObjCMethodDecl::CreateDeserialized(ast, 0);
   objc_method_decl->setDeclName(method_selector);
   objc_method_decl->setReturnType(method_function_prototype->getReturnType());
-  objc_method_decl->setDeclContext(
-      lldb_ast->GetDeclContextForType(ClangUtil::GetQualType(type)));
+  objc_method_decl->setDeclContext(class_interface_decl);
   objc_method_decl->setInstanceMethod(isInstance);
   objc_method_decl->setVariadic(isVariadic);
   objc_method_decl->setPropertyAccessor(isPropertyAccessor);

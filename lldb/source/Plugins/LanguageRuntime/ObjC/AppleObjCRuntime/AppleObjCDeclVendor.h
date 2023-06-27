@@ -46,6 +46,11 @@ private:
       ISAToInterfaceMap;
 
   ISAToInterfaceMap m_isa_to_interface;
+
+  typedef llvm::DenseMap<clang::ObjCInterfaceDecl *,
+                         ObjCLanguageRuntime::ObjCISA>
+      InterfaceToISAMap;
+  InterfaceToISAMap m_interface_to_isa;
 };
 
 } // namespace lldb_private

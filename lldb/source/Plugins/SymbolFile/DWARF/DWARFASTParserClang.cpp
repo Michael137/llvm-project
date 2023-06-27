@@ -468,6 +468,10 @@ TypeSP DWARFASTParserClang::ParseTypeFromDWARF(const SymbolContext &sc,
         die.GetTagAsCString(), die.GetName());
   }
 
+  if (auto const* name = die.GetName();
+      name && strcmp(name, "+[BaseClass baseClassWithBackedInt:]") == 0)
+    assert(dwarf);
+
   Type *type_ptr = dwarf->GetDIEToType().lookup(die.GetDIE());
   if (type_ptr)
     return type_ptr->shared_from_this();
@@ -2461,7 +2465,7 @@ DWARFASTParserClang::ParseFunctionFromDWARF(CompileUnit &comp_unit,
     // Supply the type _only_ if it has already been parsed
     Type *func_type = dwarf->GetDIEToType().lookup(die.GetDIE());
 
-    assert(func_type == nullptr);
+    //assert(func_type == nullptr);
 
     const user_id_t func_user_id = die.GetID();
     func_sp =

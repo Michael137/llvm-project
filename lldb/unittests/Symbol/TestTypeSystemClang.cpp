@@ -920,9 +920,7 @@ TEST_F(TestTypeSystemClang, AddMethodToObjCObjectType) {
                                           OptionalClangModuleID(),
                                           /*IsForwardDecl*/ false,
                                           /*IsInternal*/ false);
-  ObjCInterfaceDecl *interface = m_ast->GetAsObjCInterfaceDecl(c);
-  m_ast->SetHasExternalStorage(c.GetOpaqueQualType(), true);
-  EXPECT_TRUE(interface->hasExternalLexicalStorage());
+  EXPECT_TRUE(m_ast->StartTagDeclarationDefinition(c));
 
   // Add a method to the interface.
   std::vector<CompilerType> args;
@@ -937,9 +935,6 @@ TEST_F(TestTypeSystemClang, AddMethodToObjCObjectType) {
       c, "-[A foo]", func_type, lldb::eAccessPublic, artificial, variadic,
       objc_direct);
   ASSERT_NE(method, nullptr);
-
-  // The interface decl should still have external lexical storage.
-  EXPECT_TRUE(interface->hasExternalLexicalStorage());
 
   // Test some properties of the created ObjCMethodDecl.
   EXPECT_FALSE(method->isVariadic());

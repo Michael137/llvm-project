@@ -9375,6 +9375,9 @@ bool TypeSystemClang::LayoutRecordType(
                                     field_offsets, base_offsets, vbase_offsets);
 }
 
+// Pulls in definition of 'ct' and puts it on a redeclaration chain
+// with a forward declaration of said definition. Returns forward
+// declared type.
 CompilerType TypeSystemClang::RedeclTagDecl(CompilerType ct) {
 
   if (clang::TagDecl *d = ClangUtil::GetAsTagDecl(ct)) {

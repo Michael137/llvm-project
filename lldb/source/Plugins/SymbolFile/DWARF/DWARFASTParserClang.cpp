@@ -2142,6 +2142,7 @@ bool DWARFASTParserClang::CompleteRecordType(const DWARFDIE &die,
 
   clang::DeclContext *decl_ctx = GetClangDeclContextContainingDIE(die, nullptr);
 
+  // This now pulls in definition of clang_type
   if (!DirectlyCompleteType(decl_ctx, attrs)) {
     clang_type = m_ast.RedeclTagDecl(clang_type);
     RegisterDIE(die.GetDIE(), clang_type);

@@ -69,6 +69,7 @@ class TestRerunExpr(TestBase):
         # CHECK:      |-CXXRecordDecl {{.*}} struct Foo definition
         # CHECK:      | |-public 'Base'
         # CHECK-NEXT: | `-FieldDecl {{.*}} m_derived_val 'int'
+        # CHECK-NEXT: |-CXXRecordDecl {{.*}} struct Base
         # CHECK-NEXT: `-CXXRecordDecl {{.*}} struct Base definition
         # CHECK:        `-FieldDecl {{.*}} m_base_val 'int'
 

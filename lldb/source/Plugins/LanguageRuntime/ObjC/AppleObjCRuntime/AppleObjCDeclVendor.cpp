@@ -362,6 +362,11 @@ bool AppleObjCDeclVendor::FinishDecl(clang::ObjCInterfaceDecl *fwd_decl) {
   if (!objc_isa)
     return false;
 
+  // Could've completed during RedeclTagDecl above
+  // TODO: is this reasonable?
+  if (fwd_decl->hasDefinition())
+    return true;
+
   fwd_decl->startDefinition();
 
   ObjCLanguageRuntime::ClassDescriptorSP descriptor =

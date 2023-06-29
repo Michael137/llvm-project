@@ -522,6 +522,8 @@ bool ClangASTImporter::HasRecordLayout(const RecordDecl *decl) {
 }
 
 bool ClangASTImporter::CompleteTagDecl(const clang::TagDecl *decl) {
+  // NB: The input 'decl' is a destintion decl.
+
   DeclOrigin decl_origin = GetDeclOrigin(decl);
 
   if (!decl_origin.Valid())
@@ -549,7 +551,9 @@ bool ClangASTImporter::CompleteTagDecl(const clang::TagDecl *decl) {
     return false;
   }
 
-  // Create redeclaration chain with the 'to' decls
+  // Create redeclaration chain with the 'to' decls.
+  // Only need to do this if the 'result_decl' is a definition outside
+  // of any redeclaration chain and the input 'decl' was a forward declaration
   TagDecl *result_decl = llvm::cast<TagDecl>(*result);
   if (!decl->isThisDeclarationADefinition() && result_decl != decl) {
     if (result_decl->getPreviousDecl() == nullptr) {
@@ -564,11 +568,15 @@ bool ClangASTImporter::CompleteTagDeclWithOrigin(const clang::TagDecl *decl,
                                                  clang::TagDecl *origin_decl) {
   if (!origin_decl->getDefinition())
     return false;
+
+  // Get canonical decl of source redecl chain.
   origin_decl = origin_decl->getFirstDecl();
 
   clang::ASTContext *origin_ast_ctx = &origin_decl->getASTContext();
   ASTContextMetadataSP context_md = GetContextMetadata(&decl->getASTContext());
 
+  // Try complete the destination 'decl' with an alternate origin (i.e., with the
+  // canonical declaration of the redecl chain that origin_decl is on).
   context_md->setOrigin(decl, DeclOrigin(origin_ast_ctx, origin_decl));
   return CompleteTagDecl(decl);
 }

@@ -343,17 +343,25 @@ void ClangASTSource::CompleteType(clang::ObjCInterfaceDecl *interface_decl) {
 }
 
 void ClangASTSource::CompleteRedeclChain(const Decl *d) {
+  // C/C++
   if (const clang::TagDecl *td = llvm::dyn_cast<TagDecl>(d)) {
+    // If definition exists, we already completed the redecl chain.
     if (td->isBeingDefined())
       return;
     if (td->getDefinition())
       return;
+
+    // If we don't manage to complete the destination decl 'd' with
+    // the existing decl origins, try to do so with a different origin.
     m_ast_importer_sp->CompleteTagDecl(td);
     if (!td->getDefinition() && m_ast_importer_sp->GetDeclOrigin(td).Valid()) {
+      // TODO: document FindCompleteType
       if (TagDecl *alternate = FindCompleteType(td))
         m_ast_importer_sp->CompleteTagDeclWithOrigin(td, alternate);
     }
   }
+
+  // Objective-C
   if (const auto *od = llvm::dyn_cast<ObjCInterfaceDecl>(d)) {
     ClangASTImporter::DeclOrigin original =
         m_ast_importer_sp->GetDeclOrigin(od);

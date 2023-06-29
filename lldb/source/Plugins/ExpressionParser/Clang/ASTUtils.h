@@ -270,6 +270,9 @@ public:
     return nullptr;
   }
 
+  /// Call ExternalASTSource::CompleteRedeclChain(D)
+  /// on each AST source. Returns as soon as we got
+  /// a definition for D.
   void CompleteRedeclChain(const clang::Decl *D) override {
     for (size_t i = 0; i < Sources.size(); ++i) {
       Sources[i]->CompleteRedeclChain(D);

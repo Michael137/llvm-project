@@ -564,6 +564,8 @@ bool ClangASTImporter::CompleteTagDecl(const clang::TagDecl *decl) {
   return true;
 }
 
+// Try complete the destination 'decl' with an alternate origin (i.e., with the
+// canonical declaration of the redecl chain that origin_decl is on).
 bool ClangASTImporter::CompleteTagDeclWithOrigin(const clang::TagDecl *decl,
                                                  clang::TagDecl *origin_decl) {
   if (!origin_decl->getDefinition())
@@ -572,12 +574,7 @@ bool ClangASTImporter::CompleteTagDeclWithOrigin(const clang::TagDecl *decl,
   // Get canonical decl of source redecl chain.
   origin_decl = origin_decl->getFirstDecl();
 
-  clang::ASTContext *origin_ast_ctx = &origin_decl->getASTContext();
-  ASTContextMetadataSP context_md = GetContextMetadata(&decl->getASTContext());
-
-  // Try complete the destination 'decl' with an alternate origin (i.e., with the
-  // canonical declaration of the redecl chain that origin_decl is on).
-  context_md->setOrigin(decl, DeclOrigin(origin_ast_ctx, origin_decl));
+  SetDeclOrigin(decl, origin_decl);
   return CompleteTagDecl(decl);
 }
 

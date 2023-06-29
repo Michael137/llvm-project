@@ -215,6 +215,22 @@ namespace {
 /// While in a CompleteTagDeclsScope, every decl that could be completed will
 /// be completed at the end of the scope (including all Decls that are
 /// imported while completing the original Decls).
+///
+/// Previously, this class made sure we imported the definition of the source decls
+/// into the destination decls. DeportType/DeportDecl relied on this because CopyType
+/// didn't guarantee that definitions are imported, but the Deport* APIs are used when
+/// the source AST is about to be discarded.
+///
+/// Since ASTImporter::Import now pulls in the definition for a decl
+/// (and we no more rely on External(Visible|Lexical)Storage flags,
+/// this class is sole purpose is now decl origin tracking:
+/// * On construction, registers NewDeclListener
+///   * When ASTImporter::Import is called with this class in scope,
+///     NewDeclImported is called.
+/// * On destruction, de-registers itself as listener and
+///   removes "completed" destination decls from origin tracking infrastructure.
+///   This is necessary for the Deport* APIs because we don't want to track origins
+///   which are about to be deleted.
 class CompleteTagDeclsScope : public ClangASTImporter::NewDeclListener {
   ClangASTImporter::ImporterDelegateSP m_delegate;
   /// List of declarations in the target context that need to be completed.
@@ -249,6 +265,11 @@ public:
       NamedDecl *decl = m_decls_to_complete.pop_back_val();
       m_decls_already_completed.insert(decl);
 
+      // TODO: why is this needed?
+      // >>> because always paired with deport type? see e55bc8a9c15bd
+      //     after DeportType/DeportDecl are called we don't expect the
+      //     destination AST to exist anymore. So remove the origin tracking
+      //     info for all deported decls.
       to_context_md->removeOrigin(decl);
     }
 
@@ -257,6 +278,7 @@ public:
     m_delegate->RemoveImportListener();
   }
 
+  // Called when 'from' was imported into 'to.
   void NewDeclImported(clang::Decl *from, clang::Decl *to) override {
     // Filter out decls that we can't complete later.
     if (!isa<TagDecl>(to) && !isa<ObjCInterfaceDecl>(to))
@@ -486,6 +508,8 @@ bool ClangASTImporter::LayoutRecordType(
     uint64_t &alignment, ExternalASTSource::FieldOffsetMap &field_offsets,
     ExternalASTSource::BaseOffsetMap &base_offsets,
     ExternalASTSource::BaseOffsetMap &vbase_offsets) {
+  // Since we used the canonical decl to populate the layout map in
+  // SetRecordLayout, use the canonical decl here to retrieve the layout.
   record_decl = static_cast<const RecordDecl *>(record_decl->getFirstDecl());
   RecordDeclToLayoutMap::iterator pos =
       m_record_decl_to_layout_map.find(record_decl);
@@ -517,6 +541,8 @@ void ClangASTImporter::SetRecordLayout(const clang::RecordDecl *decl,
 }
 
 bool ClangASTImporter::HasRecordLayout(const RecordDecl *decl) {
+  // Since we used the canonical decl to populate the layout map in
+  // SetRecordLayout, use the canonical decl here to retrieve the layout.
   decl = static_cast<const RecordDecl *>(decl->getFirstDecl());
   return m_record_decl_to_layout_map.count(decl);
 }

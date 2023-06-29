@@ -107,10 +107,10 @@ public:
   /// \see ClangASTImporter::DeportType
   clang::Decl *DeportDecl(clang::ASTContext *dst_ctx, clang::Decl *decl);
 
-  /// Sets the layout for the given RecordDecl. The layout will later be
-  /// used by Clang's during code generation. Not calling this function for
-  /// a RecordDecl will cause that Clang's codegen tries to layout the
-  /// record by itself.
+  /// Sets the layout for the canonical decl for the given RecordDecl.
+  /// The layout will later be used by Clang's during code generation.
+  /// Not calling this function for a RecordDecl will cause that Clang's
+  /// codegen tries to layout the record by itself.
   ///
   /// \param decl The RecordDecl to set the layout for.
   /// \param layout The layout for the record.
@@ -143,6 +143,9 @@ public:
   /// \see ClangASTImporter::Import
   bool Import(const CompilerType &type);
 
+  // Imports the compiler_type. The destination AST is determined
+  // by the ASTContextMetadata associated with the decl backing
+  // the compiler_type.
   bool CompleteType(const CompilerType &compiler_type);
 
   bool CompleteTagDecl(const clang::TagDecl *decl);
@@ -153,8 +156,11 @@ public:
   bool
   CompleteObjCInterfaceDecl(const clang::ObjCInterfaceDecl *interface_decl);
 
+  // Alias for RequireCompleteType.
   bool CompleteAndFetchChildren(clang::QualType type);
 
+  // If the 'type' doesn't have a definition pulled in yet,
+  // calls CompleteTagDecl
   bool RequireCompleteType(clang::QualType type);
 
   /// Updates the internal origin-tracking information so that the given

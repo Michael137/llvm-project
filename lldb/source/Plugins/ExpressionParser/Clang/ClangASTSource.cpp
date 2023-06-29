@@ -21,8 +21,10 @@
 #include "lldb/Utility/LLDBLog.h"
 #include "lldb/Utility/Log.h"
 #include "clang/AST/ASTContext.h"
+#include "clang/AST/Decl.h"
 #include "clang/AST/RecordLayout.h"
 #include "clang/Basic/SourceManager.h"
+#include "llvm/Support/GraphWriter.h"
 
 #include "Plugins/ExpressionParser/Clang/ClangUtil.h"
 #include "Plugins/LanguageRuntime/ObjC/ObjCLanguageRuntime.h"
@@ -183,55 +185,61 @@ bool ClangASTSource::FindExternalVisibleDeclsByName(
   return (name_decls.size() != 0);
 }
 
-TagDecl *ClangASTSource::FindCompleteType(const TagDecl *decl) {
+TagDecl *ClangASTSource::FindCompleteNamespaceType(const NamespaceDecl* decl) {
   Log *log = GetLog(LLDBLog::Expressions);
 
+  ClangASTImporter::NamespaceMapSP namespace_map =
+      m_ast_importer_sp->GetNamespaceMap(decl);
+
+  if (!namespace_map)
+    return nullptr;
+
+  LLDB_LOGV(log, "      CTD Inspecting namespace map{0} ({1} entries)",
+            namespace_map.get(), namespace_map->size());
+
+  for (const ClangASTImporter::NamespaceMapItem &item : *namespace_map) {
+    LLDB_LOG(log, "      CTD Searching namespace {0} in module {1}",
+             item.second.GetName(), item.first->GetFileSpec().GetFilename());
+
+    TypeList types;
+
+    ConstString name(decl->getName());
+
+    item.first->FindTypesInNamespace(name, item.second, UINT32_MAX, types);
+
+    for (uint32_t ti = 0, te = types.GetSize(); ti != te; ++ti) {
+      lldb::TypeSP type = types.GetTypeAtIndex(ti);
+
+      if (!type)
+        continue;
+
+      CompilerType clang_type(type->GetFullCompilerType());
+
+      if (!ClangUtil::IsClangType(clang_type))
+        continue;
+
+      const TagType *tag_type =
+          ClangUtil::GetQualType(clang_type)->getAs<TagType>();
+
+      if (!tag_type)
+        continue;
+
+      TagDecl *candidate_tag_decl =
+          const_cast<TagDecl *>(tag_type->getDecl());
+
+      if (TypeSystemClang::GetCompleteDecl(
+              &candidate_tag_decl->getASTContext(), candidate_tag_decl))
+        return candidate_tag_decl;
+    }
+  }
+
+  return nullptr;
+}
+
+TagDecl *ClangASTSource::FindCompleteType(const TagDecl *decl) {
   if (const NamespaceDecl *namespace_context =
           dyn_cast<NamespaceDecl>(decl->getDeclContext())) {
-    ClangASTImporter::NamespaceMapSP namespace_map =
-        m_ast_importer_sp->GetNamespaceMap(namespace_context);
-
-    if (!namespace_map)
-      return nullptr;
-
-    LLDB_LOGV(log, "      CTD Inspecting namespace map{0} ({1} entries)",
-              namespace_map.get(), namespace_map->size());
-
-    for (const ClangASTImporter::NamespaceMapItem &item : *namespace_map) {
-      LLDB_LOG(log, "      CTD Searching namespace {0} in module {1}",
-               item.second.GetName(), item.first->GetFileSpec().GetFilename());
-
-      TypeList types;
-
-      ConstString name(decl->getName());
-
-      item.first->FindTypesInNamespace(name, item.second, UINT32_MAX, types);
-
-      for (uint32_t ti = 0, te = types.GetSize(); ti != te; ++ti) {
-        lldb::TypeSP type = types.GetTypeAtIndex(ti);
-
-        if (!type)
-          continue;
-
-        CompilerType clang_type(type->GetFullCompilerType());
-
-        if (!ClangUtil::IsClangType(clang_type))
-          continue;
-
-        const TagType *tag_type =
-            ClangUtil::GetQualType(clang_type)->getAs<TagType>();
-
-        if (!tag_type)
-          continue;
-
-        TagDecl *candidate_tag_decl =
-            const_cast<TagDecl *>(tag_type->getDecl());
-
-        if (TypeSystemClang::GetCompleteDecl(
-                &candidate_tag_decl->getASTContext(), candidate_tag_decl))
-          return candidate_tag_decl;
-      }
-    }
+    return FindCompleteNamespaceType(namespace_context);
   } else {
     TypeList types;
 
@@ -301,6 +309,7 @@ void ClangASTSource::CompleteType(TagDecl *tag_decl) {
     // We couldn't complete the type.  Maybe there's a definition somewhere
     // else that can be completed.
     if (TagDecl *alternate = FindCompleteType(tag_decl))
+      // TODO: is this call redundant? since we're already completing tag_decl inside FindCompleteType?
       m_ast_importer_sp->CompleteTagDeclWithOrigin(tag_decl, alternate);
   }
 
@@ -352,11 +361,13 @@ void ClangASTSource::CompleteRedeclChain(const Decl *d) {
       return;
 
     // If we don't manage to complete the destination decl 'd' with
-    // the existing decl origins, try to do so with a different origin.
+    // the existing decl origins, try to do so with a different origin
+    // (which we look for in other symbol files).
     m_ast_importer_sp->CompleteTagDecl(td);
     if (!td->getDefinition() && m_ast_importer_sp->GetDeclOrigin(td).Valid()) {
       // TODO: document FindCompleteType
       if (TagDecl *alternate = FindCompleteType(td))
+        // TODO: is this call redundant? since we're already completing tag_decl inside FindCompleteType?
         m_ast_importer_sp->CompleteTagDeclWithOrigin(td, alternate);
     }
   }

@@ -358,6 +358,10 @@ public:
   /// ExternalASTSource.
   TypeSystemClang *GetTypeSystem() const { return m_clang_ast_context; }
 
+private:
+
+  clang::TagDecl *FindCompleteNamespaceType(const clang::NamespaceDecl* decl);
+
 protected:
   bool FindObjCMethodDeclsWithOrigin(
       NameSearchContext &context,

@@ -822,6 +822,8 @@ ClangASTImporter::ASTImporterDelegate::ImportImpl(Decl *From) {
     }                                                                                    
   }
 
+  // We added a new declaration (which is not a definition) into the destination
+  // AST context, so bump the declaration chain generation counter.
   if (clang::TagDecl *td = dyn_cast<TagDecl>(From))
     if (clang::ExternalASTSource *s = getToContext().getExternalSource())
       if (!td->isThisDeclarationADefinition())
@@ -854,6 +856,8 @@ ClangASTImporter::ASTImporterDelegate::ImportImpl(Decl *From) {
       clang::TagDecl *to_td = dyn_cast<TagDecl>(candidate);
       if (!to_td)
         continue;
+      // We're dealing with redecl chains. We want to find the definition,
+      // so skip if the decl is actually just a forwad decl.
       if (!to_td->getDefinition())
         continue;
       RegisterImportedDecl(From, candidate);

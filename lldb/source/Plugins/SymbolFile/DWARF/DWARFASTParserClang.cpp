@@ -249,10 +249,8 @@ static void ForcefullyCompleteType(CompilerType type) {
     ts->SetDeclIsForcefullyCompleted(td);
 }
 
-/// This function serves a similar purpose as RequireCompleteType above, but it
-/// avoids completing the type if it is not immediately necessary. It only
-/// ensures we _can_ complete the type later.
-/// FIXME: Not true anymore, will now pull in definition.
+// Called for DeclContext's that we are about to parse children
+// of.
 static void PrepareContextToReceiveMembers(TypeSystemClang &ast,
                                            ClangASTImporter &ast_importer,
                                            clang::DeclContext *decl_ctx,
@@ -1831,6 +1829,9 @@ DWARFASTParserClang::ParseStructureLikeDIE(const SymbolContext &sc,
       m_ast.SetMetadata(class_specialization_decl, metadata);
 
       RegisterDIE(die.GetDIE(), clang_type);
+
+      // We will eventually create a Redeclaration for this new CTSD (see CompleteRecordType).
+      // Hence bump redecl chain generation count.
       bumper.engage();
     }
 
@@ -1842,6 +1843,8 @@ DWARFASTParserClang::ParseStructureLikeDIE(const SymbolContext &sc,
           &metadata, attrs.exports_symbols);
 
       RegisterDIE(die.GetDIE(), clang_type);
+      // We will eventually create a Redeclaration for this new CTSD (see CompleteRecordType).
+      // Hence bump redecl chain generation count.
       if (!should_directly_complete)
         bumper.engage();
     }

@@ -24,6 +24,7 @@
 #include "clang/AST/Decl.h"
 #include "clang/AST/RecordLayout.h"
 #include "clang/Basic/SourceManager.h"
+#include "llvm/ADT/StringRef.h"
 #include "llvm/Support/GraphWriter.h"
 
 #include "Plugins/ExpressionParser/Clang/ClangUtil.h"
@@ -185,11 +186,11 @@ bool ClangASTSource::FindExternalVisibleDeclsByName(
   return (name_decls.size() != 0);
 }
 
-TagDecl *ClangASTSource::FindCompleteNamespaceType(const NamespaceDecl* decl) {
+TagDecl *ClangASTSource::FindCompleteTypeInNamespace(const NamespaceDecl* namespace_context, llvm::StringRef to_search) {
   Log *log = GetLog(LLDBLog::Expressions);
 
   ClangASTImporter::NamespaceMapSP namespace_map =
-      m_ast_importer_sp->GetNamespaceMap(decl);
+      m_ast_importer_sp->GetNamespaceMap(namespace_context);
 
   if (!namespace_map)
     return nullptr;
@@ -203,7 +204,7 @@ TagDecl *ClangASTSource::FindCompleteNamespaceType(const NamespaceDecl* decl) {
 
     TypeList types;
 
-    ConstString name(decl->getName());
+    ConstString name(to_search);
 
     item.first->FindTypesInNamespace(name, item.second, UINT32_MAX, types);
 
@@ -239,7 +240,7 @@ TagDecl *ClangASTSource::FindCompleteNamespaceType(const NamespaceDecl* decl) {
 TagDecl *ClangASTSource::FindCompleteType(const TagDecl *decl) {
   if (const NamespaceDecl *namespace_context =
           dyn_cast<NamespaceDecl>(decl->getDeclContext())) {
-    return FindCompleteNamespaceType(namespace_context);
+    return FindCompleteTypeInNamespace(namespace_context, decl->getName());
   } else {
     TypeList types;
 

@@ -19,6 +19,7 @@
 #include "clang/Basic/IdentifierTable.h"
 
 #include "llvm/ADT/SmallSet.h"
+#include "llvm/ADT/StringRef.h"
 
 namespace lldb_private {
 
@@ -360,7 +361,8 @@ public:
 
 private:
 
-  clang::TagDecl *FindCompleteNamespaceType(const clang::NamespaceDecl* decl);
+  clang::TagDecl *FindCompleteTypeInNamespace(const clang::NamespaceDecl* decl,
+                                              llvm::StringRef to_search);
 
 protected:
   bool FindObjCMethodDeclsWithOrigin(

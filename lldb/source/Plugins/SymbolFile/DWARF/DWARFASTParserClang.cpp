@@ -73,6 +73,10 @@ struct GenerationBumper {
   void engage() { engaged = true; }
 };
 
+/// Types that we want to complete directly (instead of
+/// relying on CompleteRedeclChain):
+/// - Anonymous structures
+/// - Function-local classes
 bool DirectlyCompleteType(clang::DeclContext *decl_ctx,
                           const ParsedDWARFTypeAttributes &attrs) {
   assert(decl_ctx);

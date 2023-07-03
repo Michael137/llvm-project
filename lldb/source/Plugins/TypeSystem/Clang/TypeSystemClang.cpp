@@ -8482,11 +8482,11 @@ void TypeSystemClang::DumpFromSymbolFile(Stream &s,
 
     CompilerType full_type = type->GetFullCompilerType();
     if (clang::TagDecl *tag_decl = GetAsTagDecl(full_type)) {
-      //if (auto const* def = tag_decl->getDefinition()) // TODO: is this necessary?
-      //                                                                  // was needed to fix clang-ast-from-dwarf-unamed-and-anon-structs test.
-      //                                                                  // Repro: lldb -o "b DumpFromSymbolFile" -o run -- ~/Git/lldb-build-type-completion/bin/lldb-test symbols -dump-clang-ast clang-ast-from-dwarf-unamed-and-anon-structs.o
-      //  def->dump(s.AsRawOstream());
-      //else
+      if (auto const* def = tag_decl->getDefinition()) // TODO: is this necessary?
+                                                                        // was needed to fix clang-ast-from-dwarf-unamed-and-anon-structs test.
+                                                                        // Repro: lldb -o "b DumpFromSymbolFile" -o run -- ~/Git/lldb-build-type-completion/bin/lldb-test symbols -dump-clang-ast clang-ast-from-dwarf-unamed-and-anon-structs.o
+        def->dump(s.AsRawOstream());
+      else
         tag_decl->dump(s.AsRawOstream());
       continue;
     }

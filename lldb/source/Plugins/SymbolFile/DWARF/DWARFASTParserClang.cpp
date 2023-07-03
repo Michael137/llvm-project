@@ -43,6 +43,7 @@
 #include "clang/AST/Type.h"
 #include "llvm/Demangle/Demangle.h"
 
+#include <ios>
 #include <map>
 #include <memory>
 #include <optional>
@@ -1624,6 +1625,9 @@ DWARFASTParserClang::ParseStructureLikeDIE(const SymbolContext &sc,
   ConstString unique_typename(attrs.name);
   Declaration unique_decl(attrs.decl);
 
+  if (!attrs.name)
+    assert(decl_ctx);
+
   if (attrs.name) {
     if (Language::LanguageIsCPlusPlus(cu_language)) {
       // For C++, we rely solely upon the one definition rule that says
@@ -1791,6 +1795,16 @@ DWARFASTParserClang::ParseStructureLikeDIE(const SymbolContext &sc,
     PrepareContextToReceiveMembers(m_ast, GetClangASTImporter(), decl_ctx, die,
                                    attrs.name.GetCString());
 
+    // TODO: above call can complete the clang_type. If that's the case, we don't want to
+    // create another record_type below
+    auto found = m_die_to_record_map.find(die.GetDIE());
+    if (found != m_die_to_record_map.end()) {
+      clang_type = m_ast.GetTypeForDecl(found->getSecond());
+      clang_type_was_created = true;
+    }
+  }
+
+  if (!clang_type) {
     if (attrs.accessibility == eAccessNone && decl_ctx) {
       // Check the decl context that contains this class/struct/union. If
       // it is a class we must give it an accessibility.
@@ -2143,6 +2157,9 @@ bool DWARFASTParserClang::CompleteRecordType(const DWARFDIE &die,
   ClangASTImporter::LayoutInfo layout_info;
 
   ParsedDWARFTypeAttributes attrs(die);
+
+  if (!attrs.name)
+    assert(die);
 
   if (attrs.is_forward_declaration)
     return true;

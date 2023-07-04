@@ -428,14 +428,15 @@ TEST_F(DWARFASTParserClangTests, TestDefaultTemplateParamParsing) {
 
   auto holder = std::make_unique<clang_utils::TypeSystemClangHolder>("ast");
   auto &ast_ctx = *holder->GetAST();
-  DWARFASTParserClangStub ast_parser(ast_ctx);
+  //DWARFASTParserClangStub ast_parser(ast_ctx);
+  auto *ast_parser = ((SymbolFileDWARF*)ast_ctx.GetSymbolFile())->GetDWARFParser(*unit);
 
   llvm::SmallVector<lldb::TypeSP, 2> types;
   for (DWARFDIE die : cu_die.children()) {
     if (die.Tag() == DW_TAG_class_type) {
       SymbolContext sc;
       bool new_type = false;
-      types.push_back(ast_parser.ParseTypeFromDWARF(sc, die, &new_type));
+      types.push_back(ast_parser->ParseTypeFromDWARF(sc, die, &new_type));
     }
   }
 

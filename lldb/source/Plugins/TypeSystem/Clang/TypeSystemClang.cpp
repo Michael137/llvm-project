@@ -556,6 +556,8 @@ static void ParseLangArgs(LangOptions &Opts, InputKind IK, const char *triple) {
   // This is needed to allocate the extra space for the owning module
   // on each decl.
   Opts.ModulesLocalVisibility = 1;
+
+  Opts.DebuggerSupport = true;
 }
 
 TypeSystemClang::TypeSystemClang(llvm::StringRef name,

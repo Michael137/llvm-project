@@ -759,6 +759,8 @@ ClangModulesDeclVendor::Create(Target &target) {
   if (!instance->hasTarget())
     return nullptr;
 
+  clang::LangOptions &lang_opts = instance->getLangOpts();
+  lang_opts.DebuggerSupport = true; // TODO: we should really address the FIXME that is at the top of this function.
   instance->getTarget().adjust(*diagnostics_engine, instance->getLangOpts());
 
   if (!action->BeginSourceFile(*instance,

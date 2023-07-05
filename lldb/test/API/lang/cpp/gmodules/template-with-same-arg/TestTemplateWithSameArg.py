@@ -65,8 +65,10 @@ class TestTemplateWithSameArg(TestBase):
         # Make sure we only have a single 'Member' decl on the AST
         self.filecheck("target module dump ast", __file__)
 
-
-# CHECK:      ClassTemplateSpecializationDecl {{.*}} imported in Module2 struct ClassInMod3 definition
+# TODO: probably should test that the declaration chain looks ok. I.e., want a declaration
+#       for the CTD and CTSD imported in Module1 and Module2 and those should be on a redeclaration
+#       chain (via. the 'prev' pointers) with the definition CTD and CTSD decls respectively.
+# CHECK:      ClassTemplateSpecializationDecl {{.*}} struct ClassInMod3 definition
 # CHECK-NEXT: |-DefinitionData pass_in_registers aggregate standard_layout trivially_copyable pod trivial
 # CHECK-NEXT: | |-DefaultConstructor exists trivial needs_implicit
 # CHECK-NEXT: | |-CopyConstructor simple trivial has_const_param needs_implicit implicit_has_const_param
@@ -76,4 +78,4 @@ class TestTemplateWithSameArg(TestBase):
 # CHECK-NEXT: | `-Destructor simple irrelevant trivial needs_implicit
 # CHECK-NEXT: |-TemplateArgument type 'int'
 # CHECK-NEXT: | `-BuiltinType {{.*}} 'int'
-# CHECK-NEXT: `-FieldDecl {{.*}} imported in Module2 Member 'int'
+# CHECK-NEXT: `-FieldDecl {{.*}} Member 'int'

@@ -60,12 +60,11 @@ class CModulesTestCase(TestBase):
             substrs=["FILE", "_close"],
         )
 
-        # Check that the AST log contains exactly one definition of __sFILE.
-        f = open(log_file)
-        log_lines = f.readlines()
-        f.close()
-        os.remove(log_file)
-        self.assertEqual(" ".join(log_lines).count("struct __sFILE definition"), 1)
+        # Check that the AST contains exactly one definition of __sFILE.
+        self.filecheck("target dump typesystem", __file__)
+# CHECK:     TranslationUnitDecl
+# CHECK:     |-CXXRecordDecl {{.*}} struct __sFILE definition
+# CHECK-NOT: |-CXXRecordDecl {{.*}} struct __sFILE definition
 
         self.expect(
             "expr *myFile", VARIABLES_DISPLAYED_CORRECTLY, substrs=["a", "5", "b", "9"]

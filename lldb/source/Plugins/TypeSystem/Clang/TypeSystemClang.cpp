@@ -2765,6 +2765,8 @@ static QualType GetCompleteQualType(clang::ASTContext *ast,
         return qual_type;
       if (clang::ObjCInterfaceDecl *def = class_interface_decl->getDefinition())
         return QualType(def->getTypeForDecl(), 0);
+
+      return QualType{};
     }
   } break;
 

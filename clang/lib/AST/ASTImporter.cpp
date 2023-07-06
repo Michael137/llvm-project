@@ -14,6 +14,7 @@
 #include "clang/AST/ASTImporter.h"
 #include "clang/AST/ASTContext.h"
 #include "clang/AST/ASTDiagnostic.h"
+#include "clang/AST/ASTImportError.h"
 #include "clang/AST/ASTImporterSharedState.h"
 #include "clang/AST/ASTStructuralEquivalence.h"
 #include "clang/AST/Attr.h"
@@ -34,6 +35,7 @@
 #include "clang/AST/LambdaCapture.h"
 #include "clang/AST/NestedNameSpecifier.h"
 #include "clang/AST/OperationKinds.h"
+#include "clang/AST/PrettyPrinter.h"
 #include "clang/AST/Stmt.h"
 #include "clang/AST/StmtCXX.h"
 #include "clang/AST/StmtObjC.h"
@@ -61,7 +63,9 @@
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/Support/Casting.h"
 #include "llvm/Support/ErrorHandling.h"
+#include "llvm/Support/FormatVariadic.h"
 #include "llvm/Support/MemoryBuffer.h"
+#include "llvm/Support/raw_ostream.h"
 #include <algorithm>
 #include <cassert>
 #include <cstddef>
@@ -84,7 +88,6 @@ namespace clang {
   using ExpectedName = llvm::Expected<DeclarationName>;
 
   std::string ASTImportError::toString() const {
-    // FIXME: Improve error texts.
     switch (Error) {
     case NameConflict:
       return "NameConflict";
@@ -97,7 +100,11 @@ namespace clang {
     return "Invalid error code.";
   }
 
-  void ASTImportError::log(raw_ostream &OS) const { OS << toString(); }
+  void ASTImportError::log(raw_ostream &OS) const {
+    OS << toString();
+    if (!Message.empty())
+      OS << ": " << Message;
+  }
 
   std::error_code ASTImportError::convertToErrorCode() const {
     llvm_unreachable("Function not implemented.");
@@ -1050,7 +1057,8 @@ using namespace clang;
 ExpectedType ASTNodeImporter::VisitType(const Type *T) {
   Importer.FromDiag(SourceLocation(), diag::err_unsupported_ast_node)
     << T->getTypeClassName();
-  return make_error<ASTImportError>(ASTImportError::UnsupportedConstruct);
+  return make_error<ASTImportError>(ASTImportError::UnsupportedConstruct,
+                                    T->getTypeClassName());
 }
 
 ExpectedType ASTNodeImporter::VisitAtomicType(const AtomicType *T){
@@ -1839,7 +1847,8 @@ Error ASTNodeImporter::ImportDeclParts(
       if (RT && RT->getDecl() == D) {
         Importer.FromDiag(D->getLocation(), diag::err_unsupported_ast_node)
             << D->getDeclKindName();
-        return make_error<ASTImportError>(ASTImportError::UnsupportedConstruct);
+        return make_error<ASTImportError>(ASTImportError::UnsupportedConstruct,
+                                          D->getDeclKindName());
       }
     }
   }
@@ -2386,13 +2395,15 @@ bool ASTNodeImporter::IsStructuralMatch(Decl *From, Decl *To, bool Complain,
 ExpectedDecl ASTNodeImporter::VisitDecl(Decl *D) {
   Importer.FromDiag(D->getLocation(), diag::err_unsupported_ast_node)
     << D->getDeclKindName();
-  return make_error<ASTImportError>(ASTImportError::UnsupportedConstruct);
+  return make_error<ASTImportError>(ASTImportError::UnsupportedConstruct,
+                                    D->getDeclKindName());
 }
 
 ExpectedDecl ASTNodeImporter::VisitImportDecl(ImportDecl *D) {
   Importer.FromDiag(D->getLocation(), diag::err_unsupported_ast_node)
       << D->getDeclKindName();
-  return make_error<ASTImportError>(ASTImportError::UnsupportedConstruct);
+  return make_error<ASTImportError>(ASTImportError::UnsupportedConstruct,
+                                    D->getDeclKindName());
 }
 
 ExpectedDecl ASTNodeImporter::VisitEmptyDecl(EmptyDecl *D) {
@@ -4043,7 +4054,13 @@ ExpectedDecl ASTNodeImporter::VisitFieldDecl(FieldDecl *D) {
       Importer.ToDiag(FoundField->getLocation(), diag::note_odr_value_here)
         << FoundField->getType();
 
-      return make_error<ASTImportError>(ASTImportError::NameConflict);
+      std::string ErrMessage;
+      llvm::raw_string_ostream OS(ErrMessage);
+      OS << "Field '" << Name.getAsString()
+         << "' declared with incompatible types in different TUs ('"
+         << D->getType() << "' and '" << FoundField->getType() << "')";
+      return make_error<ASTImportError>(ASTImportError::NameConflict,
+                                        std::move(ErrMessage));
     }
   }
 
@@ -4133,7 +4150,13 @@ ExpectedDecl ASTNodeImporter::VisitIndirectFieldDecl(IndirectFieldDecl *D) {
       Importer.ToDiag(FoundField->getLocation(), diag::note_odr_value_here)
         << FoundField->getType();
 
-      return make_error<ASTImportError>(ASTImportError::NameConflict);
+      std::string ErrMessage;
+      llvm::raw_string_ostream OS(ErrMessage);
+      OS << "IndirectField '" << Name.getAsString()
+         << "' declared with incompatible types in different TUs ('"
+         << D->getType() << "' and '" << FoundField->getType() << "')";
+      return make_error<ASTImportError>(ASTImportError::NameConflict,
+                                        std::move(ErrMessage));
     }
   }
 
@@ -4308,7 +4331,13 @@ ExpectedDecl ASTNodeImporter::VisitObjCIvarDecl(ObjCIvarDecl *D) {
       Importer.ToDiag(FoundIvar->getLocation(), diag::note_odr_value_here)
         << FoundIvar->getType();
 
-      return make_error<ASTImportError>(ASTImportError::NameConflict);
+      std::string ErrMessage;
+      llvm::raw_string_ostream OS(ErrMessage);
+      OS << "ObjCIvarDecl '" << Name.getAsString()
+         << "' declared with incompatible types in different TUs ('"
+         << D->getType() << "' and '" << FoundIvar->getType() << "')";
+      return make_error<ASTImportError>(ASTImportError::NameConflict,
+                                        std::move(ErrMessage));
     }
   }
 
@@ -4618,7 +4647,14 @@ ExpectedDecl ASTNodeImporter::VisitObjCMethodDecl(ObjCMethodDecl *D) {
                         diag::note_odr_objc_method_here)
           << D->isInstanceMethod() << Name;
 
-        return make_error<ASTImportError>(ASTImportError::NameConflict);
+        std::string ErrMessage;
+        llvm::raw_string_ostream OS(ErrMessage);
+        OS << "ObjCMethodDecl '" << Name.getAsString()
+           << "' has incompatible result types in different TUs ('"
+           << D->getReturnType() << "' and '" << FoundMethod->getReturnType()
+           << "')";
+        return make_error<ASTImportError>(ASTImportError::NameConflict,
+                                          std::move(ErrMessage));
       }
 
       // Check the number of parameters.
@@ -4630,7 +4666,13 @@ ExpectedDecl ASTNodeImporter::VisitObjCMethodDecl(ObjCMethodDecl *D) {
                         diag::note_odr_objc_method_here)
           << D->isInstanceMethod() << Name;
 
-        return make_error<ASTImportError>(ASTImportError::NameConflict);
+        std::string ErrMessage;
+        llvm::raw_string_ostream OS(ErrMessage);
+        OS << "ObjCMethodDecl '" << Name.getAsString()
+           << "' has a different number of parameters in different TUs ('"
+           << D->param_size() << "' and '" << FoundMethod->param_size() << "')";
+        return make_error<ASTImportError>(ASTImportError::NameConflict,
+                                          std::move(ErrMessage));
       }
 
       // Check parameter types.
@@ -4646,7 +4688,13 @@ ExpectedDecl ASTNodeImporter::VisitObjCMethodDecl(ObjCMethodDecl *D) {
           Importer.ToDiag((*FoundP)->getLocation(), diag::note_odr_value_here)
             << (*FoundP)->getType();
 
-          return make_error<ASTImportError>(ASTImportError::NameConflict);
+          std::string ErrMessage;
+          llvm::raw_string_ostream OS(ErrMessage);
+          OS << "ObjCMethodDecl '" << Name.getAsString()
+             << "' has a parameter with different types in different TUs ('"
+             << (*P)->getType() << "' and '" << (*FoundP)->getType() << "')";
+          return make_error<ASTImportError>(ASTImportError::NameConflict,
+                                            std::move(ErrMessage));
         }
       }
 
@@ -4659,7 +4707,12 @@ ExpectedDecl ASTNodeImporter::VisitObjCMethodDecl(ObjCMethodDecl *D) {
                         diag::note_odr_objc_method_here)
           << D->isInstanceMethod() << Name;
 
-        return make_error<ASTImportError>(ASTImportError::NameConflict);
+        std::string ErrMessage;
+        llvm::raw_string_ostream OS(ErrMessage);
+        OS << "ObjCMethodDecl '" << Name.getAsString()
+           << "' is variadic in one TU but not the other";
+        return make_error<ASTImportError>(ASTImportError::NameConflict,
+                                          std::move(ErrMessage));
       }
 
       // FIXME: Any other bits we need to merge?
@@ -5631,7 +5684,13 @@ ExpectedDecl ASTNodeImporter::VisitObjCPropertyDecl(ObjCPropertyDecl *D) {
         Importer.ToDiag(FoundProp->getLocation(), diag::note_odr_value_here)
           << FoundProp->getType();
 
-        return make_error<ASTImportError>(ASTImportError::NameConflict);
+        std::string ErrMessage;
+        llvm::raw_string_ostream OS(ErrMessage);
+        OS << "ObjCPropertyDecl '" << Name.getAsString()
+           << "' declared with incompatible types in different TUs ('"
+           << D->getType() << "' and '" << FoundProp->getType() << "')";
+        return make_error<ASTImportError>(ASTImportError::NameConflict,
+                                          std::move(ErrMessage));
       }
 
       // FIXME: Check property attributes, getters, setters, etc.?
@@ -6070,7 +6129,12 @@ ExpectedDecl ASTNodeImporter::VisitClassTemplateSpecializationDecl(
       }
     } else { // ODR violation.
       // FIXME HandleNameConflict
-      return make_error<ASTImportError>(ASTImportError::NameConflict);
+      std::string ErrMessage;
+      llvm::raw_string_ostream OS(ErrMessage);
+      OS << "ClassTemplateSpecializationDecl '" << D->getName()
+         << "' has incompatible definitions in different TUs.";
+      return make_error<ASTImportError>(ASTImportError::NameConflict,
+                                        std::move(ErrMessage));
     }
   }
 
@@ -6571,13 +6635,15 @@ ASTNodeImporter::VisitFunctionTemplateDecl(FunctionTemplateDecl *D) {
 ExpectedStmt ASTNodeImporter::VisitStmt(Stmt *S) {
   Importer.FromDiag(S->getBeginLoc(), diag::err_unsupported_ast_node)
       << S->getStmtClassName();
-  return make_error<ASTImportError>(ASTImportError::UnsupportedConstruct);
+  return make_error<ASTImportError>(ASTImportError::UnsupportedConstruct,
+                                    S->getStmtClassName());
 }
 
 
 ExpectedStmt ASTNodeImporter::VisitGCCAsmStmt(GCCAsmStmt *S) {
   if (Importer.returnWithErrorInTest())
-    return make_error<ASTImportError>(ASTImportError::UnsupportedConstruct);
+    return make_error<ASTImportError>(ASTImportError::UnsupportedConstruct,
+                                      S->getStmtClassName());
   SmallVector<IdentifierInfo *, 4> Names;
   for (unsigned I = 0, E = S->getNumOutputs(); I != E; I++) {
     IdentifierInfo *ToII = Importer.Import(S->getOutputIdentifier(I));
@@ -7085,7 +7151,8 @@ ExpectedStmt ASTNodeImporter::VisitObjCAutoreleasePoolStmt(
 ExpectedStmt ASTNodeImporter::VisitExpr(Expr *E) {
   Importer.FromDiag(E->getBeginLoc(), diag::err_unsupported_ast_node)
       << E->getStmtClassName();
-  return make_error<ASTImportError>(ASTImportError::UnsupportedConstruct);
+  return make_error<ASTImportError>(ASTImportError::UnsupportedConstruct,
+                                    E->getStmtClassName());
 }
 
 ExpectedStmt ASTNodeImporter::VisitSourceLocExpr(SourceLocExpr *E) {
@@ -7801,7 +7868,8 @@ ExpectedStmt ASTNodeImporter::VisitExplicitCastExpr(ExplicitCastExpr *E) {
   }
   default:
     llvm_unreachable("Cast expression of unsupported type!");
-    return make_error<ASTImportError>(ASTImportError::UnsupportedConstruct);
+    return make_error<ASTImportError>(ASTImportError::UnsupportedConstruct,
+                                      E->getCastKindName());
   }
 }
 
@@ -8681,7 +8749,8 @@ ExpectedStmt ASTNodeImporter::VisitCXXNamedCastExpr(CXXNamedCastExpr *E) {
         ToOperatorLoc, ToRParenLoc, ToAngleBrackets);
   } else {
     llvm_unreachable("Unknown cast type");
-    return make_error<ASTImportError>();
+    return make_error<ASTImportError>(ASTImportError::Unknown,
+                                      E->getCastName());
   }
 }
 
@@ -8876,7 +8945,8 @@ ASTImporter::Import(ExprWithCleanups::CleanupObject From) {
 
   // FIXME: Handle BlockDecl when we implement importing BlockExpr in
   //        ASTNodeImporter.
-  return make_error<ASTImportError>(ASTImportError::UnsupportedConstruct);
+  return make_error<ASTImportError>(ASTImportError::UnsupportedConstruct,
+                                    "BlockDecl");
 }
 
 ExpectedTypePtr ASTImporter::Import(const Type *FromT) {
@@ -10232,7 +10302,8 @@ Expected<DeclarationName> ASTImporter::HandleNameConflict(DeclarationName Name,
                                                           unsigned NumDecls) {
   if (ODRHandling == ODRHandlingType::Conservative)
     // Report error at any name conflict.
-    return make_error<ASTImportError>(ASTImportError::NameConflict);
+    return make_error<ASTImportError>(ASTImportError::NameConflict,
+                                      Name.getAsString());
   else
     // Allow to create the new Decl with the same name.
     return Name;

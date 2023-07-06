@@ -32,17 +32,24 @@ public:
   static char ID;
 
   ASTImportError() : Error(Unknown) {}
-  ASTImportError(const ASTImportError &Other) : Error(Other.Error) {}
-  ASTImportError &operator=(const ASTImportError &Other) {
-    Error = Other.Error;
-    return *this;
-  }
+
+  ASTImportError(const ASTImportError &) = default;
+  ASTImportError(ASTImportError &&) = default;
+
+  ASTImportError &operator=(const ASTImportError &) = default;
+  ASTImportError &operator=(ASTImportError &&) = default;
+
+  ASTImportError(ErrorKind Error, std::string Message)
+      : Error(Error), Message(std::move(Message)) {}
   ASTImportError(ErrorKind Error) : Error(Error) {}
 
   std::string toString() const;
 
   void log(llvm::raw_ostream &OS) const override;
   std::error_code convertToErrorCode() const override;
+
+private:
+  std::string Message;
 };
 
 } // namespace clang

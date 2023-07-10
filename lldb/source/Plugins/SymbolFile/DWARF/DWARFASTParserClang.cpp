@@ -267,6 +267,7 @@ static void PrepareContextToReceiveMembers(TypeSystemClang &ast,
 
   // We have already completed the type, or we have found its definition and are
   // ready to complete it later (cf. ParseStructureLikeDIE).
+  // TODO: this getDefinition call will no pull in definition for tag_decl_ctx...performance issue?
   if (tag_decl_ctx->getDefinition() || tag_decl_ctx->isBeingDefined())
     return;
 

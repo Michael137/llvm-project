@@ -36,6 +36,7 @@
 #include "lldb/Utility/LLDBAssert.h"
 #include "lldb/Utility/Log.h"
 #include "lldb/Utility/StreamString.h"
+#include "lldb/Utility/Timer.h"
 
 #include "clang/AST/CXXInheritance.h"
 #include "clang/AST/DeclBase.h"
@@ -1641,6 +1642,8 @@ void DWARFASTParserClang::GetUniqueTypeNameAndDeclaration(
   unique_typename = ConstString(qualified_name);
 }
 
+std::unordered_map<std::string, std::shared_ptr<Timer::Category>> g_categories;
+
 TypeSP
 DWARFASTParserClang::ParseStructureLikeDIE(const SymbolContext &sc,
                                            const DWARFDIE &die,
@@ -1668,6 +1671,18 @@ DWARFASTParserClang::ParseStructureLikeDIE(const SymbolContext &sc,
     // and the byte size is zero.
     attrs.is_forward_declaration = true;
   }
+
+  //std::string cat_name = "ParseStructureLikeDIE: ";
+  //cat_name +=  attrs.name.AsCString("<unknown>");
+  //auto it = g_categories.find(cat_name);
+  //if (it == g_categories.end()) {
+  //  auto cat_sp = std::make_shared<Timer::Category>(cat_name.c_str());
+  //  auto [new_it, emplaced] = g_categories.emplace(std::move(cat_name), std::move(cat_sp));
+  //  it = new_it;
+  //}
+  //::lldb_private::Timer scoped_timer(*it->second, "%s", LLVM_PRETTY_FUNCTION);
+
+  //CLANG_SCOPED_TIMERF("PARSER: %s", attrs.name.AsCString("<unknown>"));
 
   if (attrs.name) {
     GetUniqueTypeNameAndDeclaration(die, cu_language, unique_typename,

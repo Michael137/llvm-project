@@ -247,6 +247,7 @@ add_llvm_component_library(LLVMSupport
   ThreadPool.cpp
   TimeProfiler.cpp
   Timer.cpp
+  Timer2.cpp
   ToolOutputFile.cpp
   Twine.cpp
   TypeSize.cpp

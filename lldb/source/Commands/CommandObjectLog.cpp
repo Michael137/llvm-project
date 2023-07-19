@@ -20,6 +20,7 @@
 #include "lldb/Utility/Log.h"
 #include "lldb/Utility/Stream.h"
 #include "lldb/Utility/Timer.h"
+#include "llvm/Support/Timer2.h"
 
 using namespace lldb;
 using namespace lldb_private;
@@ -543,7 +544,7 @@ protected:
           OptionArgParser::ToBoolean(args[0].ref(), false, &success);
 
       if (success) {
-        Timer::SetQuiet(!increment);
+        llvm::Timer2::SetQuiet(!increment);
         result.SetStatus(eReturnStatusSuccessFinishNoResult);
       } else
         result.AppendError("Could not convert increment value to boolean.");

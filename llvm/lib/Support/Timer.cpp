@@ -339,8 +339,9 @@ void TimerGroup::removeTimer(Timer &T) {
   if (FirstTimer || TimersToPrint.empty())
     return;
 
-  std::unique_ptr<raw_ostream> OutStream = CreateInfoOutputFile();
-  PrintQueuedTimers(*OutStream);
+  //std::unique_ptr<raw_ostream> OutStream = CreateInfoOutputFile();
+  //PrintQueuedTimers(*OutStream);
+  TimersToPrint.clear();
 }
 
 void TimerGroup::addTimer(Timer &T) {

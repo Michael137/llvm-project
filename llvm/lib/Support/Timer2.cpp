@@ -5,8 +5,7 @@
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
 //===----------------------------------------------------------------------===//
-#include "lldb/Utility/Timer.h"
-#include "lldb/Utility/Stream.h"
+#include "llvm/Support/Timer2.h"
 #include "llvm/Support/ManagedStatic.h"
 #include "llvm/Support/Signposts.h"
 
@@ -23,27 +22,27 @@
 #include <cstdarg>
 #include <cstdio>
 
-using namespace lldb_private;
+using namespace llvm;
 
 #define TIMER_INDENT_AMOUNT 2
 
 namespace {
-typedef std::vector<Timer *> TimerStack;
-static std::atomic<Timer::Category *> g_categories;
+typedef std::vector<Timer2 *> TimerStack;
+static std::atomic<Timer2::Category *> g_categories;
 } // end of anonymous namespace
 
 /// Allows llvm::Timer to emit signposts when supported.
 static llvm::ManagedStatic<llvm::SignpostEmitter> Signposts;
 
 #if 0
-std::atomic<bool> Timer::g_quiet(false);
-std::atomic<unsigned> Timer::g_display_depth(std::numeric_limits<uint32_t>::max());
-#elif 0
-std::atomic<bool> Timer::g_quiet(true);
-std::atomic<unsigned> Timer::g_display_depth(std::numeric_limits<uint32_t>::max());
+std::atomic<bool> Timer2::g_quiet(false);
+std::atomic<unsigned> Timer2::g_display_depth(std::numeric_limits<uint32_t>::max());
+#elif 1
+std::atomic<bool> Timer2::g_quiet(true);
+std::atomic<unsigned> Timer2::g_display_depth(std::numeric_limits<uint32_t>::max());
 #else
-std::atomic<bool> Timer::g_quiet(true);
-std::atomic<unsigned> Timer::g_display_depth(0);
+std::atomic<bool> Timer2::g_quiet(true);
+std::atomic<unsigned> Timer2::g_display_depth(0);
 #endif
 static std::mutex &GetFileMutex() {
   static std::mutex *g_file_mutex_ptr = new std::mutex();
@@ -55,7 +54,7 @@ static TimerStack &GetTimerStackForCurrentThread() {
   return g_stack;
 }
 
-Timer::Category::Category(const char *cat) : m_name(cat) {
+Timer2::Category::Category(const char *cat) : m_name(cat) {
   m_nanos.store(0, std::memory_order_release);
   m_nanos_total.store(0, std::memory_order_release);
   m_count.store(0, std::memory_order_release);
@@ -65,18 +64,18 @@ Timer::Category::Category(const char *cat) : m_name(cat) {
   } while (!g_categories.compare_exchange_weak(expected, this));
 }
 
-void Timer::SetQuiet(bool value) { g_quiet = value; }
+void Timer2::SetQuiet(bool value) { g_quiet = value; }
 
-//static FILE *g_output = nullptr;
+static FILE *g_output = nullptr;
 
-Timer::Timer(Timer::Category &category, const char *format, ...)
+Timer2::Timer2(Timer2::Category &category, const char *format, ...)
     : m_category(category), m_total_start(std::chrono::steady_clock::now()) {
-  //static auto initialized = [&]() -> bool {
-  //  g_output = ::fopen("lldb-timers.txt", "w+");
-  //  return true;
-  //}();
+  static auto initialized = [&]() -> bool {
+    g_output = ::fopen("lldb-timers.txt", "w+");
+    return true;
+  }();
 
-  //assert(g_output != nullptr);
+  assert(g_output != nullptr);
   Signposts->startInterval(this, m_category.GetName());
   TimerStack &stack = GetTimerStackForCurrentThread();
 
@@ -84,8 +83,8 @@ Timer::Timer(Timer::Category &category, const char *format, ...)
   if (!g_quiet && stack.size() <= g_display_depth) {
     std::lock_guard<std::mutex> lock(GetFileMutex());
 
-    auto* out = stdout;
-    //auto* out = g_output;
+    //auto* out = stdout;
+    auto* out = g_output;
 
     // Indent
     ::fprintf(out, "%*s", int(stack.size() - 1) * TIMER_INDENT_AMOUNT, "");
@@ -100,7 +99,7 @@ Timer::Timer(Timer::Category &category, const char *format, ...)
   }
 }
 
-Timer::~Timer() {
+Timer2::~Timer2() {
   using namespace std::chrono;
 
   auto stop_time = steady_clock::now();
@@ -112,8 +111,8 @@ Timer::~Timer() {
   TimerStack &stack = GetTimerStackForCurrentThread();
   if (!g_quiet && stack.size() <= g_display_depth) {
     std::lock_guard<std::mutex> lock(GetFileMutex());
-    auto *out = stdout;
-    //auto *out = g_output;
+    //auto *out = stdout;
+    auto *out = g_output;
     ::fprintf(out, "%*s%.9f sec (%.9f sec)\n",
               int(stack.size() - 1) * TIMER_INDENT_AMOUNT, "",
               duration<double>(total_dur).count(),
@@ -131,7 +130,7 @@ Timer::~Timer() {
   m_category.m_count++;
 }
 
-void Timer::SetDisplayDepth(uint32_t depth) { g_display_depth = depth; }
+void Timer2::SetDisplayDepth(uint32_t depth) { g_display_depth = depth; }
 
 /* binary function predicate:
  * - returns whether a person is less than another person
@@ -145,40 +144,10 @@ struct Stats {
 };
 } // namespace
 
-static bool CategoryMapIteratorSortCriterion(const Stats &lhs,
-                                             const Stats &rhs) {
-  return lhs.nanos > rhs.nanos;
-}
-
-void Timer::ResetCategoryTimes() {
+void Timer2::ResetCategoryTimes() {
   for (Category *i = g_categories; i; i = i->m_next) {
     i->m_nanos.store(0, std::memory_order_release);
     i->m_nanos_total.store(0, std::memory_order_release);
     i->m_count.store(0, std::memory_order_release);
   }
-}
-
-void Timer::DumpCategoryTimes(Stream &s) {
-  std::vector<Stats> sorted;
-  for (Category *i = g_categories; i; i = i->m_next) {
-    uint64_t nanos = i->m_nanos.load(std::memory_order_acquire);
-    if (nanos) {
-      uint64_t nanos_total = i->m_nanos_total.load(std::memory_order_acquire);
-      uint64_t count = i->m_count.load(std::memory_order_acquire);
-      Stats stats{i->m_name, nanos, nanos_total, count};
-      sorted.push_back(stats);
-    }
-  }
-  if (sorted.empty())
-    return; // Later code will break without any elements.
-
-  // Sort by time
-  llvm::sort(sorted, CategoryMapIteratorSortCriterion);
-
-  for (const auto &stats : sorted)
-    s.Printf("%.9f sec (total: %.3fs; child: %.3fs; count: %" PRIu64
-             ") for %s\n",
-             stats.nanos / 1000000000., stats.nanos_total / 1000000000.,
-             (stats.nanos_total - stats.nanos) / 1000000000., stats.count,
-             stats.name);
 }

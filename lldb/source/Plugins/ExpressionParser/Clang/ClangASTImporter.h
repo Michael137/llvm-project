@@ -284,7 +284,7 @@ public:
     ASTImporterDelegate(ClangASTImporter &main, clang::ASTContext *target_ctx,
                         clang::ASTContext *source_ctx)
         : clang::ASTImporter(*target_ctx, main.m_file_manager, *source_ctx,
-                             main.m_file_manager, true /*minimal*/),
+                             main.m_file_manager, /*TODO: why do we still create a minimal source?*/true /*minimal*/),
           m_main(main), m_source_ctx(source_ctx) {
       // Target and source ASTContext shouldn't be identical. Importing AST
       // nodes within the same AST doesn't make any sense as the whole idea

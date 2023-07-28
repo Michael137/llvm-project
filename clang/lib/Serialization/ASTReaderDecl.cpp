@@ -2777,6 +2777,10 @@ void ASTDeclReader::mergeRedeclarable(Redeclarable<T> *DBase,
   if (!Reader.getContext().getLangOpts().Modules)
     return;
 
+  Sema::LookupNameKind k{};              
+  SmallVector<Sema::LookupNameKind, 5> v;
+  v.push_back(k);                   
+
   // If we're not the canonical declaration, we don't need to merge.
   if (!DBase->isFirstDecl())
     return;

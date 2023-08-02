@@ -10,6 +10,9 @@
 
 #include "clang/AST/DeclBase.h"
 #include "llvm/Support/Casting.h"
+#include "clang/AST/Decl.h"
+#include "clang/AST/ExternalASTSource.h"
+#include "llvm/Support/Timer2.h"
 #include "llvm/Support/FormatAdapters.h"
 #include "llvm/Support/FormatVariadic.h"
 
@@ -72,6 +75,7 @@
 #include "lldb/Utility/RegularExpression.h"
 #include "lldb/Utility/Scalar.h"
 #include "lldb/Utility/ThreadSafeDenseMap.h"
+#include "lldb/Utility/Timer.h"
 
 #include "Plugins/LanguageRuntime/ObjC/ObjCLanguageRuntime.h"
 #include "Plugins/SymbolFile/DWARF/DWARFASTParserClang.h"
@@ -8917,6 +8921,7 @@ clang::ClassTemplateDecl *TypeSystemClang::ParseClassTemplateDecl(
 }
 
 void TypeSystemClang::CompleteTagDecl(clang::TagDecl *decl) {
+  LLVM_SCOPED_TIMERF("CompleteTagDecl: %s", decl->getNameAsString().c_str());
   SymbolFile *sym_file = GetSymbolFile();
   if (sym_file) {
     CompilerType clang_type = GetTypeForDecl(decl);

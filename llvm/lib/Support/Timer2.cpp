@@ -65,8 +65,12 @@ Timer2::Category::Category(const char *cat) : m_name(cat) {
 }
 
 void Timer2::SetQuiet(bool value) { g_quiet = value; }
-
 static FILE *g_output = nullptr;
+
+void Timer2::Flush() {
+  assert(g_output);
+  fflush(g_output);
+}
 
 Timer2::Timer2(Timer2::Category &category, const char *format, ...)
     : m_category(category), m_total_start(std::chrono::steady_clock::now()) {

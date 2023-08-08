@@ -1875,6 +1875,9 @@ bool CommandInterpreter::HandleCommand(const char *command_line,
 
   LLDB_LOGF(log, "Processing command: %s", command_line);
   LLVM_SCOPED_TIMERF("Processing command: %s.", command_line);
+  auto on_exit = llvm::make_scope_exit([&] {
+            _scoped_timer.Flush();
+          });
 
   if (INTERRUPT_REQUESTED(GetDebugger(), "Interrupted initiating command")) {
     result.AppendError("... Interrupted");

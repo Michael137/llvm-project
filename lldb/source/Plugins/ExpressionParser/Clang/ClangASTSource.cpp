@@ -624,31 +624,27 @@ void ClangASTSource::FindExternalVisibleDecls(
                                     searched_symbol_files, types);
   }
 
-  if (size_t num_types = types.GetSize()) {
-    for (size_t ti = 0; ti < num_types; ++ti) {
-      lldb::TypeSP type_sp = types.GetTypeAtIndex(ti);
+  const size_t num_types = types.GetSize();
+  assert(num_types <= 1);
+  if (num_types == 1) {
+    lldb::TypeSP type_sp = types.GetTypeAtIndex(0);
 
-      if (log) {
-        const char *name_string = type_sp->GetName().GetCString();
+    if (log) {
+      const char *name_string = type_sp->GetName().GetCString();
 
-        LLDB_LOG(log, "  CAS::FEVD Matching type found for \"{0}\": {1}", name,
-                 (name_string ? name_string : "<anonymous>"));
-      }
+      LLDB_LOG(log, "  CAS::FEVD Matching type found for \"{0}\": {1}", name,
+               (name_string ? name_string : "<anonymous>"));
+    }
 
-      CompilerType full_type = type_sp->GetFullCompilerType();
+    CompilerType full_type = type_sp->GetFullCompilerType();
 
-      CompilerType copied_clang_type(GuardedCopyType(full_type));
+    CompilerType copied_clang_type(GuardedCopyType(full_type));
 
-      if (!copied_clang_type) {
-        LLDB_LOG(log, "  CAS::FEVD - Couldn't export a type");
-
-        continue;
-      }
-
+    if (copied_clang_type) {
       context.AddTypeDecl(copied_clang_type);
-
       context.m_found_type = true;
-      break;
+    } else {
+      LLDB_LOG(log, "  CAS::FEVD - Couldn't export a type");
     }
   }
 

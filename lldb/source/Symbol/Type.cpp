@@ -9,6 +9,7 @@
 #include <cstdio>
 #include <optional>
 
+#include "lldb/Core/Counter.h"
 #include "lldb/Core/Module.h"
 #include "lldb/Utility/DataBufferHeap.h"
 #include "lldb/Utility/DataExtractor.h"
@@ -30,7 +31,9 @@
 #include "lldb/Target/Process.h"
 #include "lldb/Target/Target.h"
 
+#include "clang/AST/DeclBase.h"
 #include "llvm/ADT/StringRef.h"
+#include "llvm/Support/FormatVariadic.h"
 
 using namespace lldb;
 using namespace lldb_private;
@@ -604,6 +607,16 @@ bool Type::ResolveCompilerType(ResolveState compiler_type_resolve_state) {
     // now have a forward declaration since that is what we created above.
     if (m_compiler_type.IsValid())
       m_compiler_type_resolve_state = ResolveState::Forward;
+  }
+
+  std::shared_ptr<astutil::ScopedCounter> ASC_sp;
+  if (m_compiler_type.IsValid()) {
+    auto type_name = m_compiler_type.GetTypeName().GetStringRef();
+    if (type_name.contains("IOExclaveProxyState")) {
+      ASC_sp = std::make_shared<astutil::ScopedCounter>();
+      astutil::logWithIndent(llvm::formatv("{0}({1}, resolve={2})\n",
+              __func__, type_name, static_cast<uint8_t>(compiler_type_resolve_state)));
+    }
   }
 
   // Check if we have a forward reference to a class/struct/union/enum?

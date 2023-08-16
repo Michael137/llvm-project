@@ -9,6 +9,7 @@
 #include "TypeSystemClang.h"
 
 #include "clang/AST/DeclBase.h"
+#include "llvm/ADT/StringRef.h"
 #include "llvm/Support/Casting.h"
 #include "llvm/Support/FormatAdapters.h"
 #include "llvm/Support/FormatVariadic.h"
@@ -42,6 +43,7 @@
 #include "clang/Lex/ModuleMap.h"
 #include "clang/Sema/Sema.h"
 
+#include "llvm/Support/FormatVariadic.h"
 #include "llvm/Support/Signals.h"
 #include "llvm/Support/Threading.h"
 
@@ -53,6 +55,7 @@
 #include "Plugins/ExpressionParser/Clang/ClangUserExpression.h"
 #include "Plugins/ExpressionParser/Clang/ClangUtil.h"
 #include "Plugins/ExpressionParser/Clang/ClangUtilityFunction.h"
+#include "lldb/Core/Counter.h"
 #include "lldb/Core/DumpDataExtractor.h"
 #include "lldb/Core/Module.h"
 #include "lldb/Core/PluginManager.h"
@@ -564,6 +567,8 @@ TypeSystemClang::TypeSystemClang(llvm::StringRef name,
   // The caller didn't pass an ASTContext so create a new one for this
   // TypeSystemClang.
   CreateASTContext();
+  llvm::errs() << "Creating " << m_display_name << " " << m_ast_up.get() << "\n";
+  clang::setASTContextName(m_ast_up.get(), m_display_name);
 }
 
 TypeSystemClang::TypeSystemClang(llvm::StringRef name,
@@ -572,6 +577,8 @@ TypeSystemClang::TypeSystemClang(llvm::StringRef name,
   SetTargetTriple(existing_ctxt.getTargetInfo().getTriple().str());
 
   m_ast_up.reset(&existing_ctxt);
+  llvm::errs() << "Creating " << m_display_name << " " << m_ast_up.get() << "\n";
+  clang::setASTContextName(m_ast_up.get(), m_display_name);
   GetASTMap().Insert(&existing_ctxt, this);
 }
 
@@ -661,6 +668,8 @@ void TypeSystemClang::Finalize() {
   GetASTMap().Erase(m_ast_up.get());
   if (!m_ast_owned)
     m_ast_up.release();
+
+  llvm::errs() << "Destroying " << clang::getASTContextName(m_ast_up.get()) << "\n";
 
   m_builtins_up.reset();
   m_selector_table_up.reset();
@@ -1274,8 +1283,29 @@ CompilerType TypeSystemClang::CreateRecordType(
     LanguageType language, ClangASTMetadata *metadata, bool exports_symbols) {
   ASTContext &ast = getASTContext();
 
+  static std::array<llvm::StringRef, 5> names = {
+    "ExclaveSEPManagerProxy",
+    "IOExclaveProxyState",
+    "IOService",
+    "IOServicePM",
+    "IOPowerConnection"
+  };
+ 
   if (decl_ctx == nullptr)
     decl_ctx = ast.getTranslationUnitDecl();
+
+  assert(&decl_ctx->getParentASTContext() == &ast);
+
+  std::string ctx_name;
+  if (auto * ND = llvm::dyn_cast_or_null<NamedDecl>(decl_ctx)) {
+    ctx_name = ND->getNameAsString();
+  }
+
+  astutil::ScopedCounter ASC;
+  if (llvm::is_contained(names, name)) {
+    astutil::logWithIndent(llvm::formatv("{0}({1}) in '{2}'; parent={3}\n",
+            __func__, name, clang::getASTContextName(&ast), ctx_name));
+  }
 
   if (language == eLanguageTypeObjC ||
       language == eLanguageTypeObjC_plus_plus) {
@@ -1290,8 +1320,23 @@ CompilerType TypeSystemClang::CreateRecordType(
   // CXXRecordDecl class since we often don't know from debug information if
   // something is struct or a class, so we default to always use the more
   // complete definition just in case.
-
+  
   bool has_name = !name.empty();
+
+  //if (has_name) {
+  //  IdentifierInfo &identifier_info = ast.Idents.get(name);
+  //  DeclarationName decl_name(&identifier_info);
+
+  //  // Search the AST for an existing ClassTemplateDecl that could be reused.
+  //  clang::DeclContext::lookup_result result = decl_ctx->noload_lookup(decl_name);
+  //  if (!result.empty()) {
+  //      llvm::errs() << "Found duplicate decls!!\n";
+  //      for (NamedDecl *decl : result) {
+  //        decl->dump();
+  //      }
+  //  }
+  //}
+
   CXXRecordDecl *decl = CXXRecordDecl::CreateDeserialized(ast, 0);
   decl->setTagKind(static_cast<TagDecl::TagKind>(kind));
   decl->setDeclContext(decl_ctx);
@@ -2724,6 +2769,17 @@ static bool GetCompleteQualType(clang::ASTContext *ast,
         if (!allow_completion)
           return false;
 
+        {
+            std::string name;
+            if (auto const * ND = llvm::dyn_cast<NamedDecl>(cxx_record_decl))
+              name = ND->getNameAsString();
+
+            astutil::ScopedCounter ASC;
+            astutil::logWithIndent(llvm::formatv("{0}({1}) in {2}; complete={3}, loaded={4}\n",
+                    __func__, name, clang::getASTContextName(&cxx_record_decl->getASTContext()),
+                    is_complete, fields_loaded));
+        }
+
         // Call the field_begin() accessor to for it to use the external source
         // to load the fields...
         clang::ExternalASTSource *external_ast_source =
@@ -3646,6 +3702,15 @@ bool TypeSystemClang::IsPossibleDynamicType(lldb::opaque_compiler_type_t type,
               pointee_qual_type->getAsCXXRecordDecl();
           if (cxx_record_decl) {
             bool is_complete = cxx_record_decl->isCompleteDefinition();
+
+            std::string name;
+            if (auto const * ND = llvm::dyn_cast<NamedDecl>(cxx_record_decl))
+              name = ND->getNameAsString();
+
+            astutil::ScopedCounter ASC;
+            astutil::logWithIndent(llvm::formatv("{0}({1}) in {2}; complete={3}\n",
+                    __func__, name, clang::getASTContextName(&cxx_record_decl->getASTContext()),
+                    is_complete));
 
             if (is_complete)
               success = cxx_record_decl->isDynamicClass();

@@ -9396,6 +9396,8 @@ Expected<DeclContext *> ASTImporter::ImportContext(DeclContext *FromDC) {
         !FromRecord->isCompleteDefinition())
       FromRecord->getASTContext().getExternalSource()->CompleteType(FromRecord);
 
+    assert(FromRecord->isCompleteDefinition());
+
     if (FromRecord->isCompleteDefinition())
       if (Error Err = ASTNodeImporter(*this).ImportDefinition(
           FromRecord, ToRecord, ASTNodeImporter::IDK_Basic))
@@ -10258,6 +10260,13 @@ void ASTImporter::CompleteDecl (Decl *D) {
 }
 
 Decl *ASTImporter::MapImported(Decl *From, Decl *To) {
+  if (clang::TagDecl *from_tag = dyn_cast<clang::TagDecl>(From)) {
+    if (from_tag->getNameAsString() == "IOExclaveProxyState") {
+  //      __builtin_debugtrap();
+        llvm::errs() << llvm::formatv("{0}(this={1}, From={2}, To={3}, srcCtx='{4}', dstCtx='{5}')\n", __func__, this, From, To, clang::getASTContextName(&From->getASTContext()), clang::getASTContextName(&To->getASTContext()));
+    }
+  }
+
   llvm::DenseMap<Decl *, Decl *>::iterator Pos = ImportedDecls.find(From);
   assert((Pos == ImportedDecls.end() || Pos->second == To) &&
       "Try to import an already imported Decl");

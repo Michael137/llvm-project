@@ -41,6 +41,7 @@
 #include "llvm/ADT/StringRef.h"
 #include "llvm/Support/Casting.h"
 #include "llvm/Support/ErrorHandling.h"
+#include "llvm/Support/FormatVariadic.h"
 #include "llvm/Support/MathExtras.h"
 #include "llvm/Support/VersionTuple.h"
 #include "llvm/Support/raw_ostream.h"
@@ -50,6 +51,7 @@
 #include <string>
 #include <tuple>
 #include <utility>
+#include <unordered_map>
 
 using namespace clang;
 
@@ -60,6 +62,25 @@ using namespace clang;
 #define DECL(DERIVED, BASE) static int n##DERIVED##s = 0;
 #define ABSTRACT_DECL(DECL)
 #include "clang/AST/DeclNodes.inc"
+
+auto& getASTContextNameMap() {
+    static std::unordered_map<clang::ASTContext *, std::string> gNameMap;
+    return gNameMap;
+}
+
+void clang::setASTContextName(clang::ASTContext* decl, std::string name) {
+    getASTContextNameMap().emplace(decl, std::move(name));
+}
+
+std::string clang::getASTContextName(clang::ASTContext* decl) {
+  auto &m = getASTContextNameMap();
+
+  if (auto it = m.find(decl); it != m.cend()) {
+      return it->second;
+  }
+
+  return {};
+}
 
 void Decl::updateOutOfDate(IdentifierInfo &II) const {
   getASTContext().getExternalSource()->updateOutOfDateIdentifier(II);
@@ -1431,6 +1452,11 @@ bool
 DeclContext::LoadLexicalDeclsFromExternalStorage() const {
   ExternalASTSource *Source = getParentASTContext().getExternalSource();
   assert(hasExternalLexicalStorage() && Source && "No external storage?");
+
+  if (auto * ND = llvm::dyn_cast_or_null<NamedDecl>(this))
+    if (auto name = ND->getNameAsString(); name == "IOService")
+      llvm::errs() << llvm::formatv("{0}({1}) on {2}\n",
+              __func__, name, clang::getASTContextName(&getParentASTContext()));
 
   // Notify that we have a DeclContext that is initializing.
   ExternalASTSource::Deserializing ADeclContext(Source);

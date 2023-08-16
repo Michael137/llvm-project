@@ -954,9 +954,13 @@ void Module::FindTypes_Impl(
     size_t max_matches,
     llvm::DenseSet<lldb_private::SymbolFile *> &searched_symbol_files,
     TypeMap &types) {
-  if (SymbolFile *symbols = GetSymbolFile())
+  if (SymbolFile *symbols = GetSymbolFile()) {
+    //if (!::strcmp(GetFileSpec().GetFilename().AsCString(""), "ExclaveSEPManagerProxy")) {
+    //    __builtin_debugtrap();
+    //}
     symbols->FindTypes(name, parent_decl_ctx, max_matches,
                        searched_symbol_files, types);
+  }
 }
 
 void Module::FindTypesInNamespace(ConstString type_name,

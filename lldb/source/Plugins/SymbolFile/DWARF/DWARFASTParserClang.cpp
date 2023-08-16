@@ -22,6 +22,7 @@
 #include "Plugins/ExpressionParser/Clang/ClangASTMetadata.h"
 #include "Plugins/ExpressionParser/Clang/ClangUtil.h"
 #include "Plugins/Language/ObjC/ObjCLanguage.h"
+#include "lldb/Core/Counter.h"
 #include "lldb/Core/Module.h"
 #include "lldb/Core/Value.h"
 #include "lldb/Host/Host.h"
@@ -37,16 +38,19 @@
 #include "lldb/Utility/StreamString.h"
 
 #include "clang/AST/CXXInheritance.h"
+#include "clang/AST/DeclBase.h"
 #include "clang/AST/DeclCXX.h"
 #include "clang/AST/DeclObjC.h"
 #include "clang/AST/DeclTemplate.h"
 #include "clang/AST/Type.h"
 #include "llvm/Demangle/Demangle.h"
+#include "llvm/Support/Casting.h"
 
 #include <map>
 #include <memory>
 #include <optional>
 #include <vector>
+#include <span>
 
 //#define ENABLE_DEBUG_PRINTF // COMMENT OUT THIS LINE PRIOR TO CHECKIN
 
@@ -417,22 +421,7 @@ TypeSP DWARFASTParserClang::ParseTypeFromDWARF(const SymbolContext &sc,
   if (!die)
     return nullptr;
 
-  Log *log = GetLog(DWARFLog::TypeCompletion | DWARFLog::Lookups);
-
   SymbolFileDWARF *dwarf = die.GetDWARF();
-  if (log) {
-    DWARFDIE context_die;
-    clang::DeclContext *context =
-        GetClangDeclContextContainingDIE(die, &context_die);
-
-    dwarf->GetObjectFile()->GetModule()->LogMessage(
-        log,
-        "DWARFASTParserClang::ParseTypeFromDWARF "
-        "(die = {0:x16}, decl_ctx = {1:p} (die "
-        "{2:x16})) {3} name = '{4}')",
-        die.GetOffset(), static_cast<void *>(context), context_die.GetOffset(),
-        die.GetTagAsCString(), die.GetName());
-  }
 
   Type *type_ptr = dwarf->GetDIEToType().lookup(die.GetDIE());
   if (type_ptr == DIE_IS_BEING_PARSED)
@@ -441,6 +430,32 @@ TypeSP DWARFASTParserClang::ParseTypeFromDWARF(const SymbolContext &sc,
     return type_ptr->shared_from_this();
   // Set a bit that lets us know that we are currently parsing this
   dwarf->GetDIEToType()[die.GetDIE()] = DIE_IS_BEING_PARSED;
+
+  std::shared_ptr<astutil::ScopedCounter> ASC_sp;
+  static std::array<std::string_view, 5> names = {
+    "ExclaveSEPManagerProxy",
+    "IOExclaveProxyState",
+    "IOService",
+    "IOServicePM",
+    "IOPowerConnection"
+  };
+
+  {
+      DWARFDIE context_die;
+      clang::DeclContext *context =
+          GetClangDeclContextContainingDIE(die, &context_die);
+      auto const * name = die.GetName();
+
+      if (name) {
+        auto * context_name = context_die.GetName();
+        if (llvm::is_contained(names, name)) {
+           ASC_sp = std::make_shared<astutil::ScopedCounter>();
+           astutil::logWithIndent(llvm::formatv("{0}({1}) from {2} in '{3}'; parent={4}\n",
+                   __func__, name, dwarf->GetObjectFile()->GetFileSpec().GetFilename(),
+                   clang::getASTContextName(&context->getParentASTContext()), context_name ? context_name : ""));
+        }
+      }
+  }
 
   ParsedDWARFTypeAttributes attrs(die);
 
@@ -1596,6 +1611,14 @@ DWARFASTParserClang::ParseStructureLikeDIE(const SymbolContext &sc,
   LanguageType cu_language = SymbolFileDWARF::GetLanguage(*die.GetCU());
   Log *log = GetLog(DWARFLog::TypeCompletion | DWARFLog::Lookups);
 
+  std::shared_ptr<astutil::ScopedCounter> ASC_sp;
+  auto const * name = die.GetName();
+  if (name && ::strcmp(name, "IOExclaveProxyState") == 0) {
+     //__builtin_debugtrap();
+     ASC_sp = std::make_shared<astutil::ScopedCounter>();
+     astutil::logWithIndent(llvm::formatv("{0}(IOExclaveProxyState)\n", __func__));
+  }
+
   // UniqueDWARFASTType is large, so don't create a local variables on the
   // stack, put it on the heap. This function is often called recursively and
   // clang isn't good at sharing the stack space for variables in different
@@ -2243,6 +2266,26 @@ bool DWARFASTParserClang::CompleteTypeFromDWARF(const DWARFDIE &die,
 
   std::lock_guard<std::recursive_mutex> guard(
       dwarf->GetObjectFile()->GetModule()->GetMutex());
+
+  static std::array<std::string_view, 5> names = {
+    "ExclaveSEPManagerProxy",
+    "IOExclaveProxyState",
+    "IOService",
+    "IOServicePM",
+    "IOPowerConnection"
+  };
+  
+  auto const * name = die.GetName();
+
+  std::shared_ptr<astutil::ScopedCounter> ASC_sp;
+  if (name) {
+    if (llvm::is_contained(names, name)) {
+       ASC_sp = std::make_shared<astutil::ScopedCounter>();
+       astutil::logWithIndent(llvm::formatv("{0}({1}) from {2} in '{3}'\n",
+               __func__, name, dwarf->GetObjectFile()->GetFileSpec().GetFilename(),
+               m_ast.getDisplayName()));
+    }
+  }
 
   // Disable external storage for this type so we don't get anymore
   // clang::ExternalASTSource queries for this type.
@@ -3176,6 +3219,16 @@ size_t DWARFASTParserClang::ParseChildParameters(
     unsigned &type_quals) {
   if (!parent_die)
     return 0;
+
+  auto const * parent_name = parent_die.GetName();
+
+  std::shared_ptr<astutil::ScopedCounter> ASC_sp;
+  if (parent_name) {
+    if (!::strcmp(parent_name, "exclaveStart")) {
+       ASC_sp = std::make_shared<astutil::ScopedCounter>();
+       astutil::logWithIndent(llvm::formatv("{0}({1})\n", __func__, parent_name));
+    }
+  }
 
   size_t arg_idx = 0;
   for (DWARFDIE die : parent_die.children()) {

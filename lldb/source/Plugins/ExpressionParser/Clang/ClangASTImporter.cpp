@@ -6,15 +6,21 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "lldb/Core/Counter.h"
 #include "lldb/Core/Module.h"
 #include "lldb/Utility/LLDBAssert.h"
 #include "lldb/Utility/LLDBLog.h"
 #include "lldb/Utility/Log.h"
 #include "clang/AST/Decl.h"
+#include "clang/AST/DeclBase.h"
 #include "clang/AST/DeclCXX.h"
 #include "clang/AST/DeclObjC.h"
+#include "clang/AST/DeclTemplate.h"
 #include "clang/Sema/Lookup.h"
 #include "clang/Sema/Sema.h"
+#include "llvm/ADT/STLExtras.h"
+#include "llvm/ADT/ScopeExit.h"
+#include "llvm/Support/Casting.h"
 #include "llvm/Support/raw_ostream.h"
 
 #include "Plugins/ExpressionParser/Clang/ClangASTImporter.h"
@@ -26,12 +32,22 @@
 
 #include <memory>
 #include <optional>
+#include <unordered_set>
 
 using namespace lldb_private;
 using namespace clang;
 
+static std::array<llvm::StringRef, 5> gNames = {
+    "ExclaveSEPManagerProxy",
+    "IOExclaveProxyState",
+    "IOService",
+    "IOServicePM",
+    "IOPowerConnection"
+};
+
 CompilerType ClangASTImporter::CopyType(TypeSystemClang &dst_ast,
                                         const CompilerType &src_type) {
+  astutil::ScopedCounter ASC;
   clang::ASTContext &dst_clang_ast = dst_ast.getASTContext();
 
   auto src_ast = src_type.GetTypeSystem().dyn_cast_or_null<TypeSystemClang>();
@@ -45,6 +61,16 @@ CompilerType ClangASTImporter::CopyType(TypeSystemClang &dst_ast,
   ImporterDelegateSP delegate_sp(GetDelegate(&dst_clang_ast, &src_clang_ast));
   if (!delegate_sp)
     return CompilerType();
+
+  {
+    auto name = src_type.GetTypeName().GetStringRef();
+
+    if (llvm::any_of(gNames, [&](llvm::StringRef other) { return name.contains(other); })) {
+      astutil::logWithIndent(llvm::formatv("{0}({1}) from '{2}' to '{3}' with delegate({4})\n",
+               __func__, name, clang::getASTContextName(&src_clang_ast),
+               clang::getASTContextName(&dst_clang_ast), delegate_sp.get()));
+    }
+  }
 
   ASTImporterDelegate::CxxModuleScope std_scope(*delegate_sp, &dst_clang_ast);
 
@@ -65,6 +91,7 @@ CompilerType ClangASTImporter::CopyType(TypeSystemClang &dst_ast,
 
 clang::Decl *ClangASTImporter::CopyDecl(clang::ASTContext *dst_ast,
                                         clang::Decl *decl) {
+  astutil::ScopedCounter ASC;
   ImporterDelegateSP delegate_sp;
 
   clang::ASTContext *src_ast = &decl->getASTContext();
@@ -74,6 +101,18 @@ clang::Decl *ClangASTImporter::CopyDecl(clang::ASTContext *dst_ast,
 
   if (!delegate_sp)
     return nullptr;
+
+  {
+    std::string name;
+    if (auto * ND = llvm::dyn_cast_or_null<NamedDecl>(decl))
+      name = ND->getNameAsString();
+
+    if (llvm::is_contained(gNames, name)) {
+        astutil::logWithIndent(llvm::formatv("{0}({1}) from '{2}' to '{3}' with delegate({4})\n",
+               __func__, name, clang::getASTContextName(src_ast),
+               clang::getASTContextName(dst_ast), delegate_sp.get()));
+    }
+  }
 
   llvm::Expected<clang::Decl *> result = delegate_sp->Import(decl);
   if (!result) {
@@ -241,6 +280,7 @@ public:
   }
 
   ~CompleteTagDeclsScope() override {
+    astutil::ScopedCounter ASC;
     ClangASTImporter::ASTContextMetadataSP to_context_md =
         importer.GetContextMetadata(m_dst_ctx);
 
@@ -248,6 +288,11 @@ public:
     while (!m_decls_to_complete.empty()) {
       NamedDecl *decl = m_decls_to_complete.pop_back_val();
       m_decls_already_completed.insert(decl);
+      if (NamedDecl *from_named_decl = dyn_cast<clang::NamedDecl>(decl)) {
+        if (from_named_decl->getNameAsString() == "IOExclaveProxyState") {
+            astutil::logWithIndent("CompleteTagDeclsScope: IOExclaveProxyState\n");
+        }
+      }
 
       // The decl that should be completed has to be imported into the target
       // context from some other context.
@@ -303,7 +348,13 @@ public:
 
 CompilerType ClangASTImporter::DeportType(TypeSystemClang &dst,
                                           const CompilerType &src_type) {
+  astutil::ScopedCounter ASC;
   Log *log = GetLog(LLDBLog::Expressions);
+
+  //llvm::errs() << "Deportying type\n";
+  //auto scope_exit = llvm::make_scope_exit([this] {
+  //          DumpMetadataContexts();
+  //        });
 
   auto src_ctxt = src_type.GetTypeSystem().dyn_cast_or_null<TypeSystemClang>();
   if (!src_ctxt)
@@ -315,6 +366,15 @@ CompilerType ClangASTImporter::DeportType(TypeSystemClang &dst,
            src_type.GetTypeName(), src_type.GetOpaqueQualType(),
            &src_ctxt->getASTContext(), &dst.getASTContext());
 
+  {
+    auto name = src_type.GetTypeName().GetStringRef();
+    if (llvm::any_of(gNames, [&](llvm::StringRef other) { return name.contains(other); })) {
+        astutil::logWithIndent(llvm::formatv("{0}({1}) from '{2}' to '{3}'\n",
+               __func__, name, clang::getASTContextName(&src_ctxt->getASTContext()),
+               clang::getASTContextName(&dst.getASTContext())));
+    }
+  }
+
   DeclContextOverride decl_context_override;
 
   if (auto *t = ClangUtil::GetQualType(src_type)->getAs<TagType>())
@@ -322,11 +382,15 @@ CompilerType ClangASTImporter::DeportType(TypeSystemClang &dst,
 
   CompleteTagDeclsScope complete_scope(*this, &dst.getASTContext(),
                                        &src_ctxt->getASTContext());
-  return CopyType(dst, src_type);
+  CompilerType ret = CopyType(dst, src_type);
+  //RemoveContextMetadata(&dst.getASTContext());
+  astutil::logWithIndent("Deporting type done\n");
+  return ret;
 }
 
 clang::Decl *ClangASTImporter::DeportDecl(clang::ASTContext *dst_ctx,
                                           clang::Decl *decl) {
+  astutil::ScopedCounter ASC;
   Log *log = GetLog(LLDBLog::Expressions);
 
   clang::ASTContext *src_ctx = &decl->getASTContext();
@@ -338,6 +402,18 @@ clang::Decl *ClangASTImporter::DeportDecl(clang::ASTContext *dst_ctx,
   DeclContextOverride decl_context_override;
 
   decl_context_override.OverrideAllDeclsFromContainingFunction(decl);
+
+  {
+    std::string name;
+    if (auto * ND = llvm::dyn_cast_or_null<NamedDecl>(decl))
+      name = ND->getNameAsString();
+
+    if (llvm::is_contained(gNames, name)) {
+        astutil::logWithIndent(llvm::formatv("{0}({1}) from '{2}' to '{3}'\n",
+               __func__, name, clang::getASTContextName(src_ctx),
+               clang::getASTContextName(dst_ctx)));
+    }
+  }
 
   clang::Decl *result;
   {
@@ -552,19 +628,53 @@ void ClangASTImporter::SetRecordLayout(clang::RecordDecl *decl,
 }
 
 bool ClangASTImporter::CompleteTagDecl(clang::TagDecl *decl) {
+  astutil::ScopedCounter ASC;
+  static std::array<std::string_view, 5> names = {
+    "ExclaveSEPManagerProxy",
+    "IOExclaveProxyState",
+    "IOService",
+    "IOServicePM",
+    "IOPowerConnection"
+  };
+
+  bool should_log = false;
+  std::string name;
+  {
+      if (auto const * ND = llvm::dyn_cast<NamedDecl>(decl))
+        name = ND->getNameAsString();
+
+      if (llvm::is_contained(names, name)) {
+        should_log = true;
+        astutil::logWithIndent(llvm::formatv("{0}({1}) in {2}\n",
+                __func__, name, clang::getASTContextName(&decl->getASTContext())));
+      }
+  }
+
   DeclOrigin decl_origin = GetDeclOrigin(decl);
 
-  if (!decl_origin.Valid())
+  if (!decl_origin.Valid()) {
+    if (should_log) astutil::logWithIndent("\tFailed to find origin\n");
     return false;
+  }
 
-  if (!TypeSystemClang::GetCompleteDecl(decl_origin.ctx, decl_origin.decl))
+  if (!TypeSystemClang::GetCompleteDecl(decl_origin.ctx, decl_origin.decl)) {
+    if (should_log)
+      astutil::logWithIndent(llvm::formatv("\tFailed GetCompleteDecl for origin({0}, ctx={1})\n",
+              decl_origin.decl, clang::getASTContextName(decl_origin.ctx)));
     return false;
+  }
 
   ImporterDelegateSP delegate_sp(
       GetDelegate(&decl->getASTContext(), decl_origin.ctx));
 
   ASTImporterDelegate::CxxModuleScope std_scope(*delegate_sp,
                                                 &decl->getASTContext());
+
+  if (should_log)
+    astutil::logWithIndent(llvm::formatv("\tImportDefinitionTo({0}) from origin({1}, ctx={2}) into({3}, ctx={4})\n",
+            name, decl_origin.decl, clang::getASTContextName(decl_origin.ctx),
+            decl, clang::getASTContextName(&decl->getASTContext())));
+
   if (delegate_sp)
     delegate_sp->ImportDefinitionTo(decl, decl_origin.decl);
 
@@ -573,13 +683,44 @@ bool ClangASTImporter::CompleteTagDecl(clang::TagDecl *decl) {
 
 bool ClangASTImporter::CompleteTagDeclWithOrigin(clang::TagDecl *decl,
                                                  clang::TagDecl *origin_decl) {
+  astutil::ScopedCounter ASC;
   clang::ASTContext *origin_ast_ctx = &origin_decl->getASTContext();
 
-  if (!TypeSystemClang::GetCompleteDecl(origin_ast_ctx, origin_decl))
+  static std::array<std::string_view, 5> names = {
+    "ExclaveSEPManagerProxy",
+    "IOExclaveProxyState",
+    "IOService",
+    "IOServicePM",
+    "IOPowerConnection"
+  };
+
+  bool should_log = false;
+  std::string name;
+  {
+      if (auto const * ND = llvm::dyn_cast<NamedDecl>(decl))
+        name = ND->getNameAsString();
+
+      if (llvm::is_contained(names, name)) {
+        should_log = true;
+        astutil::logWithIndent(llvm::formatv("{0}({1}) in {2}\n",
+                __func__, name, clang::getASTContextName(&decl->getASTContext())));
+      }
+  }
+
+  if (!TypeSystemClang::GetCompleteDecl(origin_ast_ctx, origin_decl)) {
+    if (should_log)
+      astutil::logWithIndent(llvm::formatv("\tFailed GetCompleteDecl for origin({0}, ctx={1})\n",
+              origin_decl, clang::getASTContextName(origin_ast_ctx)));
     return false;
+  }
 
   ImporterDelegateSP delegate_sp(
       GetDelegate(&decl->getASTContext(), origin_ast_ctx));
+
+  if (should_log)
+    astutil::logWithIndent(llvm::formatv("\tImportDefinitionTo({0}) from origin({1}, ctx={2}) into({3}, ctx={4})\n",
+            name, decl, clang::getASTContextName(origin_ast_ctx),
+            decl, clang::getASTContextName(&decl->getASTContext())));
 
   if (delegate_sp)
     delegate_sp->ImportDefinitionTo(decl, origin_decl);
@@ -811,6 +952,7 @@ ClangASTImporter::MapCompleter::~MapCompleter() = default;
 
 llvm::Expected<Decl *>
 ClangASTImporter::ASTImporterDelegate::ImportImpl(Decl *From) {
+  astutil::ScopedCounter ASC;
   if (m_std_handler) {
     std::optional<Decl *> D = m_std_handler->Import(From);
     if (D) {
@@ -829,6 +971,27 @@ ClangASTImporter::ASTImporterDelegate::ImportImpl(Decl *From) {
 
   // Prevent infinite recursion when the origin tracking contains a cycle.
   assert(origin.decl != From && "Origin points to itself?");
+
+  static std::array<std::string_view, 5> names = {
+    "ExclaveSEPManagerProxy",
+    "IOExclaveProxyState",
+    "IOService",
+    "IOServicePM",
+    "IOPowerConnection"
+  };
+  {
+      std::string name;
+      if (const NamedDecl *ND = dyn_cast<NamedDecl>(From))
+        name = ND->getNameAsString();
+
+      if (llvm::is_contained(names, name)) {
+         astutil::logWithIndent(llvm::formatv("{0}({1}) from {2} in '{3}'; origin={4}\n",
+                 __func__, name,
+                 clang::getASTContextName(&From->getASTContext()),
+                 clang::getASTContextName(&getToContext()),
+                 origin.ctx));
+      }
+  }
 
   // If it originally came from the target ASTContext then we can just
   // pretend that the original is the one we imported. This can happen for
@@ -890,6 +1053,52 @@ ClangASTImporter::ASTImporterDelegate::ImportImpl(Decl *From) {
   }
 
   return ASTImporter::ImportImpl(From);
+}
+
+void ClangASTImporter::ASTImporterDelegate::RegisterImportedDecl(Decl *FromD, Decl *ToD) {
+  auto on_exit = llvm::make_scope_exit([&] {
+                ASTImporter::RegisterImportedDecl(FromD, ToD);
+          });
+
+  std::string name;
+  auto * ND = dyn_cast<NamedDecl>(FromD);
+  if (!ND)
+    return;
+
+  name = ND->getNameAsString();
+  if (name.empty())
+    return;
+
+  if (name == "IOExclaveProxyState") {
+    //__builtin_debugtrap();
+    astutil::logWithIndent("Imported: IOExclaveProxyState\n");
+  }
+
+  auto & to_ast = getToContext();
+  IdentifierInfo &identifier_info = to_ast.Idents.get(name);
+  DeclarationName decl_name(&identifier_info);
+  auto * DC = ToD->getDeclContext();
+  if (!DC)
+    return;
+
+  auto * TU = to_ast.getTranslationUnitDecl();
+  if (!TU)
+    return;
+
+  auto * DC_decl = llvm::dyn_cast<NamedDecl>(DC);
+  if (!DC_decl)
+    return;
+
+  if (name == "IOExclaveProxyState") {
+    clang::DeclContext::lookup_result result = TU->noload_lookup(DC_decl->getDeclName());
+    if (!result.isSingleResult()) {
+      astutil::logWithIndent("Found duplicate decls!!\n");
+      for (NamedDecl *decl : result) {
+          if (auto * RD = llvm::dyn_cast<CXXRecordDecl>(decl))
+            astutil::logWithIndent(llvm::formatv("\t{0}, is_complete={1}\n", RD->getNameAsString(), (RD->getDefinition() != nullptr)));
+      }
+    }
+  }
 }
 
 void ClangASTImporter::ASTImporterDelegate::ImportDefinitionTo(
@@ -1023,6 +1232,13 @@ RemapModule(OptionalClangModuleID from_id,
 void ClangASTImporter::ASTImporterDelegate::Imported(clang::Decl *from,
                                                      clang::Decl *to) {
   Log *log = GetLog(LLDBLog::Expressions);
+  astutil::ScopedCounter ASC;
+
+  if (NamedDecl *from_named_decl = dyn_cast<clang::NamedDecl>(from)) {
+    if (from_named_decl->getNameAsString() == "IOExclaveProxyState") {
+      astutil::logWithIndent("Imported: IOExclaveProxyState\n");
+    }
+  }
 
   // Some decls shouldn't be tracked here because they were not created by
   // copying 'from' to 'to'. Just exit early for those.

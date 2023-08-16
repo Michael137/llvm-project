@@ -8,10 +8,12 @@
 
 #include "SymbolFileDWARF.h"
 
+#include "llvm/ADT/ScopeExit.h"
 #include "llvm/DebugInfo/DWARF/DWARFDebugLoc.h"
 #include "llvm/Support/Casting.h"
 #include "llvm/Support/Threading.h"
 
+#include "lldb/Core/Counter.h"
 #include "lldb/Core/Module.h"
 #include "lldb/Core/ModuleList.h"
 #include "lldb/Core/ModuleSpec.h"
@@ -1540,6 +1542,16 @@ bool SymbolFileDWARF::CompleteType(CompilerType &compiler_type) {
   std::lock_guard<std::recursive_mutex> guard(GetModuleMutex());
   auto clang_type_system =
       compiler_type.GetTypeSystem().dyn_cast_or_null<TypeSystemClang>();
+
+  std::shared_ptr<astutil::ScopedCounter> ASC_sp;
+  if (auto * td = ClangUtil::GetAsTagDecl(compiler_type)) {
+    if (td->getNameAsString() == "IOExclaveProxyState") {
+      ASC_sp = std::make_shared<astutil::ScopedCounter>();
+      //__builtin_debugtrap();
+      astutil::logWithIndent(llvm::formatv("{0}(IOExclaveProxyState)\n", __func__));
+    }
+  }
+
   if (clang_type_system) {
     DWARFASTParserClang *ast_parser =
         static_cast<DWARFASTParserClang *>(clang_type_system->GetDWARFParser());
@@ -3052,6 +3064,34 @@ bool SymbolFileDWARF::DIEDeclContextsMatch(const DWARFDIE &die1,
 TypeSP
 SymbolFileDWARF::FindDefinitionTypeForDWARFDeclContext(const DWARFDIE &die) {
   TypeSP type_sp;
+  static std::array<std::string_view, 5> names = {
+    "ExclaveSEPManagerProxy",
+    "IOExclaveProxyState",
+    "IOService",
+    "IOServicePM",
+    "IOPowerConnection"
+  };
+
+  std::shared_ptr<astutil::ScopedCounter> ASC_sp;
+  bool should_log = false;
+  {
+      auto const * name = die.GetName();
+
+      if (name) {
+        if (llvm::is_contained(names, name)) {
+          ASC_sp = std::make_shared<astutil::ScopedCounter>();
+          should_log = true;
+          astutil::logWithIndent(llvm::formatv("{0}({1}) in {2}\n",
+                  __func__, name, GetObjectFile()->GetFileSpec().GetFilename()));
+        }
+      }
+  }
+
+  auto on_exit = llvm::make_scope_exit([&] {
+                if (type_sp && should_log) {
+                astutil::logWithIndent("\tSuccessful FindDefinitionTypeForDWARFDeclContext\n");
+                }
+          });
 
   if (die.GetName()) {
     const dw_tag_t tag = die.Tag();

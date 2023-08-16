@@ -43,6 +43,7 @@
 #include "llvm/Support/Casting.h"
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/Format.h"
+#include "llvm/Support/FormatVariadic.h"
 #include "llvm/Support/raw_ostream.h"
 #include <algorithm>
 #include <cassert>
@@ -126,7 +127,14 @@ CXXRecordDecl::CXXRecordDecl(Kind K, TagKind TK, const ASTContext &C,
                              CXXRecordDecl *PrevDecl)
     : RecordDecl(K, TK, C, DC, StartLoc, IdLoc, Id, PrevDecl),
       DefinitionData(PrevDecl ? PrevDecl->DefinitionData
-                              : nullptr) {}
+                              : nullptr) {
+        if (Id) {
+          if (Id->getName() == "IOService")
+            llvm::errs() << llvm::formatv("{0}(IOService): this={1}, ASTContext({2})\n", __func__, this, clang::getASTContextName(&getASTContext()));
+          else if (Id->getName() == "IOExclaveProxyState")
+            llvm::errs() << llvm::formatv("{0}(IOExclaveProxyState): this={1}, ASTContext({2})\n", __func__, this, clang::getASTContextName(&getASTContext()));
+        }
+      }
 
 CXXRecordDecl *CXXRecordDecl::Create(const ASTContext &C, TagKind TK,
                                      DeclContext *DC, SourceLocation StartLoc,
@@ -1935,9 +1943,15 @@ CXXDestructorDecl *CXXRecordDecl::getDestructor() const {
   ASTContext &Context = getASTContext();
   QualType ClassType = Context.getTypeDeclType(this);
 
+
   DeclarationName Name
     = Context.DeclarationNames.getCXXDestructorName(
                                           Context.getCanonicalType(ClassType));
+
+  if (auto thisName = getNameAsString(); thisName == "IOService")
+    llvm::errs() << llvm::formatv("{0}(this={1}:{2}, name={3}) in {4}\n",
+            __func__, this, thisName, Name.getAsString(),
+            clang::getASTContextName(&Context));
 
   DeclContext::lookup_result R = lookup(Name);
 

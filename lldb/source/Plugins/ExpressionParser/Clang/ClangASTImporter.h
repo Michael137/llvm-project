@@ -21,6 +21,7 @@
 #include "clang/Basic/FileManager.h"
 #include "clang/Basic/FileSystemOptions.h"
 
+#include "lldb/Core/Counter.h"
 #include "lldb/Host/FileSystem.h"
 #include "lldb/Symbol/CompilerDeclContext.h"
 #include "lldb/Utility/LLDBAssert.h"
@@ -29,6 +30,9 @@
 #include "Plugins/ExpressionParser/Clang/CxxModuleHandler.h"
 
 #include "llvm/ADT/DenseMap.h"
+#include "llvm/Support/Casting.h"
+#include "llvm/Support/raw_os_ostream.h"
+#include "llvm/Support/raw_ostream.h"
 
 namespace lldb_private {
 
@@ -320,6 +324,8 @@ public:
     }
     void RemoveImportListener() { m_new_decl_listener = nullptr; }
 
+    void RegisterImportedDecl(clang::Decl *FromD, clang::Decl *ToD) override;
+
   protected:
     llvm::Expected<clang::Decl *> ImportImpl(clang::Decl *From) override;
 
@@ -347,6 +353,21 @@ public:
   public:
     ASTContextMetadata(clang::ASTContext *dst_ctx) : m_dst_ctx(dst_ctx) {}
 
+    void Dump(llvm::raw_ostream &OS) const {
+        OS << "Delegate map\n";
+        OS << "------------\n";
+        for (auto const& [src_ctx, importer_delegate_sp] : m_delegates)
+            OS << llvm::formatv("[Source AST: {0} -> Delegate: {1}]\n", src_ctx, importer_delegate_sp.get());
+        OS << "------------\n";
+
+        OS << "Origin map\n";
+        OS << "------------\n";
+        for (auto const& [decl, decl_origin] : m_origins)
+            OS << llvm::formatv("[Decl: {0} -> DeclOrigin: {{Decl: {1}, AST: {2}}}]\n", decl, decl_origin.decl, decl_origin.ctx);
+        OS << "------------\n";
+
+    }
+
     clang::ASTContext *m_dst_ctx;
     DelegateMap m_delegates;
 
@@ -356,6 +377,13 @@ public:
     /// Sets the DeclOrigin for the given Decl and overwrites any existing
     /// DeclOrigin.
     void setOrigin(const clang::Decl *decl, DeclOrigin origin) {
+      if (auto * ND = llvm::dyn_cast_or_null<clang::NamedDecl>(decl)) {
+        if (ND->getNameAsString() == "IOService") {
+          astutil::ScopedCounter ASC;
+          astutil::logWithIndent(llvm::formatv("setOrigin(IOService, this: {0}, srcCtx: {1}, dstCtx: {2}\n",
+                  this, origin.ctx, &decl->getASTContext()));
+        }
+      }
       // Setting the origin of any decl to itself (or to a different decl
       // in the same ASTContext) doesn't make any sense. It will also cause
       // ASTImporterDelegate::ImportImpl to infinite recurse when trying to find
@@ -411,6 +439,22 @@ public:
 
   ContextMetadataMap m_metadata_map;
 
+  void DumpMetadataContexts(llvm::raw_ostream& OS) const {
+    for (auto const& [dst_ctx, metadata_sp]  : m_metadata_map) {
+        OS << llvm::formatv("Metadata contexts for {0}\n", dst_ctx);
+        OS << "-------------------------\n";
+        assert(metadata_sp);
+        metadata_sp->Dump(OS);
+        OS << "-------------------------\n";
+    }
+  }
+
+  void DumpMetadataContexts() const { DumpMetadataContexts(llvm::errs()); }
+
+  void RemoveContextMetadata(clang::ASTContext* dst_ctx) {
+      m_metadata_map.erase(dst_ctx);
+  }
+
   ASTContextMetadataSP GetContextMetadata(clang::ASTContext *dst_ctx) {
     ContextMetadataMap::iterator context_md_iter = m_metadata_map.find(dst_ctx);
 
@@ -433,6 +477,7 @@ public:
 
   ImporterDelegateSP GetDelegate(clang::ASTContext *dst_ctx,
                                  clang::ASTContext *src_ctx) {
+    astutil::ScopedCounter ASC;
     ASTContextMetadataSP context_md = GetContextMetadata(dst_ctx);
 
     DelegateMap &delegates = context_md->m_delegates;
@@ -441,6 +486,8 @@ public:
     if (delegate_iter == delegates.end()) {
       ImporterDelegateSP delegate =
           ImporterDelegateSP(new ASTImporterDelegate(*this, dst_ctx, src_ctx));
+      astutil::logWithIndent(llvm::formatv("Creating delegate({0}) for dst:{1} src:{2} in ClangASTImporter:{3}\n", delegate.get(),
+              dst_ctx, src_ctx, this));
       delegates[src_ctx] = delegate;
       return delegate;
     }

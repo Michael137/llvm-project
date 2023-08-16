@@ -11,6 +11,7 @@
 #include "ClangDeclVendor.h"
 #include "ClangModulesDeclVendor.h"
 
+#include "lldb/Core/Counter.h"
 #include "lldb/Core/Module.h"
 #include "lldb/Core/ModuleList.h"
 #include "lldb/Symbol/CompilerDeclContext.h"
@@ -21,8 +22,10 @@
 #include "lldb/Utility/LLDBLog.h"
 #include "lldb/Utility/Log.h"
 #include "clang/AST/ASTContext.h"
+#include "clang/AST/DeclBase.h"
 #include "clang/AST/RecordLayout.h"
 #include "clang/Basic/SourceManager.h"
+#include "llvm/ADT/STLExtras.h"
 
 #include "Plugins/ExpressionParser/Clang/ClangUtil.h"
 #include "Plugins/LanguageRuntime/ObjC/ObjCLanguageRuntime.h"
@@ -68,6 +71,8 @@ void ClangASTSource::InstallASTContext(TypeSystemClang &clang_ast_context) {
 }
 
 ClangASTSource::~ClangASTSource() {
+  astutil::ScopedCounter ASC;
+  astutil::logWithIndent(llvm::formatv("Forgetting all origins for dstCtx: {0}\n", m_ast_context));
   m_ast_importer_sp->ForgetDestination(m_ast_context);
 
   if (!m_target)
@@ -297,11 +302,36 @@ void ClangASTSource::CompleteType(TagDecl *tag_decl) {
   m_active_lexical_decls.insert(tag_decl);
   ScopedLexicalDeclEraser eraser(m_active_lexical_decls, tag_decl);
 
+  bool should_log = false;
+  std::shared_ptr<astutil::ScopedCounter> ASC_sp;
+  static std::array<std::string_view, 5> names = {
+    "ExclaveSEPManagerProxy",
+    "IOExclaveProxyState",
+    "IOService",
+    "IOServicePM",
+    "IOPowerConnection"
+  };
+  {
+      std::string name;
+      if (auto const * ND = llvm::dyn_cast<NamedDecl>(tag_decl))
+        name = ND->getNameAsString();
+
+      if (llvm::is_contained(names, name)) {
+        ASC_sp = std::make_shared<astutil::ScopedCounter>();
+        astutil::logWithIndent(llvm::formatv("{0}({1}) in {2}\n",
+                __func__, name, clang::getASTContextName(&tag_decl->getASTContext())));
+        should_log = true;
+      }
+  }
+
   if (!m_ast_importer_sp->CompleteTagDecl(tag_decl)) {
     // We couldn't complete the type.  Maybe there's a definition somewhere
     // else that can be completed.
+    if (should_log) astutil::logWithIndent("Failed to CompleteTagDecl...trying alternate location\n");
     if (TagDecl *alternate = FindCompleteType(tag_decl))
       m_ast_importer_sp->CompleteTagDeclWithOrigin(tag_decl, alternate);
+    else
+      astutil::logWithIndent("\tDidn't find alternate location\n");
   }
 
   LLDB_LOG(log, "      [CTD] After:\n{0}", ClangUtil::DumpDecl(tag_decl));
@@ -388,6 +418,8 @@ void ClangASTSource::FindExternalLexicalDecls(
     llvm::function_ref<bool(Decl::Kind)> predicate,
     llvm::SmallVectorImpl<Decl *> &decls) {
 
+  std::shared_ptr<astutil::ScopedCounter> ASC_sp;
+
   Log *log = GetLog(LLDBLog::Expressions);
 
   const Decl *context_decl = dyn_cast<Decl>(decl_context);
@@ -429,10 +461,28 @@ void ClangASTSource::FindExternalLexicalDecls(
   if (!original.Valid())
     return;
 
-  LLDB_LOG(log, "  FELD Original decl {0} (Decl*){1:x}:\n{2}",
-           static_cast<void *>(original.ctx),
-           static_cast<void *>(original.decl),
-           ClangUtil::DumpDecl(original.decl));
+  static std::array<std::string_view, 5> names = {
+    "ExclaveSEPManagerProxy",
+    "IOExclaveProxyState",
+    "IOService",
+    "IOServicePM",
+    "IOPowerConnection"
+  };
+  if (const NamedDecl *context_named_decl =
+          dyn_cast<NamedDecl>(context_decl)) {
+    if (auto name = context_named_decl->getNameAsString();
+        llvm::is_contained(names, name)) {
+      ASC_sp = std::make_shared<astutil::ScopedCounter>();
+      astutil::logWithIndent(llvm::formatv(
+              "CAS::FELD({0}:{1}, ctx='{2}') for CAS('{3}') with origin({4} in {5})\n",
+                    context_named_decl,
+                    name,
+                    clang::getASTContextName(&context_decl->getASTContext()),
+                    clang::getASTContextName(m_ast_context),
+                    original.decl,
+                    clang::getASTContextName(original.ctx)));
+    }
+  }
 
   if (ObjCInterfaceDecl *original_iface_decl =
           dyn_cast<ObjCInterfaceDecl>(original.decl)) {
@@ -617,6 +667,7 @@ void ClangASTSource::FindExternalVisibleDecls(
   TypeList types;
   const bool exact_match = true;
   llvm::DenseSet<lldb_private::SymbolFile *> searched_symbol_files;
+
   if (module_sp && namespace_decl)
     module_sp->FindTypesInNamespace(name, namespace_decl, 1, types);
   else {

@@ -18,6 +18,7 @@
 #include "NameSearchContext.h"
 #include "Plugins/TypeSystem/Clang/TypeSystemClang.h"
 #include "lldb/Core/Address.h"
+#include "lldb/Core/Counter.h"
 #include "lldb/Core/Module.h"
 #include "lldb/Core/ModuleSpec.h"
 #include "lldb/Core/ValueObjectConstResult.h"
@@ -53,6 +54,7 @@
 #include "clang/AST/ASTContext.h"
 #include "clang/AST/ASTImporter.h"
 #include "clang/AST/Decl.h"
+#include "clang/AST/DeclBase.h"
 #include "clang/AST/DeclarationName.h"
 #include "clang/AST/RecursiveASTVisitor.h"
 
@@ -100,6 +102,8 @@ ClangExpressionDeclMap::~ClangExpressionDeclMap() {
   //   data does not vanish until the expression has been executed.  This means
   //   that valuable lookup data (like namespaces) doesn't vanish, but
 
+  astutil::ScopedCounter ASC;
+  astutil::logWithIndent(llvm::formatv("Destroying ClangExpressionDeclMap({0})\n", this));
   DidParse();
   DisableStructVars();
 }
@@ -244,6 +248,14 @@ bool ClangExpressionDeclMap::AddPersistentVariable(const NamedDecl *decl,
     auto clang_ast_context = GetScratchContext(*target);
     if (!clang_ast_context)
       return false;
+
+    {
+      astutil::ScopedCounter ASC;
+      astutil::logWithIndent(llvm::formatv("{0}({1}) in '{2}'\n",
+            __func__, name.AsCString("<unknown>"),
+            clang::getASTContextName(&decl->getASTContext())));
+    
+    }
 
     TypeFromUser user_type = DeportType(*clang_ast_context, *ast, parser_type);
 
@@ -665,28 +677,19 @@ void ClangExpressionDeclMap::FindExternalVisibleDecls(
     NameSearchContext &context) {
   assert(m_ast_context);
 
+  astutil::ScopedCounter ASC;
+
   const ConstString name(context.m_decl_name.getAsString().c_str());
 
   Log *log = GetLog(LLDBLog::Expressions);
 
-  if (log) {
-    if (!context.m_decl_context)
-      LLDB_LOG(log,
-               "ClangExpressionDeclMap::FindExternalVisibleDecls for "
-               "'{0}' in a NULL DeclContext",
-               name);
-    else if (const NamedDecl *context_named_decl =
+  if (!context.m_decl_context)
+    astutil::logWithIndent(llvm::formatv("CEDM::FEVD for '{0}' in a NULL DeclContext\n", name));
+  else if (const NamedDecl *context_named_decl =
                  dyn_cast<NamedDecl>(context.m_decl_context))
-      LLDB_LOG(log,
-               "ClangExpressionDeclMap::FindExternalVisibleDecls for "
-               "'{0}' in '{1}'",
-               name, context_named_decl->getNameAsString());
-    else
-      LLDB_LOG(log,
-               "ClangExpressionDeclMap::FindExternalVisibleDecls for "
-               "'{0}' in a '{1}'",
-               name, context.m_decl_context->getDeclKindName());
-  }
+    astutil::logWithIndent(llvm::formatv("CEDM::FEVD for '{0}' in '{1}'\n", name, context_named_decl->getNameAsString()));
+   else
+    astutil::logWithIndent(llvm::formatv("CEDM::FEVD for '{0}' in a '{1}' (ctx: {2})\n", name, context.m_decl_context->getDeclKindName(), clang::getASTContextName(&context.m_decl_context->getParentASTContext())));
 
   if (const NamespaceDecl *namespace_context =
           dyn_cast<NamespaceDecl>(context.m_decl_context)) {

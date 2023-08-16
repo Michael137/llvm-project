@@ -74,6 +74,9 @@ enum AvailabilityResult {
   AR_Unavailable
 };
 
+std::string getASTContextName(clang::ASTContext * decl);
+void setASTContextName(clang::ASTContext* decl, std::string name);
+
 /// Decl - This represents one declaration (or definition), e.g. a variable,
 /// typedef, function, struct, etc.
 ///

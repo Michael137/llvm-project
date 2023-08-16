@@ -547,7 +547,7 @@ class TypeSourceInfo;
     /// \c To declaration mappings as they are imported.
     virtual void Imported(Decl *From, Decl *To) {}
 
-    void RegisterImportedDecl(Decl *FromD, Decl *ToD);
+    virtual void RegisterImportedDecl(Decl *FromD, Decl *ToD);
 
     /// Store and assign the imported declaration to its counterpart.
     /// It may happen that several decls from the 'from' context are mapped to

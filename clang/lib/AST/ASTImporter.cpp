@@ -65,9 +65,7 @@
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/FormatVariadic.h"
 #include "llvm/Support/MemoryBuffer.h"
-#include "llvm/Support/Timer2.h"
 #include "llvm/Support/raw_ostream.h"
-#include "llvm/Support/Timer.h"
 #include <algorithm>
 #include <cassert>
 #include <cstddef>
@@ -2200,8 +2198,6 @@ Error ASTNodeImporter::ImportDefinition(
 
     return Error::success();
   }
-
-  LLVM_SCOPED_TIMERF("ImportDefinition: %s", From->getNameAsString().c_str());
 
   To->startDefinition();
   // Set the definition to complete even if it is really not complete during
@@ -9320,21 +9316,6 @@ Expected<Decl *> ASTImporter::Import(Decl *FromD) {
   ImportPath.push(FromD);
   auto ImportPathBuilder =
       llvm::make_scope_exit([this]() { ImportPath.pop(); });
-
-  //std::unique_ptr<llvm::Timer> t;
-  //if (auto const *ND = llvm::dyn_cast_or_null<NamedDecl>(FromD)) {
-  //  std::string timer_name = "ASTImporter::Import(";
-  //  timer_name += ND->getName();
-  //  timer_name += ")";
-
-  //  if (ND->getName() == "ExternalSemaSource") {
-  //    llvm::errs() << "IMPORTING\n";
-  //    t = std::make_unique<llvm::Timer>(timer_name, "ASTImporter::Import");
-  //    t->startTimer();
-  //  }
-  //}
-
-  //auto timerStopper = llvm::make_scope_exit([&] { if (t) t->stopTimer(); });
 
   // Check whether there was a previous failed import.
   // If yes return the existing error.

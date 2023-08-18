@@ -35,7 +35,6 @@
 #include "lldb/Utility/LLDBAssert.h"
 #include "lldb/Utility/Log.h"
 #include "lldb/Utility/StreamString.h"
-#include "lldb/Utility/Timer.h"
 
 #include "clang/AST/CXXInheritance.h"
 #include "clang/AST/DeclCXX.h"
@@ -1587,8 +1586,6 @@ DWARFASTParserClang::GetCPlusPlusQualifiedName(const DWARFDIE &die) {
 
   return qualified_name;
 }
-
-std::unordered_map<std::string, std::shared_ptr<Timer::Category>> g_categories;
 
 TypeSP
 DWARFASTParserClang::ParseStructureLikeDIE(const SymbolContext &sc,

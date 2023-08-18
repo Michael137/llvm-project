@@ -9,7 +9,7 @@
 #ifndef LLDB_UTILITY_TIMER_H
 #define LLDB_UTILITY_TIMER_H
 
-//#include "lldb/lldb-defines.h"
+#include "lldb/lldb-defines.h"
 #include "llvm/Support/Chrono.h"
 #include <atomic>
 #include <cstdint>

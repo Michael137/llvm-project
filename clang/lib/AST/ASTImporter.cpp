@@ -2201,15 +2201,7 @@ Error ASTNodeImporter::ImportDefinition(
     return Error::success();
   }
 
-  std::string decl_name = From->getNameAsString();
-  if (auto * CTSD = llvm::dyn_cast_or_null<ClassTemplateSpecializationDecl>(From)) {
-    llvm::raw_string_ostream rso(decl_name);
-    clang::PrintingPolicy pp(Importer.FromContext.getLangOpts());
-    clang::printTemplateArgumentList(rso, CTSD->getTemplateArgs().asArray(), pp);
-    rso.flush();
-  }
-
-  LLVM_SCOPED_TIMERF("ImportDefinition: %s", decl_name.c_str());
+  LLVM_SCOPED_TIMERF("ImportDefinition: %s", From->getNameAsString().c_str());
 
   To->startDefinition();
   // Set the definition to complete even if it is really not complete during

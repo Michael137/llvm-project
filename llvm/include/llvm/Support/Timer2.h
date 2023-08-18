@@ -41,7 +41,6 @@ public:
   ~Timer2();
 
   void Dump();
-  void Flush();
 
   static void SetDisplayDepth(uint32_t depth);
 

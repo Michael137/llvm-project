@@ -8921,15 +8921,7 @@ clang::ClassTemplateDecl *TypeSystemClang::ParseClassTemplateDecl(
 }
 
 void TypeSystemClang::CompleteTagDecl(clang::TagDecl *decl) {
-  std::string decl_name = decl->getNameAsString();
-  if (auto * CTSD = llvm::dyn_cast_or_null<ClassTemplateSpecializationDecl>(decl)) {
-    llvm::raw_string_ostream rso(decl_name);
-    clang::printTemplateArgumentList(
-            rso, CTSD->getTemplateArgs().asArray(), GetTypePrintingPolicy());
-    rso.flush();
-  }
-  LLVM_SCOPED_TIMERF("CompleteTagDecl: %s", decl_name.c_str());
-
+  LLVM_SCOPED_TIMERF("CompleteTagDecl: %s", decl->getNameAsString().c_str());
   SymbolFile *sym_file = GetSymbolFile();
   if (sym_file) {
     CompilerType clang_type = GetTypeForDecl(decl);

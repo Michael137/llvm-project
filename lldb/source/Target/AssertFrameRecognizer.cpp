@@ -7,6 +7,7 @@
 #include "lldb/Target/Target.h"
 #include "lldb/Target/Thread.h"
 #include "lldb/Utility/LLDBLog.h"
+#include "llvm/ADT/STLExtras.h"
 
 using namespace llvm;
 using namespace lldb;
@@ -88,6 +89,22 @@ bool GetAssertLocation(llvm::Triple::OSType os, SymbolLocation &location) {
   return true;
 }
 
+bool GetVerboseAbortLocation(llvm::Triple::OSType os, SymbolLocation &location) {
+  switch (os) {
+  case llvm::Triple::Darwin:
+  case llvm::Triple::MacOSX:
+    location.module_spec = FileSpec("libc++.1.dylib");
+    location.symbols.push_back(ConstString("std::__1::__libcpp_verbose_abort(char const*, ...)"));
+    break;
+  default:
+    Log *log = GetLog(LLDBLog::Unwind);
+    LLDB_LOG(log, "AssertFrameRecognizer::GetAssertLocation Unsupported OS");
+    return false;
+  }
+
+  return true;
+}
+
 void RegisterAssertFrameRecognizer(Process *process) {
   Target &target = process->GetTarget();
   llvm::Triple::OSType os = target.GetArchitecture().GetTriple().getOS();
@@ -135,8 +152,12 @@ AssertFrameRecognizer::RecognizeFrame(lldb::StackFrameSP frame_sp) {
   Target &target = process_sp->GetTarget();
   llvm::Triple::OSType os = target.GetArchitecture().GetTriple().getOS();
   SymbolLocation location;
+  SymbolLocation verbose_abort_location;
 
   if (!GetAssertLocation(os, location))
+    return RecognizedStackFrameSP();
+
+  if (!GetVerboseAbortLocation(os, verbose_abort_location))
     return RecognizedStackFrameSP();
 
   const uint32_t frames_to_fetch = 6;
@@ -158,19 +179,24 @@ AssertFrameRecognizer::RecognizeFrame(lldb::StackFrameSP frame_sp) {
         prev_frame_sp->GetSymbolContext(eSymbolContextEverything);
 
     if (!sym_ctx.module_sp ||
-        !sym_ctx.module_sp->GetFileSpec().FileEquals(location.module_spec))
+        (!sym_ctx.module_sp->GetFileSpec().FileEquals(location.module_spec)
+         && !sym_ctx.module_sp->GetFileSpec().FileEquals(verbose_abort_location.module_spec)))
       continue;
 
     ConstString func_name = sym_ctx.GetFunctionName();
 
-    if (llvm::is_contained(location.symbols, func_name)) {
+    const bool found_assert = llvm::is_contained(location.symbols, func_name);
+    const bool found_abort = llvm::is_contained(verbose_abort_location.symbols, func_name);
+    assert(!(found_assert && found_abort));
+    if (found_assert || found_abort) {
       // We go a frame beyond the assert location because the most relevant
       // frame for the user is the one in which the assert function was called.
       // If the assert location is the last frame fetched, then it is set as
       // the most relevant frame.
 
-      StackFrameSP most_relevant_frame_sp = thread_sp->GetStackFrameAtIndex(
-          std::min(frame_index + 1, last_frame_index));
+      const auto relevant_frame_idx = found_assert ? std::min(frame_index + 1, last_frame_index) :
+                                                                std::min(frame_index + 2, last_frame_index);
+      StackFrameSP most_relevant_frame_sp = thread_sp->GetStackFrameAtIndex(relevant_frame_idx);
 
       // Pass assert location to AbortRecognizedStackFrame to set as most
       // relevant frame.

@@ -25,18 +25,6 @@ namespace lldb_private {
 ///    the target and the platform.
 void RegisterAssertFrameRecognizer(Process *process);
 
-/// \class AssertRecognizedStackFrame
-///
-/// Holds the stack frame where the assert is called from.
-class AssertRecognizedStackFrame : public RecognizedStackFrame {
-public:
-  AssertRecognizedStackFrame(lldb::StackFrameSP most_relevant_frame_sp);
-  lldb::StackFrameSP GetMostRelevantFrame() override;
-
-private:
-  lldb::StackFrameSP m_most_relevant_frame;
-};
-
 /// \class AssertFrameRecognizer
 ///
 /// When a thread stops, it checks depending on the platform if the top frame is

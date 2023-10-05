@@ -12,6 +12,27 @@ using namespace llvm;
 using namespace lldb;
 using namespace lldb_private;
 
+namespace {
+/// \class AssertRecognizedStackFrame
+///
+/// Holds the stack frame where the assert is called from.
+class AssertRecognizedStackFrame : public RecognizedStackFrame {
+public:
+  AssertRecognizedStackFrame(StackFrameSP most_relevant_frame_sp)
+      : m_most_relevant_frame(most_relevant_frame_sp) {
+    m_stop_desc = "hit program assert";
+  }
+
+  lldb::StackFrameSP GetMostRelevantFrame() override {
+    return m_most_relevant_frame;
+  }
+
+private:
+  lldb::StackFrameSP m_most_relevant_frame;
+};
+
+} // namespace
+
 namespace lldb_private {
 
 /// Stores a function module spec, symbol name and possibly an alternate symbol
@@ -180,14 +201,4 @@ AssertFrameRecognizer::RecognizeFrame(lldb::StackFrameSP frame_sp) {
   }
 
   return RecognizedStackFrameSP();
-}
-
-AssertRecognizedStackFrame::AssertRecognizedStackFrame(
-    StackFrameSP most_relevant_frame_sp)
-    : m_most_relevant_frame(most_relevant_frame_sp) {
-  m_stop_desc = "hit program assert";
-}
-
-lldb::StackFrameSP AssertRecognizedStackFrame::GetMostRelevantFrame() {
-  return m_most_relevant_frame;
 }

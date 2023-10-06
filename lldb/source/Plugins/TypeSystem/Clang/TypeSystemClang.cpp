@@ -1294,6 +1294,11 @@ CompilerType TypeSystemClang::CreateRecordType(
   bool has_name = !name.empty();
   CXXRecordDecl *decl = CXXRecordDecl::CreateDeserialized(ast, 0);
   decl->setTagKind(static_cast<TagDecl::TagKind>(kind));
+
+  // If we're going to link the new decl to a parent DeclContext
+  // they better live in the same AST.
+  assert(&decl_ctx->getParentASTContext() == &ast);
+
   decl->setDeclContext(decl_ctx);
   if (has_name)
     decl->setDeclName(&ast.Idents.get(name));
@@ -1465,6 +1470,11 @@ clang::FunctionTemplateDecl *TypeSystemClang::CreateFunctionTemplateDecl(
       ast, template_param_infos, template_param_decls);
   FunctionTemplateDecl *func_tmpl_decl =
       FunctionTemplateDecl::CreateDeserialized(ast, 0);
+
+  // If we're going to link the new decl to a parent DeclContext
+  // they better live in the same AST.
+  assert(&decl_ctx->getParentASTContext() == &ast);
+
   func_tmpl_decl->setDeclContext(decl_ctx);
   func_tmpl_decl->setLocation(func_decl->getLocation());
   func_tmpl_decl->setDeclName(func_decl->getDeclName());
@@ -1628,6 +1638,8 @@ ClassTemplateDecl *TypeSystemClang::CreateClassTemplateDecl(
 
   CXXRecordDecl *template_cxx_decl = CXXRecordDecl::CreateDeserialized(ast, 0);
   template_cxx_decl->setTagKind(static_cast<TagDecl::TagKind>(kind));
+
+  assert(&decl_ctx->getParentASTContext() == &ast);
   // What decl context do we use here? TU? The actual decl context?
   template_cxx_decl->setDeclContext(decl_ctx);
   template_cxx_decl->setDeclName(decl_name);
@@ -1644,6 +1656,8 @@ ClassTemplateDecl *TypeSystemClang::CreateClassTemplateDecl(
   // template_cxx_decl->completeDefinition();
 
   class_template_decl = ClassTemplateDecl::CreateDeserialized(ast, 0);
+
+  assert(&decl_ctx->getParentASTContext() == &ast);
   // What decl context do we use here? TU? The actual decl context?
   class_template_decl->setDeclContext(decl_ctx);
   class_template_decl->setDeclName(decl_name);
@@ -1706,6 +1720,7 @@ TypeSystemClang::CreateClassTemplateSpecializationDecl(
       ClassTemplateSpecializationDecl::CreateDeserialized(ast, 0);
   class_template_specialization_decl->setTagKind(
       static_cast<TagDecl::TagKind>(kind));
+  assert(&decl_ctx->getParentASTContext() == &ast);
   class_template_specialization_decl->setDeclContext(decl_ctx);
   class_template_specialization_decl->setInstantiationOf(class_template_decl);
   class_template_specialization_decl->setTemplateArgs(
@@ -1854,6 +1869,7 @@ CompilerType TypeSystemClang::CreateObjCClass(
     decl_ctx = ast.getTranslationUnitDecl();
 
   ObjCInterfaceDecl *decl = ObjCInterfaceDecl::CreateDeserialized(ast, 0);
+  assert(&decl_ctx->getParentASTContext() == &ast);
   decl->setDeclContext(decl_ctx);
   decl->setDeclName(&ast.Idents.get(name));
   /*isForwardDecl,*/
@@ -2191,6 +2207,7 @@ FunctionDecl *TypeSystemClang::CreateFunctionDeclaration(
   clang::DeclarationName declarationName =
       GetDeclarationName(name, function_clang_type);
   func_decl = FunctionDecl::CreateDeserialized(ast, 0);
+  assert(&decl_ctx->getParentASTContext() == &ast);
   func_decl->setDeclContext(decl_ctx);
   func_decl->setDeclName(declarationName);
   func_decl->setType(ClangUtil::GetQualType(function_clang_type));
@@ -2252,6 +2269,7 @@ ParmVarDecl *TypeSystemClang::CreateParameterDeclaration(
     bool add_decl) {
   ASTContext &ast = getASTContext();
   auto *decl = ParmVarDecl::CreateDeserialized(ast, 0);
+  assert(&decl_ctx->getParentASTContext() == &ast);
   decl->setDeclContext(decl_ctx);
   if (name && name[0])
     decl->setDeclName(&ast.Idents.get(name));
@@ -2355,6 +2373,7 @@ CompilerType TypeSystemClang::CreateEnumerationType(
   // TODO: ask about these...
   //    const bool IsFixed = false;
   EnumDecl *enum_decl = EnumDecl::CreateDeserialized(ast, 0);
+  assert(&decl_ctx->getParentASTContext() == &ast);
   enum_decl->setDeclContext(decl_ctx);
   if (!name.empty())
     enum_decl->setDeclName(&ast.Idents.get(name));
@@ -4656,6 +4675,7 @@ CompilerType TypeSystemClang::CreateTypedef(
 
     clang::TypedefDecl *decl =
         clang::TypedefDecl::CreateDeserialized(clang_ast, 0);
+    assert(&decl_ctx->getParentASTContext() == &ast);
     decl->setDeclContext(decl_ctx);
     decl->setDeclName(&clang_ast.Idents.get(typedef_name));
     decl->setTypeSourceInfo(clang_ast.getTrivialTypeSourceInfo(qual_type));

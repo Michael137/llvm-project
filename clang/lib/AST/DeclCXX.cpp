@@ -1953,6 +1953,7 @@ CXXDestructorDecl *CXXRecordDecl::getDestructor() const {
             __func__, this, thisName, Name.getAsString(),
             clang::getASTContextName(&Context));
 
+  //DeclContext::lookup_result R = const_cast<CXXRecordDecl*>(this)->noload_lookup(Name);
   DeclContext::lookup_result R = lookup(Name);
 
   // If a destructor was marked as not selected, we skip it. We don't always

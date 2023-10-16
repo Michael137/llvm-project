@@ -919,10 +919,329 @@ ConvertDWARFCallingConventionToClang(const ParsedDWARFTypeAttributes &attrs) {
   return clang::CC_C;
 }
 
-TypeSP DWARFASTParserClang::ParseSubroutine(const DWARFDIE &die,
-                           ParsedDWARFTypeAttributes &attrs) {
-  Log *log = GetLog(DWARFLog::TypeCompletion | DWARFLog::Lookups);
+bool DWARFASTParserClang::LinkObjCMethodToDeclContext(
+    DWARFDIE const &die, llvm::StringRef class_name, SymbolFileDWARF *dwarf,
+    ParsedDWARFTypeAttributes &attrs, CompilerType const &clang_type,
+    bool is_variadic) {
+  CompilerType class_opaque_type;
+  if (class_name.empty())
+    return false;
 
+  TypeSP complete_objc_class_type_sp(
+      dwarf->FindCompleteObjCDefinitionTypeForDIE(
+          DWARFDIE(), ConstString(class_name), false));
+  if (!complete_objc_class_type_sp)
+    return false;
+
+  CompilerType type_clang_forward_type =
+      complete_objc_class_type_sp->GetForwardCompilerType();
+  if (!TypeSystemClang::IsObjCObjectOrInterfaceType(type_clang_forward_type))
+    return false;
+
+  class_opaque_type = type_clang_forward_type;
+
+  if (class_opaque_type.IsValid())
+    return false;
+
+  if (attrs.accessibility == eAccessNone)
+    attrs.accessibility = eAccessPublic;
+
+  clang::ObjCMethodDecl *objc_method_decl = m_ast.AddMethodToObjCObjectType(
+      class_opaque_type, attrs.name.GetCString(), clang_type,
+      attrs.accessibility, attrs.is_artificial, is_variadic,
+      attrs.is_objc_direct_call);
+
+  if (!objc_method_decl) {
+    const auto tag = die.Tag();
+    dwarf->GetObjectFile()->GetModule()->ReportError(
+        "[{0:x16}]: invalid Objective-C method {1:x4} ({2}), "
+        "please file a bug and attach the file at the start of "
+        "this error message",
+        die.GetOffset(), tag, DW_TAG_value_to_name(tag));
+
+    return false;
+  }
+
+  LinkDeclContextToDIE(objc_method_decl, die);
+  m_ast.SetMetadataAsUserID(objc_method_decl, die.GetID());
+
+  return true;
+}
+
+std::pair<TypeSP, bool> ForceCompletionOfMethodParent(Type &class_type,
+                                                      SymbolFileDWARF &dwarf,
+                                                      DWARFDIE const &die) {
+  // We were asked to parse the type for a method in a
+  // class, yet the class hasn't been asked to complete
+  // itself through the clang::ExternalASTSource protocol,
+  // so we need to just have the class complete itself and
+  // do things the right way, then our
+  // DIE should then have an entry in the
+  // dwarf->GetDIEToType() map. First
+  // we need to modify the dwarf->GetDIEToType() so it
+  // doesn't think we are trying to parse this DIE
+  // anymore...
+  dwarf.GetDIEToType()[die.GetDIE()] = NULL;
+
+  // Now we get the full type to force our class type to
+  // complete itself using the clang::ExternalASTSource
+  // protocol which will parse all base classes and all
+  // methods (including the method for this DIE).
+  class_type.GetFullCompilerType();
+
+  // The type for this DIE should have been filled in the
+  // function call above.
+  Type *type_ptr = dwarf.GetDIEToType()[die.GetDIE()];
+  if (type_ptr && type_ptr != DIE_IS_BEING_PARSED) {
+    return {type_ptr->shared_from_this(), true};
+  }
+
+  // The previous comment isn't actually true if the class wasn't
+  // resolved using the current method's parent DIE as source
+  // data. We need to ensure that we look up the method correctly
+  // in the class and then link the method's DIE to the unique
+  // CXXMethodDecl appropriately.
+  return {nullptr, true};
+}
+
+std::pair<TypeSP, bool> DWARFASTParserClang::LinkCXXFunctionToDeclContext(
+    Type &class_type, SymbolFileDWARF &dwarf, bool is_static,
+    DWARFDIE const &die, ParsedDWARFTypeAttributes &attrs,
+    CompilerType const &clang_type, std::string const &object_pointer_name,
+    bool &ignore_containing_context) {
+  Log *log = GetLog(DWARFLog::TypeCompletion | DWARFLog::Lookups);
+  CompilerType class_opaque_type = class_type.GetForwardCompilerType();
+  if (!TypeSystemClang::IsCXXClassType(class_opaque_type))
+    return {nullptr, false};
+
+  if (!class_opaque_type.IsBeingDefined())
+    return ForceCompletionOfMethodParent(class_type, dwarf, die);
+
+  if (!is_static && !die.HasChildren())
+    // We have a C++ member function with no children (this
+    // pointer!) and clang will get mad if we try and make
+    // a function that isn't well formed in the DWARF, so
+    // we will just skip it...
+    return {nullptr, true};
+
+  llvm::PrettyStackTraceFormat stack_trace(
+      "SymbolFileDWARF::ParseType() is adding a method "
+      "%s to class %s in DIE 0x%8.8" PRIx64 " from %s",
+      attrs.name.GetCString(), class_type.GetName().GetCString(), die.GetID(),
+      dwarf.GetObjectFile()->GetFileSpec().GetPath().c_str());
+
+  const bool is_attr_used = false;
+  // Neither GCC 4.2 nor clang++ currently set a valid
+  // accessibility in the DWARF for C++ methods...
+  // Default to public for now...
+  if (attrs.accessibility == eAccessNone)
+    attrs.accessibility = eAccessPublic;
+
+  clang::CXXMethodDecl *cxx_method_decl = m_ast.AddMethodToCXXRecordType(
+      class_opaque_type.GetOpaqueQualType(), attrs.name.GetCString(),
+      attrs.mangled_name, clang_type, attrs.accessibility, attrs.is_virtual,
+      is_static, attrs.is_inline, attrs.is_explicit, is_attr_used,
+      attrs.is_artificial);
+
+  if (!cxx_method_decl) {
+    // Artificial methods are always handled even when we
+    // don't create a new declaration for them.
+    ignore_containing_context = true;
+    return {nullptr, attrs.is_artificial};
+  }
+
+  LinkDeclContextToDIE(cxx_method_decl, die);
+
+  ClangASTMetadata metadata;
+  metadata.SetUserID(die.GetID());
+
+  if (!object_pointer_name.empty()) {
+    metadata.SetObjectPtrName(object_pointer_name.c_str());
+    LLDB_LOGF(log,
+              "Setting object pointer name: %s on method "
+              "object %p.\n",
+              object_pointer_name.c_str(),
+              static_cast<void *>(cxx_method_decl));
+  }
+  m_ast.SetMetadata(cxx_method_decl, metadata);
+
+  return {nullptr, true};
+}
+
+std::pair<TypeSP, bool> DWARFASTParserClang::LinkCXXMethodToDeclContext(
+    DWARFDIE const &die, ParsedDWARFTypeAttributes &attrs,
+    SymbolFileDWARF *dwarf, DWARFDIE const &decl_ctx_die, bool is_static,
+    CompilerType const &clang_type, std::string const &object_pointer_name,
+    bool &ignore_containing_context) {
+  // Look at the parent of this DIE and see if it is a class or
+  // struct and see if this is actually a C++ method
+  Type *class_type = dwarf->ResolveType(decl_ctx_die);
+  if (!class_type)
+    return {};
+
+  if (class_type->GetID() != decl_ctx_die.GetID() ||
+      IsClangModuleFwdDecl(decl_ctx_die)) {
+    // We uniqued the parent class of this function to another
+    // class so we now need to associate all dies under
+    // "decl_ctx_die" to DIEs in the DIE for "class_type"...
+    DWARFDIE class_type_die = dwarf->GetDIE(class_type->GetID());
+
+    if (class_type_die) {
+      std::vector<DWARFDIE> failures;
+
+      CopyUniqueClassMethodTypes(decl_ctx_die, class_type_die, class_type,
+                                 failures);
+
+      // FIXME do something with these failures that's
+      // smarter than just dropping them on the ground.
+      // Unfortunately classes don't like having stuff added
+      // to them after their definitions are complete...
+
+      Type *type_ptr = dwarf->GetDIEToType()[die.GetDIE()];
+      if (type_ptr && type_ptr != DIE_IS_BEING_PARSED) {
+        return {type_ptr->shared_from_this(), true};
+      }
+    }
+  }
+
+  if (!attrs.specification.IsValid() && !attrs.abstract_origin.IsValid())
+    return LinkCXXFunctionToDeclContext(*class_type, *dwarf, is_static, die,
+                                        attrs, clang_type, object_pointer_name,
+                                        ignore_containing_context);
+
+  if (attrs.specification.IsValid()) {
+    // We have a specification which we are going to base our
+    // function prototype off of, so we need this type to be
+    // completed so that the m_die_to_decl_ctx for the method in
+    // the specification has a valid clang decl context.
+    class_type->GetForwardCompilerType();
+    // If we have a specification, then the function type should
+    // have been made with the specification and not with this
+    // die.
+    DWARFDIE spec_die = attrs.specification.Reference();
+    clang::DeclContext *spec_clang_decl_ctx =
+        GetClangDeclContextForDIE(spec_die);
+    if (spec_clang_decl_ctx) {
+      LinkDeclContextToDIE(spec_clang_decl_ctx, die);
+    } else {
+      dwarf->GetObjectFile()->GetModule()->ReportWarning(
+          "{0:x8}: DW_AT_specification({1:x16}"
+          ") has no decl\n",
+          die.GetID(), spec_die.GetOffset());
+    }
+  } else if (attrs.abstract_origin.IsValid()) {
+    // We have a specification which we are going to base our
+    // function prototype off of, so we need this type to be
+    // completed so that the m_die_to_decl_ctx for the method in
+    // the abstract origin has a valid clang decl context.
+    class_type->GetForwardCompilerType();
+
+    DWARFDIE abs_die = attrs.abstract_origin.Reference();
+    clang::DeclContext *abs_clang_decl_ctx = GetClangDeclContextForDIE(abs_die);
+    if (abs_clang_decl_ctx) {
+      LinkDeclContextToDIE(abs_clang_decl_ctx, die);
+    } else {
+      dwarf->GetObjectFile()->GetModule()->ReportWarning(
+          "{0:x8}: DW_AT_abstract_origin({1:x16}"
+          ") has no decl\n",
+          die.GetID(), abs_die.GetOffset());
+    }
+  }
+
+  return {nullptr, true};
+}
+
+clang::FunctionDecl *DWARFASTParserClang::CreateFunctionDecl(
+    DWARFDIE const &die, ParsedDWARFTypeAttributes const &attrs,
+    bool ignore_containing_context, clang::DeclContext *containing_decl_ctx,
+    CompilerType const &clang_type, bool has_template_params,
+    std::vector<clang::ParmVarDecl *> function_param_decls,
+    std::string const &object_pointer_name) {
+  Log *log = GetLog(DWARFLog::TypeCompletion | DWARFLog::Lookups);
+  char *name_buf = nullptr;
+  llvm::StringRef name = attrs.name.GetStringRef();
+
+  // We currently generate function templates with template parameters in
+  // their name. In order to get closer to the AST that clang generates
+  // we want to strip these from the name when creating the AST.
+  if (attrs.mangled_name) {
+    llvm::ItaniumPartialDemangler D;
+    if (!D.partialDemangle(attrs.mangled_name)) {
+      name_buf = D.getFunctionBaseName(nullptr, nullptr);
+      name = name_buf;
+    }
+  }
+
+  // We just have a function that isn't part of a class
+  clang::FunctionDecl *function_decl = m_ast.CreateFunctionDeclaration(
+      ignore_containing_context ? m_ast.GetTranslationUnitDecl()
+                                : containing_decl_ctx,
+      GetOwningClangModule(die), name, clang_type, attrs.storage,
+      attrs.is_inline);
+  std::free(name_buf);
+
+  clang::FunctionDecl *template_function_decl = nullptr;
+  if (has_template_params) {
+    TypeSystemClang::TemplateParameterInfos template_param_infos;
+    ParseTemplateParameterInfos(die, template_param_infos);
+    template_function_decl = m_ast.CreateFunctionDeclaration(
+        ignore_containing_context ? m_ast.GetTranslationUnitDecl()
+                                  : containing_decl_ctx,
+        GetOwningClangModule(die), attrs.name.GetStringRef(), clang_type,
+        attrs.storage, attrs.is_inline);
+    clang::FunctionTemplateDecl *func_template_decl =
+        m_ast.CreateFunctionTemplateDecl(
+            containing_decl_ctx, GetOwningClangModule(die),
+            template_function_decl, template_param_infos);
+    m_ast.CreateFunctionTemplateSpecializationInfo(
+        template_function_decl, func_template_decl, template_param_infos);
+  }
+
+  lldbassert(function_decl);
+
+  if (function_decl) {
+    // Attach an asm(<mangled_name>) label to the FunctionDecl.
+    // This ensures that clang::CodeGen emits function calls
+    // using symbols that are mangled according to the DW_AT_linkage_name.
+    // If we didn't do this, the external symbols wouldn't exactly
+    // match the mangled name LLDB knows about and the IRExecutionUnit
+    // would have to fall back to searching object files for
+    // approximately matching function names. The motivating
+    // example is generating calls to ABI-tagged template functions.
+    // This is done separately for member functions in
+    // AddMethodToCXXRecordType.
+    if (attrs.mangled_name)
+      function_decl->addAttr(clang::AsmLabelAttr::CreateImplicit(
+          m_ast.getASTContext(), attrs.mangled_name, /*literal=*/false));
+
+    LinkDeclContextToDIE(function_decl, die);
+
+    if (!function_param_decls.empty()) {
+      m_ast.SetFunctionParameters(function_decl, function_param_decls);
+      if (template_function_decl)
+        m_ast.SetFunctionParameters(template_function_decl,
+                                    function_param_decls);
+    }
+
+    ClangASTMetadata metadata;
+    metadata.SetUserID(die.GetID());
+
+    if (!object_pointer_name.empty()) {
+      metadata.SetObjectPtrName(object_pointer_name.c_str());
+      LLDB_LOGF(log,
+                "Setting object pointer name: %s on function "
+                "object %p.",
+                object_pointer_name.c_str(),
+                static_cast<void *>(function_decl));
+    }
+    m_ast.SetMetadata(function_decl, metadata);
+  }
+
+  return function_decl;
+}
+
+TypeSP DWARFASTParserClang::ParseSubroutine(const DWARFDIE &die,
+                                            ParsedDWARFTypeAttributes &attrs) {
   SymbolFileDWARF *dwarf = die.GetDWARF();
   const dw_tag_t tag = die.Tag();
 
@@ -1006,223 +1325,32 @@ TypeSP DWARFASTParserClang::ParseSubroutine(const DWARFDIE &die,
                                function_param_types.size(), is_variadic,
                                type_quals, calling_convention, attrs.ref_qual);
 
+  // Steps we take:
+  // 1. Objc/CXX (non-templates): create function type in AST
+  // 2. Link DIE and decl-context/set metadata
+  // 3. Create FunctionDecl
+  // 4. dwarf->MakeType(clang_type)
+
   if (attrs.name) {
-    bool type_handled = false;
+    std::pair<TypeSP, bool> handled_type;
     if (tag == DW_TAG_subprogram || tag == DW_TAG_inlined_subroutine) {
       std::optional<const ObjCLanguage::MethodName> objc_method =
           ObjCLanguage::MethodName::Create(attrs.name.GetStringRef(), true);
-      if (objc_method) {
-        CompilerType class_opaque_type;
-        ConstString class_name(objc_method->GetClassName());
-        if (class_name) {
-          TypeSP complete_objc_class_type_sp(
-              dwarf->FindCompleteObjCDefinitionTypeForDIE(DWARFDIE(),
-                                                          class_name, false));
-
-          if (complete_objc_class_type_sp) {
-            CompilerType type_clang_forward_type =
-                complete_objc_class_type_sp->GetForwardCompilerType();
-            if (TypeSystemClang::IsObjCObjectOrInterfaceType(
-                    type_clang_forward_type))
-              class_opaque_type = type_clang_forward_type;
-          }
-        }
-
-        if (class_opaque_type) {
-          // If accessibility isn't set to anything valid, assume public
-          // for now...
-          if (attrs.accessibility == eAccessNone)
-            attrs.accessibility = eAccessPublic;
-
-          clang::ObjCMethodDecl *objc_method_decl =
-              m_ast.AddMethodToObjCObjectType(
-                  class_opaque_type, attrs.name.GetCString(), clang_type,
-                  attrs.accessibility, attrs.is_artificial, is_variadic,
-                  attrs.is_objc_direct_call);
-          type_handled = objc_method_decl != nullptr;
-          if (type_handled) {
-            LinkDeclContextToDIE(objc_method_decl, die);
-            m_ast.SetMetadataAsUserID(objc_method_decl, die.GetID());
-          } else {
-            dwarf->GetObjectFile()->GetModule()->ReportError(
-                "[{0:x16}]: invalid Objective-C method {1:x4} ({2}), "
-                "please file a bug and attach the file at the start of "
-                "this error message",
-                die.GetOffset(), tag, DW_TAG_value_to_name(tag));
-          }
-        }
-      } else if (is_cxx_method) {
-        // Look at the parent of this DIE and see if it is a class or
-        // struct and see if this is actually a C++ method
-        Type *class_type = dwarf->ResolveType(decl_ctx_die);
-        if (class_type) {
-          if (class_type->GetID() != decl_ctx_die.GetID() ||
-              IsClangModuleFwdDecl(decl_ctx_die)) {
-
-            // We uniqued the parent class of this function to another
-            // class so we now need to associate all dies under
-            // "decl_ctx_die" to DIEs in the DIE for "class_type"...
-            DWARFDIE class_type_die = dwarf->GetDIE(class_type->GetID());
-
-            if (class_type_die) {
-              std::vector<DWARFDIE> failures;
-
-              CopyUniqueClassMethodTypes(decl_ctx_die, class_type_die,
-                                         class_type, failures);
-
-              // FIXME do something with these failures that's
-              // smarter than just dropping them on the ground.
-              // Unfortunately classes don't like having stuff added
-              // to them after their definitions are complete...
-
-              Type *type_ptr = dwarf->GetDIEToType()[die.GetDIE()];
-              if (type_ptr && type_ptr != DIE_IS_BEING_PARSED) {
-                return type_ptr->shared_from_this();
-              }
-            }
-          }
-
-          if (attrs.specification.IsValid()) {
-            // We have a specification which we are going to base our
-            // function prototype off of, so we need this type to be
-            // completed so that the m_die_to_decl_ctx for the method in
-            // the specification has a valid clang decl context.
-            class_type->GetForwardCompilerType();
-            // If we have a specification, then the function type should
-            // have been made with the specification and not with this
-            // die.
-            DWARFDIE spec_die = attrs.specification.Reference();
-            clang::DeclContext *spec_clang_decl_ctx =
-                GetClangDeclContextForDIE(spec_die);
-            if (spec_clang_decl_ctx) {
-              LinkDeclContextToDIE(spec_clang_decl_ctx, die);
-            } else {
-              dwarf->GetObjectFile()->GetModule()->ReportWarning(
-                  "{0:x8}: DW_AT_specification({1:x16}"
-                  ") has no decl\n",
-                  die.GetID(), spec_die.GetOffset());
-            }
-            type_handled = true;
-          } else if (attrs.abstract_origin.IsValid()) {
-            // We have a specification which we are going to base our
-            // function prototype off of, so we need this type to be
-            // completed so that the m_die_to_decl_ctx for the method in
-            // the abstract origin has a valid clang decl context.
-            class_type->GetForwardCompilerType();
-
-            DWARFDIE abs_die = attrs.abstract_origin.Reference();
-            clang::DeclContext *abs_clang_decl_ctx =
-                GetClangDeclContextForDIE(abs_die);
-            if (abs_clang_decl_ctx) {
-              LinkDeclContextToDIE(abs_clang_decl_ctx, die);
-            } else {
-              dwarf->GetObjectFile()->GetModule()->ReportWarning(
-                  "{0:x8}: DW_AT_abstract_origin({1:x16}"
-                  ") has no decl\n",
-                  die.GetID(), abs_die.GetOffset());
-            }
-            type_handled = true;
-          } else {
-            CompilerType class_opaque_type =
-                class_type->GetForwardCompilerType();
-            if (TypeSystemClang::IsCXXClassType(class_opaque_type)) {
-              if (class_opaque_type.IsBeingDefined()) {
-                if (!is_static && !die.HasChildren()) {
-                  // We have a C++ member function with no children (this
-                  // pointer!) and clang will get mad if we try and make
-                  // a function that isn't well formed in the DWARF, so
-                  // we will just skip it...
-                  type_handled = true;
-                } else {
-                  llvm::PrettyStackTraceFormat stack_trace(
-                      "SymbolFileDWARF::ParseType() is adding a method "
-                      "%s to class %s in DIE 0x%8.8" PRIx64 " from %s",
-                      attrs.name.GetCString(),
-                      class_type->GetName().GetCString(), die.GetID(),
-                      dwarf->GetObjectFile()->GetFileSpec().GetPath().c_str());
-
-                  const bool is_attr_used = false;
-                  // Neither GCC 4.2 nor clang++ currently set a valid
-                  // accessibility in the DWARF for C++ methods...
-                  // Default to public for now...
-                  if (attrs.accessibility == eAccessNone)
-                    attrs.accessibility = eAccessPublic;
-
-                  clang::CXXMethodDecl *cxx_method_decl =
-                      m_ast.AddMethodToCXXRecordType(
-                          class_opaque_type.GetOpaqueQualType(),
-                          attrs.name.GetCString(), attrs.mangled_name,
-                          clang_type, attrs.accessibility, attrs.is_virtual,
-                          is_static, attrs.is_inline, attrs.is_explicit,
-                          is_attr_used, attrs.is_artificial);
-
-                  type_handled = cxx_method_decl != nullptr;
-                  // Artificial methods are always handled even when we
-                  // don't create a new declaration for them.
-                  type_handled |= attrs.is_artificial;
-
-                  if (cxx_method_decl) {
-                    LinkDeclContextToDIE(cxx_method_decl, die);
-
-                    ClangASTMetadata metadata;
-                    metadata.SetUserID(die.GetID());
-
-                    if (!object_pointer_name.empty()) {
-                      metadata.SetObjectPtrName(object_pointer_name.c_str());
-                      LLDB_LOGF(log,
-                                "Setting object pointer name: %s on method "
-                                "object %p.\n",
-                                object_pointer_name.c_str(),
-                                static_cast<void *>(cxx_method_decl));
-                    }
-                    m_ast.SetMetadata(cxx_method_decl, metadata);
-                  } else {
-                    ignore_containing_context = true;
-                  }
-                }
-              } else {
-                // We were asked to parse the type for a method in a
-                // class, yet the class hasn't been asked to complete
-                // itself through the clang::ExternalASTSource protocol,
-                // so we need to just have the class complete itself and
-                // do things the right way, then our
-                // DIE should then have an entry in the
-                // dwarf->GetDIEToType() map. First
-                // we need to modify the dwarf->GetDIEToType() so it
-                // doesn't think we are trying to parse this DIE
-                // anymore...
-                dwarf->GetDIEToType()[die.GetDIE()] = NULL;
-
-                // Now we get the full type to force our class type to
-                // complete itself using the clang::ExternalASTSource
-                // protocol which will parse all base classes and all
-                // methods (including the method for this DIE).
-                class_type->GetFullCompilerType();
-
-                // The type for this DIE should have been filled in the
-                // function call above.
-                Type *type_ptr = dwarf->GetDIEToType()[die.GetDIE()];
-                if (type_ptr && type_ptr != DIE_IS_BEING_PARSED) {
-                  return type_ptr->shared_from_this();
-                }
-
-                // The previous comment isn't actually true if the class wasn't
-                // resolved using the current method's parent DIE as source
-                // data. We need to ensure that we look up the method correctly
-                // in the class and then link the method's DIE to the unique
-                // CXXMethodDecl appropriately.
-                type_handled = true;
-              }
-            }
-          }
-        }
-      }
+      if (objc_method)
+        handled_type.second =
+            LinkObjCMethodToDeclContext(die, objc_method->GetClassName(), dwarf,
+                                        attrs, clang_type, is_variadic);
+      else if (is_cxx_method)
+        handled_type = LinkCXXMethodToDeclContext(
+            die, attrs, dwarf, decl_ctx_die, is_static, clang_type,
+            object_pointer_name, ignore_containing_context);
     }
 
-    if (!type_handled) {
-      clang::FunctionDecl *function_decl = nullptr;
-      clang::FunctionDecl *template_function_decl = nullptr;
+    if (handled_type.first != nullptr)
+      return handled_type.first;
 
+    if (!handled_type.second) {
+      clang::FunctionDecl *function_decl = nullptr;
       if (attrs.abstract_origin.IsValid()) {
         DWARFDIE abs_die = attrs.abstract_origin.Reference();
 
@@ -1236,85 +1364,11 @@ TypeSP DWARFASTParserClang::ParseSubroutine(const DWARFDIE &die,
         }
       }
 
-      if (!function_decl) {
-        char *name_buf = nullptr;
-        llvm::StringRef name = attrs.name.GetStringRef();
-
-        // We currently generate function templates with template parameters in
-        // their name. In order to get closer to the AST that clang generates
-        // we want to strip these from the name when creating the AST.
-        if (attrs.mangled_name) {
-          llvm::ItaniumPartialDemangler D;
-          if (!D.partialDemangle(attrs.mangled_name)) {
-            name_buf = D.getFunctionBaseName(nullptr, nullptr);
-            name = name_buf;
-          }
-        }
-
-        // We just have a function that isn't part of a class
-        function_decl = m_ast.CreateFunctionDeclaration(
-            ignore_containing_context ? m_ast.GetTranslationUnitDecl()
-                                      : containing_decl_ctx,
-            GetOwningClangModule(die), name, clang_type, attrs.storage,
-            attrs.is_inline);
-        std::free(name_buf);
-
-        if (has_template_params) {
-          TypeSystemClang::TemplateParameterInfos template_param_infos;
-          ParseTemplateParameterInfos(die, template_param_infos);
-          template_function_decl = m_ast.CreateFunctionDeclaration(
-              ignore_containing_context ? m_ast.GetTranslationUnitDecl()
-                                        : containing_decl_ctx,
-              GetOwningClangModule(die), attrs.name.GetStringRef(), clang_type,
-              attrs.storage, attrs.is_inline);
-          clang::FunctionTemplateDecl *func_template_decl =
-              m_ast.CreateFunctionTemplateDecl(
-                  containing_decl_ctx, GetOwningClangModule(die),
-                  template_function_decl, template_param_infos);
-          m_ast.CreateFunctionTemplateSpecializationInfo(
-              template_function_decl, func_template_decl, template_param_infos);
-        }
-
-        lldbassert(function_decl);
-
-        if (function_decl) {
-          // Attach an asm(<mangled_name>) label to the FunctionDecl.
-          // This ensures that clang::CodeGen emits function calls
-          // using symbols that are mangled according to the DW_AT_linkage_name.
-          // If we didn't do this, the external symbols wouldn't exactly
-          // match the mangled name LLDB knows about and the IRExecutionUnit
-          // would have to fall back to searching object files for
-          // approximately matching function names. The motivating
-          // example is generating calls to ABI-tagged template functions.
-          // This is done separately for member functions in
-          // AddMethodToCXXRecordType.
-          if (attrs.mangled_name)
-            function_decl->addAttr(clang::AsmLabelAttr::CreateImplicit(
-                m_ast.getASTContext(), attrs.mangled_name, /*literal=*/false));
-
-          LinkDeclContextToDIE(function_decl, die);
-
-          if (!function_param_decls.empty()) {
-            m_ast.SetFunctionParameters(function_decl, function_param_decls);
-            if (template_function_decl)
-              m_ast.SetFunctionParameters(template_function_decl,
-                                          function_param_decls);
-          }
-
-          ClangASTMetadata metadata;
-          metadata.SetUserID(die.GetID());
-
-          if (!object_pointer_name.empty()) {
-            metadata.SetObjectPtrName(object_pointer_name.c_str());
-            LLDB_LOGF(log,
-                      "Setting object pointer name: %s on function "
-                      "object %p.",
-                      object_pointer_name.c_str(),
-                      static_cast<void *>(function_decl));
-          }
-          m_ast.SetMetadata(function_decl, metadata);
-        }
-      }
+      if (!function_decl)
+        function_decl = CreateFunctionDecl(
+            die, attrs, ignore_containing_context, containing_decl_ctx,
+            clang_type, has_template_params, function_param_decls,
+            object_pointer_name);
     }
   }
   return dwarf->MakeType(

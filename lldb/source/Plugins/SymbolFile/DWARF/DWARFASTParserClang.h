@@ -372,6 +372,37 @@ private:
                        lldb_private::CompilerType &class_clang_type,
                        const lldb::AccessType default_accesibility,
                        lldb_private::ClangASTImporter::LayoutInfo &layout_info);
+
+  bool LinkObjCMethodToDeclContext(
+      lldb_private::plugin::dwarf::DWARFDIE const &die,
+      llvm::StringRef class_name,
+      lldb_private::plugin::dwarf::SymbolFileDWARF *dwarf,
+      ParsedDWARFTypeAttributes &attrs,
+      lldb_private::CompilerType const &clang_type, bool is_variadic);
+
+  std::pair<lldb::TypeSP, bool> LinkCXXMethodToDeclContext(
+      lldb_private::plugin::dwarf::DWARFDIE const &die,
+      ParsedDWARFTypeAttributes &attrs,
+      lldb_private::plugin::dwarf::SymbolFileDWARF *dwarf,
+      lldb_private::plugin::dwarf::DWARFDIE const &decl_ctx_die, bool is_static,
+      lldb_private::CompilerType const &clang_type,
+      std::string const &object_pointer_name, bool &ignore_containing_context);
+
+  std::pair<lldb::TypeSP, bool> LinkCXXFunctionToDeclContext(
+      lldb_private::Type &class_type,
+      lldb_private::plugin::dwarf::SymbolFileDWARF &dwarf, bool is_static,
+      lldb_private::plugin::dwarf::DWARFDIE const &die,
+      ParsedDWARFTypeAttributes &attrs,
+      lldb_private::CompilerType const &clang_type,
+      std::string const &object_pointer_name, bool &ignore_containing_context);
+
+  clang::FunctionDecl *CreateFunctionDecl(
+      lldb_private::plugin::dwarf::DWARFDIE const &die,
+      ParsedDWARFTypeAttributes const &attrs, bool ignore_containing_context,
+      clang::DeclContext *containing_decl_ctx,
+      lldb_private::CompilerType const &clang_type, bool has_template_params,
+      std::vector<clang::ParmVarDecl *> function_param_decls,
+      std::string const &object_pointer_name);
 };
 
 /// Parsed form of all attributes that are relevant for type reconstruction.

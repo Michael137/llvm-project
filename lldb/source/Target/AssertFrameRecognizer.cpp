@@ -34,21 +34,35 @@ struct SymbolLocation {
 /// \return
 ///    \b true, if the platform is supported
 ///    \b false, otherwise.
-bool GetAbortLocation(llvm::Triple::OSType os, SymbolLocation &location) {
+bool GetAbortLocation(llvm::Triple::OSType os,
+                      std::vector<SymbolLocation> &locations) {
   switch (os) {
   case llvm::Triple::Darwin:
-  case llvm::Triple::MacOSX:
-    location.module_spec = FileSpec("libsystem_kernel.dylib");
-    location.symbols.push_back(ConstString("__pthread_kill"));
-    break;
-  case llvm::Triple::Linux:
+  case llvm::Triple::MacOSX: {
+    {
+      SymbolLocation location;
+      location.module_spec = FileSpec("libsystem_kernel.dylib");
+      location.symbols.push_back(ConstString("__pthread_kill"));
+      locations.push_back(std::move(location));
+    }
+
+    {
+      SymbolLocation location;
+      location.module_spec = FileSpec("libsystem_pthread.dylib");
+      location.symbols.push_back(ConstString("__pthread_kill"));
+      locations.push_back(std::move(location));
+    }
+  } break;
+  case llvm::Triple::Linux: {
+    SymbolLocation location;
     location.module_spec = FileSpec("libc.so.6");
     location.symbols.push_back(ConstString("raise"));
     location.symbols.push_back(ConstString("__GI_raise"));
     location.symbols.push_back(ConstString("gsignal"));
     location.symbols.push_back(ConstString("pthread_kill"));
     location.symbols_are_regex = true;
-    break;
+    locations.push_back(std::move(location));
+  } break;
   default:
     Log *log = GetLog(LLDBLog::Unwind);
     LLDB_LOG(log, "AssertFrameRecognizer::GetAbortLocation Unsupported OS");
@@ -88,14 +102,8 @@ bool GetAssertLocation(llvm::Triple::OSType os, SymbolLocation &location) {
   return true;
 }
 
-void RegisterAssertFrameRecognizer(Process *process) {
-  Target &target = process->GetTarget();
-  llvm::Triple::OSType os = target.GetArchitecture().GetTriple().getOS();
-  SymbolLocation location;
-
-  if (!GetAbortLocation(os, location))
-    return;
-
+void AddRecognizerForSingleLocation(Target &target,
+                                    SymbolLocation const &location) {
   if (!location.symbols_are_regex) {
     target.GetFrameRecognizerManager().AddRecognizer(
         std::make_shared<AssertFrameRecognizer>(),
@@ -124,6 +132,18 @@ void RegisterAssertFrameRecognizer(Process *process) {
       std::make_shared<RegularExpression>(std::move(module_re)),
       std::make_shared<RegularExpression>(std::move(symbol_re)),
       /*first_instruction_only*/ false);
+}
+
+void RegisterAssertFrameRecognizer(Process *process) {
+  Target &target = process->GetTarget();
+  llvm::Triple::OSType os = target.GetArchitecture().GetTriple().getOS();
+  std::vector<SymbolLocation> locations;
+
+  if (!GetAbortLocation(os, locations))
+    return;
+
+  for (auto const &location : locations)
+    AddRecognizerForSingleLocation(target, location);
 }
 
 } // namespace lldb_private

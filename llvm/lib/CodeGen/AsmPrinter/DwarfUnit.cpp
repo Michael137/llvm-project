@@ -1736,6 +1736,10 @@ DIE *DwarfUnit::getOrCreateStaticMemberDIE(const DIDerivedType *DT) {
     addUInt(StaticMemberDIE, dwarf::DW_AT_alignment, dwarf::DW_FORM_udata,
             AlignInBytes);
 
+  if (DT->isStaticInline()) {
+    DD->addAccelName(*CUNode, DT->getName(), StaticMemberDIE);
+  }
+
   return &StaticMemberDIE;
 }
 

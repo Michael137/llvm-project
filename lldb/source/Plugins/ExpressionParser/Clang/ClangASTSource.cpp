@@ -418,6 +418,7 @@ void ClangASTSource::FindExternalLexicalDecls(
     llvm::function_ref<bool(Decl::Kind)> predicate,
     llvm::SmallVectorImpl<Decl *> &decls) {
 
+  llvm::MapVector<int, int> v;
   std::shared_ptr<astutil::ScopedCounter> ASC_sp;
 
   Log *log = GetLog(LLDBLog::Expressions);

@@ -773,6 +773,7 @@ public:
   bool isVector() const { return getFlags() & FlagVector; }
   bool isBitField() const { return getFlags() & FlagBitField; }
   bool isStaticMember() const { return getFlags() & FlagStaticMember; }
+  bool isStaticInline() const { return getFlags() & FlagInlineDefined; }
   bool isLValueReference() const { return getFlags() & FlagLValueReference; }
   bool isRValueReference() const { return getFlags() & FlagRValueReference; }
   bool isTypePassByValue() const { return getFlags() & FlagTypePassByValue; }

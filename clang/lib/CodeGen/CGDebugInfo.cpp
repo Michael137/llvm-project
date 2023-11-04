@@ -1679,6 +1679,9 @@ CGDebugInfo::CreateRecordStaticField(const VarDecl *Var, llvm::DIType *RecordTy,
   StringRef VName = Var->getName();
 
   llvm::DINode::DIFlags Flags = getAccessFlag(Var->getAccess(), RD);
+  if (Var->isConstexpr())
+    Flags |= llvm::DINode::DIFlags::FlagConstantExpression;
+
   auto Tag = CGM.getCodeGenOpts().DwarfVersion >= 5
                  ? llvm::dwarf::DW_TAG_variable
                  : llvm::dwarf::DW_TAG_member;

@@ -1,4 +1,5 @@
-// RUN: %clangxx -target arm64-apple-macosx11.0.0 -g -gdwarf-4 %s -emit-llvm -S -o - | FileCheck --check-prefixes=CHECK %s
+// RUN: %clangxx -target arm64-apple-macosx11.0.0 -g -gdwarf-4 %s -emit-llvm -S -o - | FileCheck --check-prefixes=CHECK,DWARF4 %s
+// RUN: %clangxx -target arm64-apple-macosx11.0.0 -g -gdwarf-4 %s -emit-llvm -S -o - | FileCheck --check-prefixes=CHECK,DWARF5 %s
 
 enum class Enum : int {
   VAL = -1
@@ -42,31 +43,37 @@ int main() {
 // CHECK-SAME:                isLocal: false, isDefinition: true, declaration: ![[INT_DECL:[0-9]+]])
 
 // CHECK:      ![[INT_DECL]] = !DIDerivedType(tag: DW_TAG_member, name: "cexpr_int_with_addr",
-// CHECK-SAME:                 flags: DIFlagStaticMember
+// DWARF4-SAME:                flags: DIFlagStaticMember
+// DWARF5-SAME:                flags: DIFlagStaticMember | DIFlagConstantExpression
 // CHECK-NOT:                  extraData:
 
 // CHECK:      ![[INT_DECL2:[0-9]+]] = !DIDerivedType(tag: DW_TAG_member, name: "cexpr_int2",
-// CHECK-SAME:                         flags: DIFlagStaticMember
+// DWARF4-SAME:                        flags: DIFlagStaticMember
+// DWARF5-SAME:                        flags: DIFlagStaticMember | DIFlagConstantExpression
 // CHECK-NOT:                          extraData:
 
 // CHECK:      ![[FLOAT_DECL:[0-9]+]] = !DIDerivedType(tag: DW_TAG_member, name: "cexpr_float",
-// CHECK-SAME:                          flags: DIFlagStaticMember
+// DWARF4-SAME:                         flags: DIFlagStaticMember
+// DWARF5-SAME:                         flags: DIFlagStaticMember | DIFlagConstantExpression
 // CHECK-NOT:                           extraData:
 
 // CHECK:      ![[ENUM_DECL:[0-9]+]] = !DIDerivedType(tag: DW_TAG_member, name: "cexpr_enum",
-// CHECK-SAME:                         flags: DIFlagStaticMember
+// DWARF4-SAME:                        flags: DIFlagStaticMember
+// DWARF5-SAME:                        flags: DIFlagStaticMember | DIFlagConstantExpression
 // CHECK-NOT:                          extraData:
 
 // CHECK:      ![[EMPTY_DECL:[0-9]+]] = !DIDerivedType(tag: DW_TAG_member, name: "cexpr_struct_with_addr",
-// CHECK-SAME:                          flags: DIFlagStaticMember
+// DWARF4-SAME:                         flags: DIFlagStaticMember
+// DWARF5-SAME:                         flags: DIFlagStaticMember | DIFlagConstantExpression
 // CHECK-NOT:                           extraData:
 
 // CHECK:      ![[IENUM_DECL:[0-9]+]] = !DIDerivedType(tag: DW_TAG_member, name: "inline_enum",
-// CHECK-SAME:                          flags: DIFlagStaticMember
 // CHECK-NOT:                           extraData:
+// CHECK-SAME:                          flags: DIFlagStaticMember)
 
 // CHECK:      ![[TEMPLATE_DECL:[0-9]+]] = !DIDerivedType(tag: DW_TAG_member, name: "cexpr_template",
-// CHECK-SAME:                             flags: DIFlagStaticMember
+// DWARF4-SAME:                            flags: DIFlagStaticMember
+// DWARF5-SAME:                            flags: DIFlagStaticMember | DIFlagConstantExpression
 // CHECK-NOT:                              extraData:
 
 // CHECK:      !DIGlobalVariableExpression(var: ![[EMPTY_VAR:[0-9]+]], expr: !DIExpression())

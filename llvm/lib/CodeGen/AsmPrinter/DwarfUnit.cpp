@@ -1722,6 +1722,9 @@ DIE *DwarfUnit::getOrCreateStaticMemberDIE(const DIDerivedType *DT) {
   addFlag(StaticMemberDIE, dwarf::DW_AT_external);
   addFlag(StaticMemberDIE, dwarf::DW_AT_declaration);
 
+  if (DD->getDwarfVersion() >= 5 && DT->isConstantExpression())
+    addFlag(StaticMemberDIE, dwarf::DW_AT_const_expr);
+
   // FIXME: We could omit private if the parent is a class_type, and
   // public if the parent is something else.
   addAccess(StaticMemberDIE, DT->getFlags());

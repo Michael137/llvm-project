@@ -782,6 +782,9 @@ public:
   bool isBigEndian() const { return getFlags() & FlagBigEndian; }
   bool isLittleEndian() const { return getFlags() & FlagLittleEndian; }
   bool getExportSymbols() const { return getFlags() & FlagExportSymbols; }
+  bool isConstantExpression() const {
+    return getFlags() & FlagConstantExpression;
+  }
 
   static bool classof(const Metadata *MD) {
     switch (MD->getMetadataID()) {

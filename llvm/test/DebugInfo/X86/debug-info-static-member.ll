@@ -2,8 +2,10 @@
 ; RUN: llvm-dwarfdump -v -debug-info %t | FileCheck %s -check-prefix=PRESENT 
 ; RUN: llvm-dwarfdump -v -debug-info %t | FileCheck %s -check-prefix=ABSENT
 ; RUN: llc %s -o %t -filetype=obj -O0 -mtriple=x86_64-apple-darwin -dwarf-version=4
-; RUN: llvm-dwarfdump -v -debug-info %t | FileCheck %s -check-prefix=DARWINP
+; RUN: llvm-dwarfdump -v -debug-info %t | FileCheck %s -check-prefix=DARWINP,DWARF4
 ; RUN: llvm-dwarfdump -v -debug-info %t | FileCheck %s -check-prefix=DARWINA
+; RUN: llc %s -o %t -filetype=obj -O0 -mtriple=x86_64-apple-darwin -dwarf-version=5
+; RUN: llvm-dwarfdump -v -debug-info %t | FileCheck %s -check-prefix=DARWINP,DWARF5
 ; Verify that attributes we do want are PRESENT;
 ; verify that attributes we don't want are ABSENT.
 ; It's a lot easier to do this in two passes than in one.
@@ -161,34 +163,41 @@ attributes #1 = { nounwind readnone }
 ; DARWINP-NEXT: DW_AT_linkage_name {{.*}} "_ZN1C1aE"
 ; DARWINP:      DW_TAG_class_type
 ; DARWINP-NEXT: DW_AT_name {{.*}} "C"
-; DARWINP:      DW_TAG_member
+; DWARF4:       DW_TAG_member
+; DWARF5:       DW_TAG_variable
 ; DARWINP-NEXT: DW_AT_name {{.*}} "a"
 ; DARWINP:      DW_AT_external
 ; DARWINP:      DW_AT_declaration
 ; DARWINP:      DW_AT_accessibility [DW_FORM_data1]   (DW_ACCESS_private)
-; DARWINP:      DW_TAG_member
+; DWARF4:       DW_TAG_member
+; DWARF5:       DW_TAG_variable
 ; DARWINP-NEXT: DW_AT_name {{.*}} "const_a"
 ; DARWINP:      DW_AT_external
 ; DARWINP:      DW_AT_declaration
 ; DARWINP:      DW_AT_accessibility [DW_FORM_data1]   (DW_ACCESS_private)
 ; DARWINP:      DW_AT_const_value {{.*}} (1)
-; DARWINP:      DW_TAG_member
+; DWARF4:       DW_TAG_member
+; DWARF5:       DW_TAG_variable
 ; DARWINP-NEXT: DW_AT_name {{.*}} "b"
 ; DARWINP:      DW_AT_accessibility [DW_FORM_data1]   (DW_ACCESS_protected)
-; DARWINP:      DW_TAG_member
+; DWARF4:       DW_TAG_member
+; DWARF5:       DW_TAG_variable
 ; DARWINP-NEXT: DW_AT_name {{.*}} "const_b"
 ; DARWINP:      DW_AT_accessibility [DW_FORM_data1]   (DW_ACCESS_protected)
 ; DARWINP:      DW_AT_const_value [DW_FORM_udata] (1078523331)
-; DARWINP:      DW_TAG_member
+; DWARF4:       DW_TAG_member
+; DWARF5:       DW_TAG_variable
 ; DARWINP-NEXT: DW_AT_name {{.*}} "c"
 ; DARWINP:      DW_AT_accessibility [DW_FORM_data1]   (DW_ACCESS_public)
-; DARWINP:      DW_TAG_member
+; DWARF4:       DW_TAG_member
+; DWARF5:       DW_TAG_variable
 ; DARWINP-NEXT: DW_AT_name {{.*}} "const_c"
 ; DARWINP:      DW_AT_accessibility [DW_FORM_data1]   (DW_ACCESS_public)
 ; DARWINP:      DW_AT_const_value {{.*}} (18)
 ; While we're here, a normal member has data_member_location and
 ; accessibility attributes.
-; DARWINP:      DW_TAG_member
+; DWARF4:       DW_TAG_member
+; DWARF5:       DW_TAG_variable
 ; DARWINP-NEXT: DW_AT_name {{.*}} "d"
 ; DARWINP:      DW_AT_data_member_location
 ; DARWINP:      DW_AT_accessibility [DW_FORM_data1]   (DW_ACCESS_public)

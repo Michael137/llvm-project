@@ -3208,6 +3208,7 @@ bool DWARFASTParserClang::ParseChildMembers(
       }
       break;
 
+    case DW_TAG_variable:
     case DW_TAG_member:
       ParseSingleMember(die, parent_die, class_clang_type,
                         default_accessibility, layout_info, last_field_info);

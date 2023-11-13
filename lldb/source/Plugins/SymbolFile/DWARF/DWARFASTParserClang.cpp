@@ -144,7 +144,7 @@ static bool ShouldIgnoreArtificialField(llvm::StringRef FieldName) {
 
 std::optional<DWARFFormValue>
 DWARFASTParserClang::FindConstantOnVariableDefinition(DWARFDIE die) {
-  assert(die.Tag() == llvm::dwarf::DW_TAG_member);
+  assert(die.Tag() == DW_TAG_member || die.Tag() == DW_TAG_variable);
 
   auto *dwarf = die.GetDWARF();
   if (!dwarf)
@@ -2889,7 +2889,7 @@ void DWARFASTParserClang::ParseStaticMemberVariable(
     const DWARFDIE &die, const MemberAttributes &attrs,
     const lldb_private::CompilerType &class_clang_type) {
   Log *log = GetLog(DWARFLog::TypeCompletion | DWARFLog::Lookups);
-  assert(die.Tag() == DW_TAG_member);
+  assert(die.Tag() == DW_TAG_member || die.Tag() == DW_TAG_variable);
 
   Type *var_type = die.ResolveTypeUID(attrs.encoding_form.Reference());
 
@@ -2925,7 +2925,7 @@ void DWARFASTParserClang::ParseStaticMemberVariable(
   }
 
   llvm::Expected<llvm::APInt> const_value_or_err =
-      ExtractIntFromFormValue(ct, *attrs.const_value_form);
+      ExtractIntFromFormValue(ct, *maybe_const_form_value);
   if (!const_value_or_err) {
     LLDB_LOG_ERROR(log, const_value_or_err.takeError(),
                    "Failed to add const value to variable {1}: {0}",
@@ -3195,6 +3195,10 @@ bool DWARFASTParserClang::ParseChildMembers(
       }
       break;
 
+    case DW_TAG_variable: {
+      const MemberAttributes attrs(die, parent_die, module_sp);
+      ParseStaticMemberVariable(die, attrs, class_clang_type);
+    } break;
     case DW_TAG_member:
       ParseSingleMember(die, parent_die, class_clang_type,
                         default_accessibility, layout_info, last_field_info);

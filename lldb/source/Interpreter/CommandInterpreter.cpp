@@ -80,8 +80,6 @@
 #include "lldb/Target/Thread.h"
 #include "lldb/Target/UnixSignals.h"
 
-#include "llvm/Support/Timer2.h"
-
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/ScopeExit.h"
 #include "llvm/ADT/SmallString.h"
@@ -1896,7 +1894,7 @@ bool CommandInterpreter::HandleCommand(const char *command_line,
                                    command_line);
 
   LLDB_LOGF(log, "Processing command: %s", command_line);
-  LLVM_SCOPED_TIMERF("Processing command: %s.", command_line);
+  LLDB_SCOPED_TIMERF("Processing command: %s.", command_line);
 
   if (INTERRUPT_REQUESTED(GetDebugger(), "Interrupted initiating command")) {
     result.AppendError("... Interrupted");

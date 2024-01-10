@@ -34,7 +34,6 @@
 #include "clang/AST/LambdaCapture.h"
 #include "clang/AST/NestedNameSpecifier.h"
 #include "clang/AST/OperationKinds.h"
-#include "clang/AST/PrettyPrinter.h"
 #include "clang/AST/Stmt.h"
 #include "clang/AST/StmtCXX.h"
 #include "clang/AST/StmtObjC.h"
@@ -63,9 +62,6 @@
 #include "llvm/Support/Casting.h"
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/MemoryBuffer.h"
-#include "llvm/Support/Timer2.h"
-#include "llvm/Support/raw_ostream.h"
-#include "llvm/Support/Timer.h"
 #include <algorithm>
 #include <cassert>
 #include <cstddef>
@@ -2310,18 +2306,6 @@ Error ASTNodeImporter::ImportDefinition(
 
     return Error::success();
   }
-
-  Importer.ImportPath.log(llvm::formatv("{0}({1})", __func__, From->getNameAsString()));
-  //std::string timer_name = "ASTImporter::ImportDefinition(";
-  //timer_name += From->getName();
-  //timer_name += ")";
-  //llvm::Timer timer(timer_name, "ASTImporter::Import");
-  //timer.startTimer();
-  //auto timerStopper = llvm::make_scope_exit([&] { timer.stopTimer(); });
-  std::string str;
-  llvm::raw_string_ostream os(str);
-  From->getNameForDiagnostic(os, Importer.getFromContext().getPrintingPolicy(), true);
-  LLVM_SCOPED_TIMERF("ImportDefinition: %s", str.c_str());
 
   To->startDefinition();
   // Set the definition to complete even if it is really not complete during
@@ -9088,8 +9072,6 @@ ASTImporter::findDeclsInToCtx(DeclContext *DC, DeclarationName Name) {
   }
 }
 
-uint64_t ASTImporter::ImportPathTy::print_id = 0;
-
 void ASTImporter::AddToLookupTable(Decl *ToD) {
   SharedState->addDeclToLookup(ToD);
 }
@@ -9465,24 +9447,8 @@ Expected<Decl *> ASTImporter::Import(Decl *FromD) {
 
   // Push FromD to the stack, and remove that when we return.
   ImportPath.push(FromD);
-  ImportPath.dump();
   auto ImportPathBuilder =
       llvm::make_scope_exit([this]() { ImportPath.pop(); });
-
-  //std::unique_ptr<llvm::Timer> t;
-  //if (auto const *ND = llvm::dyn_cast_or_null<NamedDecl>(FromD)) {
-  //  std::string timer_name = "ASTImporter::Import(";
-  //  timer_name += ND->getName();
-  //  timer_name += ")";
-
-  //  if (ND->getName() == "ExternalSemaSource") {
-  //    llvm::errs() << "IMPORTING\n";
-  //    t = std::make_unique<llvm::Timer>(timer_name, "ASTImporter::Import");
-  //    t->startTimer();
-  //  }
-  //}
-
-  //auto timerStopper = llvm::make_scope_exit([&] { if (t) t->stopTimer(); });
 
   // Check whether there was a previous failed import.
   // If yes return the existing error.
@@ -9561,8 +9527,7 @@ Expected<Decl *> ASTImporter::Import(Decl *FromD) {
       // The import path contains import-dependency nodes first.
       // Save the node that was imported as dependency of the current node.
       Decl *PrevFromDi = FromD;
-      for (auto const& Event : Path) {
-        Decl* FromDi = Event.D;
+      for (Decl *FromDi : Path) {
         // Begin and end of the path equals 'FromD', skip it.
         if (FromDi == FromD)
           continue;

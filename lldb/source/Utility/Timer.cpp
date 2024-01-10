@@ -11,8 +11,6 @@
 #include "llvm/Support/Signposts.h"
 
 #include <algorithm>
-#include <limits>
-#include <fstream>
 #include <map>
 #include <mutex>
 #include <utility>
@@ -35,16 +33,8 @@ static std::atomic<Timer::Category *> g_categories;
 /// Allows llvm::Timer to emit signposts when supported.
 static llvm::ManagedStatic<llvm::SignpostEmitter> Signposts;
 
-#if 0
-std::atomic<bool> Timer::g_quiet(false);
-std::atomic<unsigned> Timer::g_display_depth(std::numeric_limits<uint32_t>::max());
-#elif 0
-std::atomic<bool> Timer::g_quiet(true);
-std::atomic<unsigned> Timer::g_display_depth(std::numeric_limits<uint32_t>::max());
-#else
 std::atomic<bool> Timer::g_quiet(true);
 std::atomic<unsigned> Timer::g_display_depth(0);
-#endif
 static std::mutex &GetFileMutex() {
   static std::mutex *g_file_mutex_ptr = new std::mutex();
   return *g_file_mutex_ptr;
@@ -67,16 +57,8 @@ Timer::Category::Category(const char *cat) : m_name(cat) {
 
 void Timer::SetQuiet(bool value) { g_quiet = value; }
 
-//static FILE *g_output = nullptr;
-
 Timer::Timer(Timer::Category &category, const char *format, ...)
     : m_category(category), m_total_start(std::chrono::steady_clock::now()) {
-  //static auto initialized = [&]() -> bool {
-  //  g_output = ::fopen("lldb-timers.txt", "w+");
-  //  return true;
-  //}();
-
-  //assert(g_output != nullptr);
   Signposts->startInterval(this, m_category.GetName());
   TimerStack &stack = GetTimerStackForCurrentThread();
 
@@ -84,19 +66,16 @@ Timer::Timer(Timer::Category &category, const char *format, ...)
   if (!g_quiet && stack.size() <= g_display_depth) {
     std::lock_guard<std::mutex> lock(GetFileMutex());
 
-    auto* out = stdout;
-    //auto* out = g_output;
-
     // Indent
-    ::fprintf(out, "%*s", int(stack.size() - 1) * TIMER_INDENT_AMOUNT, "");
+    ::fprintf(stdout, "%*s", int(stack.size() - 1) * TIMER_INDENT_AMOUNT, "");
     // Print formatted string
     va_list args;
     va_start(args, format);
-    ::vfprintf(out, format, args);
+    ::vfprintf(stdout, format, args);
     va_end(args);
 
     // Newline
-    ::fprintf(out, "\n");
+    ::fprintf(stdout, "\n");
   }
 }
 
@@ -112,9 +91,7 @@ Timer::~Timer() {
   TimerStack &stack = GetTimerStackForCurrentThread();
   if (!g_quiet && stack.size() <= g_display_depth) {
     std::lock_guard<std::mutex> lock(GetFileMutex());
-    auto *out = stdout;
-    //auto *out = g_output;
-    ::fprintf(out, "%*s%.9f sec (%.9f sec)\n",
+    ::fprintf(stdout, "%*s%.9f sec (%.9f sec)\n",
               int(stack.size() - 1) * TIMER_INDENT_AMOUNT, "",
               duration<double>(total_dur).count(),
               duration<double>(timer_dur).count());

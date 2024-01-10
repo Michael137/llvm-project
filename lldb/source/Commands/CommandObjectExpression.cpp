@@ -7,7 +7,6 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/ADT/StringRef.h"
-#include <chrono>
 
 #include "CommandObjectExpression.h"
 #include "lldb/Core/Debugger.h"

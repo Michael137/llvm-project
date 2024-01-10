@@ -28,24 +28,14 @@ namespace dwarf {
 class DWARFDeclContext {
 public:
   struct Entry {
-    mutable uint64_t fast_comp = 0;
-    mutable uint64_t slow_comp = 0;
-    mutable uint64_t comps = 0;
-
     Entry() = default;
     Entry(dw_tag_t t, const char *n) : tag(t), name(n) {}
 
-    // TODO: the fast-path optimistically assumes that the name has been interned at some point.
-    // Is that ever the case? How often is the fast path even hit here?
     bool NameMatches(const Entry &rhs) const {
-      comps++;
-      if (name == rhs.name) {
-        fast_comp++;
+      if (name == rhs.name)
         return true;
-      } else if (name && rhs.name) {
-        slow_comp++;
+      else if (name && rhs.name)
         return strcmp(name, rhs.name) == 0;
-      }
       return false;
     }
 
@@ -58,11 +48,6 @@ public:
 
     dw_tag_t tag = llvm::dwarf::DW_TAG_null;
     const char *name = nullptr;
-
-    //~Entry() {
-    //  //if (slow_comp || fast_comp || comps)
-    //    //llvm::errs() << llvm::formatv("{0} (slow), {1} (fast), {2} (total)\n", slow_comp, fast_comp, comps);
-    //}
   };
 
   DWARFDeclContext() : m_entries() {}

@@ -14,7 +14,6 @@
 #include "lldb/Core/Module.h"
 #include "lldb/Symbol/Function.h"
 #include "llvm/Support/DJB.h"
-#include "llvm/Support/Timer2.h"
 
 using namespace lldb_private;
 using namespace lldb;
@@ -214,7 +213,6 @@ void AppleDWARFIndex::GetTypes(
     ConstString name, llvm::function_ref<bool(DWARFDIE die)> callback) {
   if (!m_apple_types_up)
     return;
-  //LLVM_SCOPED_TIMERF("GetTypes.1: %s", name.AsCString("<unknown>"));
   SearchFor(*m_apple_types_up, name, callback);
 }
 
@@ -231,7 +229,6 @@ void AppleDWARFIndex::GetTypes(
       m_apple_types_up->containsAtomType(DW_ATOM_qual_name_hash);
 
   llvm::StringRef expected_name = context[0].name;
-  //LLVM_SCOPED_TIMERF("GetTypes.2: %s", expected_name.empty() ? "<unknown>" : expected_name.data()); // TODO: why does this get called soooo often for, e.g., PointerIntPairInfo<clang::Stmt *, 1U, llvm::PointerLikeTypeTraits<clang::Stmt *> >
 
   if (entries_have_tag && entries_have_qual_hash) {
     const dw_tag_t expected_tag = context[0].tag;

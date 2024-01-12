@@ -828,7 +828,6 @@ ValueObject::ReadPointedString(lldb::WritableDataBufferSP &buffer_sp,
 
   const auto max_length = target->GetMaximumSizeOfStringSummary();
 
-  size_t bytes_read = 0;
   size_t total_bytes_read = 0;
 
   CompilerType compiler_type = GetCompilerType();
@@ -839,6 +838,7 @@ ValueObject::ReadPointedString(lldb::WritableDataBufferSP &buffer_sp,
     addr_t cstr_address = LLDB_INVALID_ADDRESS;
     AddressType cstr_address_type = eAddressTypeInvalid;
 
+    size_t bytes_read = 0;
     size_t cstr_len = 0;
     bool capped_data = false;
     const bool is_array = type_flags.Test(eTypeIsArray);
@@ -895,50 +895,45 @@ ValueObject::ReadPointedString(lldb::WritableDataBufferSP &buffer_sp,
           was_capped = true;
       }
     } else {
-      cstr_len = max_length;
+      // Number of bytes we will actually print to the stream.
+      auto num_bytes_remaining = max_length;
+
+      // Number of bytes to read at a time.
       const size_t k_max_buf_size = 64;
 
       size_t offset = 0;
 
-      int cstr_len_displayed = -1;
-      bool capped_cstr = false;
       // I am using GetPointeeData() here to abstract the fact that some
       // ValueObjects are actually frozen pointers in the host but the pointed-
       // to data lives in the debuggee, and GetPointeeData() automatically
       // takes care of this
       while ((bytes_read = GetPointeeData(data, offset, k_max_buf_size)) > 0) {
+        if (num_bytes_remaining == 0)
+          break;
+
         total_bytes_read += bytes_read;
         const char *cstr = data.PeekCStr(0);
-        size_t len = strnlen(cstr, k_max_buf_size);
-        if (cstr_len_displayed < 0)
-          cstr_len_displayed = len;
+        size_t bytes_written = strnlen(cstr, k_max_buf_size);
 
-        if (len == 0)
-          break;
-        cstr_len_displayed += len;
-        if (len > bytes_read)
-          len = bytes_read;
-        if (len > cstr_len)
-          len = cstr_len;
-
-        for (size_t offset = 0; offset < bytes_read; offset++)
-          s.Printf("%c", *data.PeekData(offset, 1));
-
-        if (len < k_max_buf_size)
+        if (bytes_written == 0)
           break;
 
-        if (len >= cstr_len) {
-          capped_cstr = true;
-          break;
+        if (bytes_written > bytes_read)
+          bytes_written = bytes_read;
+
+        if (bytes_written > num_bytes_remaining) {
+          bytes_written = num_bytes_remaining;
+          was_capped = true;
         }
 
-        cstr_len -= len;
-        offset += len;
-      }
+        for (size_t offset = 0; offset < bytes_written; offset++)
+          s.Printf("%c", *data.PeekData(offset, 1));
 
-      if (cstr_len_displayed >= 0) {
-        if (capped_cstr)
-          was_capped = true;
+        if (was_capped)
+          break;
+
+        num_bytes_remaining -= bytes_written;
+        offset += bytes_written;
       }
     }
   } else {

@@ -177,5 +177,8 @@ int main (int argc, const char * argv[])
                              "012345678901234567890123456789"
                              "012345678901234567890123456789";
 
+    std::string empty_string = "";
+    char const *empty_cstring = empty_string.c_str();
+
     return 0; // Set break point at this line.
 }

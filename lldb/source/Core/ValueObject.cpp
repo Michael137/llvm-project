@@ -846,7 +846,7 @@ ValueObject::ReadPointedString(lldb::WritableDataBufferSP &buffer_sp,
       // We have an array
       uint64_t array_size = 0;
       if (compiler_type.IsArrayType(nullptr, &array_size)) {
-        cstr_len = array_size;
+        cstr_len = array_size - 1; // Account for null-character
         if (cstr_len > max_length) {
           capped_data = true;
           cstr_len = max_length;

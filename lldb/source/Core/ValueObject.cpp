@@ -908,9 +908,6 @@ ValueObject::ReadPointedString(lldb::WritableDataBufferSP &buffer_sp,
       // to data lives in the debuggee, and GetPointeeData() automatically
       // takes care of this
       while ((bytes_read = GetPointeeData(data, offset, k_max_buf_size)) > 0) {
-        if (num_bytes_remaining == 0)
-          break;
-
         total_bytes_read += bytes_read;
         const char *cstr = data.PeekCStr(0);
         size_t bytes_written = strnlen(cstr, k_max_buf_size);
@@ -925,6 +922,9 @@ ValueObject::ReadPointedString(lldb::WritableDataBufferSP &buffer_sp,
           bytes_written = num_bytes_remaining;
           was_capped = true;
         }
+
+        if (num_bytes_remaining == 0)
+          break;
 
         for (size_t offset = 0; offset < bytes_written; offset++)
           s.Printf("%c", *data.PeekData(offset, 1));

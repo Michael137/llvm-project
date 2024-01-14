@@ -330,9 +330,52 @@ class AdvDataFormatterTestCase(TestBase):
         # TODO: Test where setting == number of chars
         # TODO: Test where setting == number of chars - 1
         # TODO: Test where setting == number of chars + 1
-        # TODO: Test where string == buffer size + 1
         # TODO: Test where string == buffer size - 1
-        # TODO: Test where string == buffer size
+
+        # Test where string == buffer size
+        self.runCmd("settings set target.max-string-summary-length 64")
+        string = self.frame().FindVariable("str64")
+        self.assertEqual(len(string.GetSummary()), 66)
+
+        string = self.frame().FindVariable("cstr64")
+        self.assertEqual(len(string.GetSummary()), 66)
+
+        string = self.frame().FindVariable("carr64")
+        self.assertEqual(len(string.GetSummary()), 66)
+
+        # Test where string == buffer size + 1
+        string = self.frame().FindVariable("str65")
+        summary = string.GetSummary()
+        self.assertEqual(len(summary), 69)
+        self.assertTrue(summary.endswith('...'))
+
+        string = self.frame().FindVariable("cstr65")
+        summary = string.GetSummary()
+        self.assertEqual(len(summary), 69)
+        self.assertTrue(summary.endswith('...'))
+
+        string = self.frame().FindVariable("carr65")
+        summary = string.GetSummary()
+        self.assertEqual(len(summary), 69)
+        self.assertTrue(summary.endswith('...'))
+
+        self.runCmd("settings set target.max-string-summary-length 1024")
+        string = self.frame().FindVariable("str65")
+        summary = string.GetSummary()
+        self.assertEqual(len(summary), 67)
+        self.assertFalse(summary.endswith('...'))
+
+        string = self.frame().FindVariable("cstr65")
+        summary = string.GetSummary()
+        self.assertEqual(len(summary), 67)
+        self.assertFalse(summary.endswith('...'))
+
+        string = self.frame().FindVariable("carr65")
+        summary = string.GetSummary()
+        self.assertEqual(len(summary), 67)
+        self.assertFalse(summary.endswith('...'))
+
+        # TODO: null characters
 
         # override the cap
         self.expect(

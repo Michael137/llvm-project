@@ -180,5 +180,17 @@ int main (int argc, const char * argv[])
     std::string empty_string = "";
     char const *empty_cstring = empty_string.c_str();
 
+    std::string str64(64, 'x');
+    char const *cstr64 = str64.c_str();
+    char const carr64[65] = "012345678901234567890123456789"
+                            "012345678901234567890123456789"
+                            "0123";
+
+    std::string str65(65, 'x');
+    char const *cstr65 = str65.c_str();
+    char const carr65[66] = "012345678901234567890123456789"
+                            "012345678901234567890123456789"
+                            "01234";
+
     return 0; // Set break point at this line.
 }

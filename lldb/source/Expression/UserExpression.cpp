@@ -400,6 +400,22 @@ UserExpression::Evaluate(ExecutionContext &exe_ctx,
     }
   }
 
+  Log *ast_log = GetLog(LLDBLog::AST);
+  if (ast_log) {
+    target->GetImages().ForEach([&](lldb::ModuleSP const mod_sp) -> bool {
+                if (mod_sp) {
+                  if (auto * sf = mod_sp->GetSymbolFile()) {
+                    lldb_private::StreamString ss;
+                    sf->DumpClangAST(ss);
+                    ss.Flush();
+                    LLDB_LOG(ast_log, "Dumping AST for '{0}':\n{1}\n\n", mod_sp->GetFileSpec().GetFilename(), ss.GetString());
+                  }
+                }
+
+                return true;
+            });
+  }
+
   if (options.InvokeCancelCallback(lldb::eExpressionEvaluationComplete)) {
     error.SetExpressionError(
         lldb::eExpressionInterrupted,

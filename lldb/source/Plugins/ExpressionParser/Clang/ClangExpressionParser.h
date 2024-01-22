@@ -11,9 +11,12 @@
 
 #include "lldb/Expression/DiagnosticManager.h"
 #include "lldb/Expression/ExpressionParser.h"
+#include "lldb/Target/StackFrame.h"
 #include "lldb/Utility/ArchSpec.h"
 #include "lldb/Utility/Status.h"
 #include "lldb/lldb-public.h"
+#include "clang/Basic/Diagnostic.h"
+#include "clang/Frontend/CompilerInvocation.h"
 
 #include <string>
 #include <vector>
@@ -26,6 +29,8 @@ namespace clang {
 class CodeGenerator;
 class CodeCompleteConsumer;
 class CompilerInstance;
+class CompilerInvocation;
+class DiagnosticsEngine;
 } // namespace clang
 
 namespace lldb_private {
@@ -120,6 +125,11 @@ public:
       lldb_private::ExecutionPolicy execution_policy) override;
 
 private:
+  void InitFromDriver(Expression const& expr,
+                      lldb_private::Target & target,
+                      lldb_private::Process * process,
+                      lldb_private::StackFrame * frame);
+
   /// Parses the expression.
   ///
   /// \param[in] diagnostic_manager
@@ -147,6 +157,10 @@ private:
 
   std::unique_ptr<llvm::LLVMContext>
       m_llvm_context; ///< The LLVM context to generate IR into
+
+  llvm::IntrusiveRefCntPtr<clang::DiagnosticsEngine> m_diagnostics_engine;
+  std::shared_ptr<clang::CompilerInvocation> m_compiler_invocation;
+
   std::unique_ptr<clang::CompilerInstance>
       m_compiler; ///< The Clang compiler used to parse expressions into IR
   std::unique_ptr<clang::CodeGenerator>

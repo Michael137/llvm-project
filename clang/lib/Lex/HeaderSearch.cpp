@@ -361,8 +361,10 @@ Module *HeaderSearch::lookupModule(StringRef ModuleName, StringRef SearchName,
       // We just loaded a module map file; check whether the module is
       // available now.
       Module = ModMap.findModule(ModuleName);
-      if (Module)
+      if (Module) {
+        llvm::errs() << "Found " << ModuleName << " via " << NormalDir.getName() << '\n';
         break;
+      }
     }
 
     // Search for a module map in a subdirectory with the same name as the

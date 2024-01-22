@@ -23,6 +23,7 @@
 #include "clang/Edit/EditsReceiver.h"
 #include "clang/Frontend/CompilerInstance.h"
 #include "clang/Frontend/CompilerInvocation.h"
+#include "clang/Lex/PreprocessorOptions.h"
 #include "clang/Frontend/FrontendActions.h"
 #include "clang/Frontend/FrontendDiagnostic.h"
 #include "clang/Frontend/FrontendPluginRegistry.h"
@@ -82,6 +83,7 @@
 #include "lldb/Target/ExecutionContextScope.h"
 #include "lldb/Target/Language.h"
 #include "lldb/Target/Process.h"
+#include "lldb/Target/StackFrame.h"
 #include "lldb/Target/Target.h"
 #include "lldb/Target/ThreadPlanCallFunction.h"
 #include "lldb/Utility/DataBufferHeap.h"
@@ -93,7 +95,6 @@
 #include "lldb/Utility/StringList.h"
 
 #include "Plugins/LanguageRuntime/ObjC/ObjCLanguageRuntime.h"
-#include "Plugins/Platform/MacOSX/PlatformDarwin.h"
 #include "lldb/Utility/XcodeSDK.h"
 
 #include <cctype>
@@ -326,14 +327,13 @@ sdkSupportsBuiltinModules(lldb_private::Target &target) {
   return XcodeSDK::SDKSupportsBuiltinModules(triple, maybe_sdk->getVersion());
 }
 
-static void SetupModuleHeaderPaths(CompilerInstance *compiler,
-                                   std::vector<std::string> include_directories,
-                                   lldb::TargetSP target_sp) {
+static void SetupModuleHeaderPaths(CompilerInstance &compiler,
+                                   llvm::ArrayRef<std::string> include_directories) {
   Log *log = GetLog(LLDBLog::Expressions);
 
-  HeaderSearchOptions &search_opts = compiler->getHeaderSearchOpts();
+  HeaderSearchOptions &search_opts = compiler.getHeaderSearchOpts();
 
-  for (const std::string &dir : include_directories) {
+  for (auto dir : include_directories) {
     search_opts.AddPath(dir, frontend::System, false, true);
     LLDB_LOG(log, "Added user include dir: {0}", dir);
   }
@@ -473,34 +473,109 @@ static void SetupTargetOpts(CompilerInstance &compiler,
     compiler.getTargetOpts().ABI = std::move(abi);
 }
 
-static void SetupLangOpts(CompilerInstance &compiler,
-                          ExecutionContextScope &exe_scope,
-                          const Expression &expr) {
+static void SetupImportStdModuleLangOpts(CompilerInstance &compiler,
+                                         lldb_private::Target &target) {
   Log *log = GetLog(LLDBLog::Expressions);
+  LangOptions &lang_opts = compiler.getLangOpts();
+  lang_opts.Modules = true;
+  // We want to implicitly build modules.
+  lang_opts.ImplicitModules = true;
+  // To automatically import all submodules when we import 'std'.
+  lang_opts.ModulesLocalVisibility = false;
 
-  // If the expression is being evaluated in the context of an existing stack
-  // frame, we introspect to see if the language runtime is available.
+  // We use the @import statements, so we need this:
+  // FIXME: We could use the modules-ts, but that currently doesn't work.
+  lang_opts.ObjC = true;
 
-  lldb::StackFrameSP frame_sp = exe_scope.CalculateStackFrame();
-  lldb::ProcessSP process_sp = exe_scope.CalculateProcess();
+  // Options we need to parse libc++ code successfully.
+  // FIXME: We should ask the driver for the appropriate default flags.
+  lang_opts.GNUMode = true;
+  lang_opts.GNUKeywords = true;
+  lang_opts.CPlusPlus11 = true;
 
-  // Defaults to lldb::eLanguageTypeUnknown.
-  lldb::LanguageType frame_lang = expr.Language().AsLanguageType();
+  if (auto supported_or_err = sdkSupportsBuiltinModules(target))
+    lang_opts.BuiltinHeadersInSystemModules = !*supported_or_err;
+  else
+    LLDB_LOG_ERROR(log, supported_or_err.takeError(),
+                   "Failed to determine BuiltinHeadersInSystemModules when "
+                   "setting up import-std-module: {0}");
 
-  // Make sure the user hasn't provided a preferred execution language with
-  // `expression --language X -- ...`
-  if (frame_sp && frame_lang == lldb::eLanguageTypeUnknown)
-    frame_lang = frame_sp->GetLanguage().AsLanguageType();
+  // The Darwin libc expects this macro to be set.
+  lang_opts.GNUCVersion = 40201;
+}
 
-  if (process_sp && frame_lang != lldb::eLanguageTypeUnknown) {
-    LLDB_LOGF(log, "Frame has language of type %s",
-              lldb_private::Language::GetNameForLanguageType(frame_lang));
+//===----------------------------------------------------------------------===//
+// Implementation of ClangExpressionParser
+//===----------------------------------------------------------------------===//
+static void AddCompilerInvocationArgs(CompilerInstance &compiler,
+                                      llvm::ArrayRef<std::string> include_dirs,
+                                      std::vector<std::string> &args,
+                                      Expression const& expr) {
+  Log *log = GetLog(LLDBLog::Expressions);
+  auto *clang_expr = dyn_cast<ClangUserExpression>(&expr);
+  if (clang_expr && clang_expr->DidImportCxxModules()) {
+    LLDB_LOG(log, "Adding lang options for importing C++ modules");
+
+    args.push_back("-fmodules");
+    args.push_back("-fcxx-modules");
+    args.push_back("-fimplicit-module-maps");
+    // To automatically import all submodules when we import 'std'.
+    //args.push_back("-fno-modules-local-submodule-visibility");
+    args.push_back("-Xclang=-fincremental-extensions");
+    args.push_back("-D_ISO646_H");
+    args.push_back("-D__ISO646_H");
+    args.push_back("-fgnuc-version=4.2.1");
+
+    // We use the @import statements, so we need this:
+    // FIXME: We could use the modules-ts, but that currently doesn't work.
+    //lang_opts.ObjC = true;
+
+    // Options we need to parse libc++ code successfully.
+    // FIXME: We should ask the driver for the appropriate default flags.
+    //lang_opts.GNUMode = true;
+    //lang_opts.GNUKeywords = true;
+    //lang_opts.CPlusPlus11 = true;
+
+    //lang_opts.BuiltinHeadersInSystemModules = false;
+
+    // The Darwin libc expects this macro to be set.
+    //lang_opts.GNUCVersion = 40201;
+
+    //SetupModuleHeaderPaths(compiler, include_dirs);
+    HeaderSearchOptions &search_opts = compiler.getHeaderSearchOpts();
+
+    for (auto dir : include_dirs) {
+      std::string search_path_argument = "-I";
+      search_path_argument.append(dir);
+      args.push_back(search_path_argument);
+    }
+
+    llvm::SmallString<128> module_cache;
+    const auto &props = ModuleList::GetGlobalModuleListProperties();
+    props.GetClangModulesCachePath().GetPath(module_cache);
+    std::string module_cache_argument("-fmodules-cache-path=");
+    module_cache_argument.append(module_cache.str());
+    args.push_back(module_cache_argument);
+
+    search_opts.ResourceDir = GetClangResourceDir().GetPath();
+    if (FileSystem::Instance().IsDirectory(search_opts.ResourceDir)) {
+      args.push_back("-resource-dir");
+      args.push_back(search_opts.ResourceDir);
+    }
+    search_opts.ImplicitModuleMaps = true; // TODO: how to map to argument?
   }
+}
 
+static void SetupLangOpts(
+        Expression const& expr,
+        lldb_private::Target const& target,
+        lldb_private::Process * process,
+        lldb_private::StackFrame * frame,
+        clang::CompilerInstance& compiler
+        /*,llvm::ArrayRef<std::string> include_dirs*/) {
   lldb::LanguageType language = expr.Language().AsLanguageType();
   LangOptions &lang_opts = compiler.getLangOpts();
 
-  // FIXME: should this switch on frame_lang?
   switch (language) {
   case lldb::eLanguageTypeC:
   case lldb::eLanguageTypeC89:
@@ -545,12 +620,12 @@ static void SetupLangOpts(CompilerInstance &compiler,
     [[fallthrough]];
   case lldb::eLanguageTypeC_plus_plus_03:
     lang_opts.CPlusPlus = true;
-    if (process_sp
+    if (process
         // We're stopped in a frame without debug-info. The user probably
         // intends to make global queries (which should include Objective-C).
-        && !(frame_sp && frame_sp->HasDebugInformation()))
+        && !(frame && frame->HasDebugInformation()))
       lang_opts.ObjC =
-          process_sp->GetLanguageRuntime(lldb::eLanguageTypeObjC) != nullptr;
+          process->GetLanguageRuntime(lldb::eLanguageTypeObjC) != nullptr;
     break;
   case lldb::eLanguageTypeObjC_plus_plus:
   case lldb::eLanguageTypeUnknown:
@@ -570,16 +645,16 @@ static void SetupLangOpts(CompilerInstance &compiler,
   if (expr.DesiredResultType() == Expression::eResultTypeId)
     lang_opts.DebuggerCastResultToId = true;
 
-  lang_opts.CharIsSigned =
-      ArchSpec(compiler.getTargetOpts().Triple.c_str()).CharIsSignedByDefault();
+  lang_opts.CharIsSigned = ArchSpec(compiler.getTargetOpts().Triple.c_str())
+                               .CharIsSignedByDefault();
 
   // Spell checking is a nice feature, but it ends up completing a lot of types
   // that we didn't strictly speaking need to complete. As a result, we spend a
   // long time parsing and importing debug information.
   lang_opts.SpellChecking = false;
 
-  if (process_sp && lang_opts.ObjC) {
-    if (auto *runtime = ObjCLanguageRuntime::Get(*process_sp)) {
+  if (process && lang_opts.ObjC) {
+    if (auto *runtime = ObjCLanguageRuntime::Get(*process)) {
       switch (runtime->GetRuntimeVersion()) {
       case ObjCLanguageRuntime::ObjCRuntimeVersions::eAppleObjC_V2:
         lang_opts.ObjCRuntime.set(ObjCRuntime::MacOSX, VersionTuple(10, 7));
@@ -606,42 +681,36 @@ static void SetupLangOpts(CompilerInstance &compiler,
   // 'fopen'). Those libc functions are already correctly handled by LLDB, and
   // additionally enabling them as expandable builtins is breaking Clang.
   lang_opts.NoBuiltin = true;
+
+  //auto *clang_expr = dyn_cast<ClangUserExpression>(&expr);
+  //if (clang_expr && clang_expr->DidImportCxxModules()) {
+  //  LLDB_LOG(log, "Adding lang options for importing C++ modules");
+
+  //  lang_opts.Modules = true;
+  //  // We want to implicitly build modules.
+  //  lang_opts.ImplicitModules = true;
+  //  // To automatically import all submodules when we import 'std'.
+  //  lang_opts.ModulesLocalVisibility = false;
+
+  //  // We use the @import statements, so we need this:
+  //  // FIXME: We could use the modules-ts, but that currently doesn't work.
+  //  lang_opts.ObjC = true;
+
+  //  // Options we need to parse libc++ code successfully.
+  //  // FIXME: We should ask the driver for the appropriate default flags.
+  //  //lang_opts.GNUMode = true;
+  //  //lang_opts.GNUKeywords = true;
+  //  //lang_opts.CPlusPlus11 = true;
+
+  //  //lang_opts.BuiltinHeadersInSystemModules = false;
+
+  //  // The Darwin libc expects this macro to be set.
+  //  //lang_opts.GNUCVersion = 40201;
+
+  //  SetupModuleHeaderPaths(compiler, include_dirs);
+  //}
 }
 
-static void SetupImportStdModuleLangOpts(CompilerInstance &compiler,
-                                         lldb_private::Target &target) {
-  Log *log = GetLog(LLDBLog::Expressions);
-  LangOptions &lang_opts = compiler.getLangOpts();
-  lang_opts.Modules = true;
-  // We want to implicitly build modules.
-  lang_opts.ImplicitModules = true;
-  // To automatically import all submodules when we import 'std'.
-  lang_opts.ModulesLocalVisibility = false;
-
-  // We use the @import statements, so we need this:
-  // FIXME: We could use the modules-ts, but that currently doesn't work.
-  lang_opts.ObjC = true;
-
-  // Options we need to parse libc++ code successfully.
-  // FIXME: We should ask the driver for the appropriate default flags.
-  lang_opts.GNUMode = true;
-  lang_opts.GNUKeywords = true;
-  lang_opts.CPlusPlus11 = true;
-
-  if (auto supported_or_err = sdkSupportsBuiltinModules(target))
-    lang_opts.BuiltinHeadersInSystemModules = !*supported_or_err;
-  else
-    LLDB_LOG_ERROR(log, supported_or_err.takeError(),
-                   "Failed to determine BuiltinHeadersInSystemModules when "
-                   "setting up import-std-module: {0}");
-
-  // The Darwin libc expects this macro to be set.
-  lang_opts.GNUCVersion = 40201;
-}
-
-//===----------------------------------------------------------------------===//
-// Implementation of ClangExpressionParser
-//===----------------------------------------------------------------------===//
 
 ClangExpressionParser::ClangExpressionParser(
     ExecutionContextScope *exe_scope, Expression &expr,
@@ -674,81 +743,46 @@ ClangExpressionParser::ClangExpressionParser(
     return;
   }
 
-  // 1. Create a new compiler instance.
-  m_compiler = std::make_unique<CompilerInstance>();
+  lldb::ProcessSP process_sp = exe_scope->CalculateProcess();
+  lldb::StackFrameSP frame_sp = exe_scope->CalculateStackFrame();
 
-  // Make sure clang uses the same VFS as LLDB.
-  m_compiler->createFileManager(FileSystem::Instance().GetVirtualFileSystem());
+  InitFromDriver(expr, *target_sp, process_sp.get(), frame_sp.get());
 
-  // 2. Configure the compiler with a set of default options that are
-  // appropriate for most situations.
-  SetupTargetOpts(*m_compiler, *target_sp);
+  lldb::LanguageType frame_lang =
+      expr.Language().AsLanguageType(); // defaults to lldb::eLanguageTypeUnknown
 
-  // 3. Create and install the target on the compiler.
-  m_compiler->createDiagnostics();
-  // Limit the number of error diagnostics we emit.
-  // A value of 0 means no limit for both LLDB and Clang.
-  m_compiler->getDiagnostics().setErrorLimit(target_sp->GetExprErrorLimit());
+  ArchSpec target_arch;
+  target_arch = target_sp->GetArchitecture();
 
-  if (auto *target_info = TargetInfo::CreateTargetInfo(
-          m_compiler->getDiagnostics(),
-          m_compiler->getInvocation().TargetOpts)) {
-    if (log) {
-      LLDB_LOGF(log, "Target datalayout string: '%s'",
-                target_info->getDataLayoutString());
-      LLDB_LOGF(log, "Target ABI: '%s'", target_info->getABI().str().c_str());
-      LLDB_LOGF(log, "Target vector alignment: %d",
-                target_info->getMaxVectorAlign());
-    }
-    m_compiler->setTarget(target_info);
-  } else {
-    if (log)
-      LLDB_LOGF(log, "Failed to create TargetInfo for '%s'",
-                m_compiler->getTargetOpts().Triple.c_str());
+  // If the expression is being evaluated in the context of an existing stack
+  // frame, we introspect to see if the language runtime is available.
 
-    lldbassert(false && "Failed to create TargetInfo.");
+  // Make sure the user hasn't provided a preferred execution language with
+  // `expression --language X -- ...`
+  if (frame_sp && frame_lang == lldb::eLanguageTypeUnknown)
+    frame_lang = frame_sp->GetLanguage().AsLanguageType();
+
+  if (process_sp && frame_lang != lldb::eLanguageTypeUnknown) {
+    LLDB_LOGF(log, "Frame has language of type %s",
+              Language::GetNameForLanguageType(frame_lang));
   }
 
-  // 4. Set language options.
-  SetupLangOpts(*m_compiler, *exe_scope, expr);
-  if (auto *clang_expr = dyn_cast<ClangUserExpression>(&m_expr);
-      clang_expr && clang_expr->DidImportCxxModules()) {
-    LLDB_LOG(log, "Adding lang options for importing C++ modules");
-    SetupImportStdModuleLangOpts(*m_compiler, *target_sp);
-    SetupModuleHeaderPaths(m_compiler.get(), m_include_directories, target_sp);
-  }
-
-  // Set CodeGen options
-  m_compiler->getCodeGenOpts().EmitDeclMetadata = true;
-  m_compiler->getCodeGenOpts().InstrumentFunctions = false;
-  m_compiler->getCodeGenOpts().setFramePointer(
-                                    CodeGenOptions::FramePointerKind::All);
-  if (generate_debug_info)
-    m_compiler->getCodeGenOpts().setDebugInfo(codegenoptions::FullDebugInfo);
-  else
-    m_compiler->getCodeGenOpts().setDebugInfo(codegenoptions::NoDebugInfo);
-
-  // Disable some warnings.
-  SetupDefaultClangDiagnostics(*m_compiler);
-
-  // Inform the target of the language options
-  //
-  // FIXME: We shouldn't need to do this, the target should be immutable once
-  // created. This complexity should be lifted elsewhere.
-  m_compiler->getTarget().adjust(m_compiler->getDiagnostics(),
-		                 m_compiler->getLangOpts());
-
-  // 5. Set up the diagnostic buffer for reporting errors
+  // Set up the diagnostic buffer for reporting errors
 
   auto diag_mgr = new ClangDiagnosticManagerAdapter(
       m_compiler->getDiagnostics().getDiagnosticOptions());
   m_compiler->getDiagnostics().setClient(diag_mgr);
 
-  // 6. Set up the source management objects inside the compiler
-  m_compiler->createFileManager();
+  // Set up the source management objects inside the compiler
+  //m_compiler->createFileManager();
   if (!m_compiler->hasSourceManager())
     m_compiler->createSourceManager(m_compiler->getFileManager());
   m_compiler->createPreprocessor(TU_Complete);
+  llvm::errs() << "Dumping HeaderSearch.SearchDirs:\n";
+  HeaderSearch &HS = m_compiler->getPreprocessor().getHeaderSearchInfo();
+  for (auto const& dir : HS.search_dir_range())
+    llvm::errs() << dir.getName() << '\n';
+  llvm::errs() << '\n';
 
   switch (expr.Language().AsLanguageType()) {
   case lldb::eLanguageTypeC:
@@ -779,7 +813,7 @@ ClangExpressionParser::ClangExpressionParser(
     }
   }
 
-  // 7. Most of this we get from the CompilerInstance, but we also want to give
+  // Most of this we get from the CompilerInstance, but we also want to give
   // the context an ExternalASTSource.
 
   auto &PP = m_compiler->getPreprocessor();
@@ -801,6 +835,143 @@ ClangExpressionParser::ClangExpressionParser(
       &m_compiler->getVirtualFileSystem(), m_compiler->getHeaderSearchOpts(),
       m_compiler->getPreprocessorOpts(), m_compiler->getCodeGenOpts(),
       *m_llvm_context));
+}
+
+static void SetupTargetOpts(ArchSpec const& target_arch, clang::CompilerInstance &compiler) {
+  Log *log = GetLog(LLDBLog::Expressions);
+  std::string abi;
+  const auto target_machine = target_arch.GetMachine();
+  if (target_arch.IsValid()) {
+    std::string triple = target_arch.GetTriple().str();
+    compiler.getTargetOpts().Triple = triple;
+    LLDB_LOGF(log, "Using %s as the target triple",
+              compiler.getTargetOpts().Triple.c_str());
+  } else {
+    // If we get here we don't have a valid target and just have to guess.
+    // Sometimes this will be ok to just use the host target triple (when we
+    // evaluate say "2+3", but other expressions like breakpoint conditions and
+    // other things that _are_ target specific really shouldn't just be using
+    // the host triple. In such a case the language runtime should expose an
+    // overridden options set (3), below.
+    compiler.getTargetOpts().Triple = llvm::sys::getDefaultTargetTriple();
+    LLDB_LOGF(log, "Using default target triple of %s",
+              compiler.getTargetOpts().Triple.c_str());
+  }
+  // Now add some special fixes for known architectures: Any arm32 iOS
+  // environment, but not on arm64
+  if (compiler.getTargetOpts().Triple.find("arm64") == std::string::npos &&
+      compiler.getTargetOpts().Triple.find("arm") != std::string::npos &&
+      compiler.getTargetOpts().Triple.find("ios") != std::string::npos) {
+    compiler.getTargetOpts().ABI = "apcs-gnu";
+  }
+  // Supported subsets of x86
+  if (target_machine == llvm::Triple::x86 ||
+      target_machine == llvm::Triple::x86_64) {
+    compiler.getTargetOpts().Features.push_back("+sse");
+    compiler.getTargetOpts().Features.push_back("+sse2");
+  }
+
+  // Set the target CPU to generate code for. This will be empty for any CPU
+  // that doesn't really need to make a special
+  // CPU string.
+  compiler.getTargetOpts().CPU = target_arch.GetClangTargetCPU();
+
+  // Set the target ABI
+  abi = GetClangTargetABI(target_arch);
+  if (!abi.empty())
+    compiler.getTargetOpts().ABI = abi;
+}
+
+void ClangExpressionParser::InitFromDriver(
+        Expression const& expr,
+        lldb_private::Target & target,
+        Process * process,
+        StackFrame * frame) {
+  std::unique_ptr<clang::CompilerInstance> instance(
+      new clang::CompilerInstance);
+  // Create invocation in order to derive target
+  // options from driver. We will later attach m_compiler
+  // to this invocation.
+  clang::CreateInvocationOptions CIOpts;
+  std::vector<std::string> compiler_invocation_arguments = {
+      "clang",
+          "-x",
+          "objective-c++"};
+
+  std::string_view TestBufferName = "TestLLDBExprBuffer";
+  compiler_invocation_arguments.push_back(TestBufferName.data());
+
+  AddCompilerInvocationArgs(
+          *instance, m_include_directories,
+          compiler_invocation_arguments, m_expr);
+
+  std::vector<const char *> compiler_invocation_argument_cstrs;
+  compiler_invocation_argument_cstrs.reserve(
+      compiler_invocation_arguments.size());
+  for (const std::string &arg : compiler_invocation_arguments)
+    compiler_invocation_argument_cstrs.push_back(arg.c_str());
+
+  std::shared_ptr<clang::CompilerInvocation> invocation =
+      clang::createInvocation(compiler_invocation_argument_cstrs,
+                              std::move(CIOpts));
+
+  if (!invocation)
+    return;
+
+  instance->setInvocation(invocation);
+
+//  std::unique_ptr<llvm::MemoryBuffer> source_buffer =
+//      llvm::MemoryBuffer::getMemBuffer(
+//          "extern int __lldb __attribute__((unavailable));",
+//          TestBufferName);
+//
+//  invocation->getPreprocessorOpts().addRemappedFile(TestBufferName,
+//                                                    source_buffer.release());
+
+  ArchSpec target_arch = target.GetArchitecture();
+  SetupTargetOpts(target_arch, *instance);
+
+  instance->createFileManager(FileSystem::Instance().GetVirtualFileSystem());
+  instance->createDiagnostics();
+
+  instance->setTarget(clang::TargetInfo::CreateTargetInfo(
+      instance->getDiagnostics(), instance->getInvocation().TargetOpts));
+
+  if (!instance->hasTarget())
+    return;
+
+  // Limit the number of error diagnostics we emit.
+  // A value of 0 means no limit for both LLDB and Clang.
+  instance->getDiagnostics().setErrorLimit(target.GetExprErrorLimit());
+
+  // TODO: all these options should be converted to string arguments to CompilerInstance
+
+  // 4. Set language options.
+  SetupLangOpts(expr, target, process, frame, *m_compiler/*, m_include_directories*/);
+  if (auto *clang_expr = dyn_cast<ClangUserExpression>(&m_expr);
+      clang_expr && clang_expr->DidImportCxxModules()) {
+    LLDB_LOG(GetLog(LLDBLog::Expressions), "Adding lang options for importing C++ modules");
+    SetupImportStdModuleLangOpts(*m_compiler, target);
+    SetupModuleHeaderPaths(*m_compiler, m_include_directories);
+  }
+
+  // Set CodeGen options
+  instance->getCodeGenOpts().EmitDeclMetadata = true;
+  instance->getCodeGenOpts().InstrumentFunctions = false;
+  instance->getCodeGenOpts().setFramePointer(
+                                    CodeGenOptions::FramePointerKind::All);
+  //if (generate_debug_info)
+  //  m_compiler->getCodeGenOpts().setDebugInfo(codegenoptions::FullDebugInfo);
+  //else
+    instance->getCodeGenOpts().setDebugInfo(codegenoptions::NoDebugInfo);
+
+  // Disable some warnings.
+  SetupDefaultClangDiagnostics(*instance);
+
+  instance->getTarget().adjust(instance->getDiagnostics(), instance->getLangOpts());
+
+  m_compiler_invocation = std::move(invocation);
+  m_compiler = std::move(instance);
 }
 
 ClangExpressionParser::~ClangExpressionParser() = default;

@@ -780,6 +780,11 @@ ClangExpressionParser::ClangExpressionParser(
   if (!m_compiler->hasSourceManager())
     m_compiler->createSourceManager(m_compiler->getFileManager());
   m_compiler->createPreprocessor(TU_Complete);
+  llvm::errs() << "Dumping HeaderSearch.SearchDirs:\n";
+  HeaderSearch &HS = m_compiler->getPreprocessor().getHeaderSearchInfo();
+  for (auto const& dir : HS.search_dir_range())
+    llvm::errs() << dir.getName() << '\n';
+  llvm::errs() << '\n';
 
   switch (expr.Language()) {
   case lldb::eLanguageTypeC:

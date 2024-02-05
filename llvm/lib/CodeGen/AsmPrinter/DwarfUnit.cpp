@@ -1663,6 +1663,9 @@ DIE &DwarfUnit::constructMemberDIE(DIE &Buffer, const DIDerivedType *DT) {
       if (AlignInBytes)
         addUInt(MemberDie, dwarf::DW_AT_alignment, dwarf::DW_FORM_udata,
                 AlignInBytes);
+
+      if (Size == 0)
+        addUInt(MemberDie, dwarf::DW_AT_byte_size, std::nullopt, 0);
     }
 
     if (DD->getDwarfVersion() <= 2) {

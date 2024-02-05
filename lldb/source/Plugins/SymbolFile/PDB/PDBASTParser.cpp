@@ -1274,7 +1274,8 @@ void PDBASTParser::AddRecordMembers(
         bit_size *= 8;
 
       auto decl = TypeSystemClang::AddFieldToRecordType(
-          record_type, member_name.c_str(), member_comp_type, access, bit_size);
+          record_type, member_name.c_str(), member_comp_type, access, bit_size,
+          /*IsZeroSize=*/false);
       if (!decl)
         continue;
 

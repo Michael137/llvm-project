@@ -2961,6 +2961,7 @@ void DWARFASTParserClang::ParseSingleMember(
   uint64_t field_bit_offset = (attrs.member_byte_offset == UINT32_MAX
                                    ? 0
                                    : (attrs.member_byte_offset * 8ULL));
+  bool IsZeroSize = attrs.byte_size && attrs.byte_size.value() == 0;
 
   if (attrs.bit_size > 0) {
     FieldInfo this_field_info;
@@ -3118,7 +3119,7 @@ void DWARFASTParserClang::ParseSingleMember(
 
   clang::FieldDecl *field_decl = TypeSystemClang::AddFieldToRecordType(
       class_clang_type, attrs.name, member_clang_type, accessibility,
-      attrs.bit_size);
+      attrs.bit_size, IsZeroSize);
 
   m_ast.SetMetadataAsUserID(field_decl, die.GetID());
 

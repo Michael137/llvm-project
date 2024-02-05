@@ -7270,7 +7270,7 @@ TypeSystemClang::GetAsObjCInterfaceDecl(const CompilerType &type) {
 clang::FieldDecl *TypeSystemClang::AddFieldToRecordType(
     const CompilerType &type, llvm::StringRef name,
     const CompilerType &field_clang_type, AccessType access,
-    uint32_t bitfield_bit_size) {
+    uint32_t bitfield_bit_size, bool IsZeroSize) {
   if (!type.IsValid() || !field_clang_type.IsValid())
     return nullptr;
   auto ts = type.GetTypeSystem();
@@ -7302,6 +7302,8 @@ clang::FieldDecl *TypeSystemClang::AddFieldToRecordType(
     if (bit_width)
       field->setBitWidth(bit_width);
     SetMemberOwningModule(field, record_decl);
+    if (IsZeroSize)
+      field->addAttr(NoUniqueAddressAttr::CreateImplicit(ast->getASTContext()));
 
     if (name.empty()) {
       // Determine whether this field corresponds to an anonymous struct or

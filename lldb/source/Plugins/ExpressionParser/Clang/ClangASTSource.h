@@ -153,6 +153,8 @@ public:
   ///     The Decl to be completed in place.
   void CompleteType(clang::ObjCInterfaceDecl *Class) override;
 
+  void CompleteRedeclChain(clang::Decl const *D) override;
+
   /// Called on entering a translation unit.  Tells Clang by calling
   /// setHasExternalVisibleStorage() and setHasExternalLexicalStorage() that
   /// this object has something to say about undefined names.
@@ -229,6 +231,10 @@ public:
 
     void CompleteType(clang::ObjCInterfaceDecl *Class) override {
       return m_original.CompleteType(Class);
+    }
+
+    void CompleteRedeclChain(clang::Decl const *D) override {
+      return m_original.CompleteRedeclChain(D);
     }
 
     bool layoutRecordType(

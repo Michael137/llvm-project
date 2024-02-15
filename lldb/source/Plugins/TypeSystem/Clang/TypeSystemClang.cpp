@@ -1671,6 +1671,9 @@ ClassTemplateDecl *TypeSystemClang::CreateClassTemplateDecl(
   class_template_decl->init(template_cxx_decl);
   template_cxx_decl->setDescribedClassTemplate(class_template_decl);
   SetOwningModule(class_template_decl, owning_module);
+  ast.getInjectedClassNameType(
+      template_cxx_decl,
+      class_template_decl->getInjectedClassNameSpecialization());
 
   if (access_type != eAccessNone)
     class_template_decl->setAccess(
@@ -2504,7 +2507,7 @@ bool TypeSystemClang::GetCompleteDecl(clang::ASTContext *ast,
     if (tag_decl->isCompleteDefinition())
       return true;
 
-    if (!tag_decl->hasExternalLexicalStorage())
+    if (!UseRedeclCompletion() && !tag_decl->hasExternalLexicalStorage())
       return false;
 
     ast_source->CompleteType(tag_decl);
@@ -2517,7 +2520,8 @@ bool TypeSystemClang::GetCompleteDecl(clang::ASTContext *ast,
     if (objc_interface_decl->getDefinition())
       return true;
 
-    if (!objc_interface_decl->hasExternalLexicalStorage())
+    if (!UseRedeclCompletion() &&
+        !objc_interface_decl->hasExternalLexicalStorage())
       return false;
 
     ast_source->CompleteType(objc_interface_decl);
@@ -2668,7 +2672,7 @@ TypeSystemClang::GetDeclContextForType(clang::QualType type) {
 /// function will try to complete the type if necessary (and allowed
 /// by the specified \ref allow_completion). If we fail to return a *complete*
 /// type, returns nullptr.
-static const clang::RecordType *GetCompleteRecordType(clang::ASTContext *ast,
+static const clang::Type *GetCompleteRecordType(clang::ASTContext *ast,
                                                       clang::QualType qual_type,
                                                       bool allow_completion) {
   assert(qual_type->isRecordType());
@@ -2676,6 +2680,12 @@ static const clang::RecordType *GetCompleteRecordType(clang::ASTContext *ast,
   const auto *tag_type = llvm::cast<clang::RecordType>(qual_type.getTypePtr());
 
   clang::CXXRecordDecl *cxx_record_decl = qual_type->getAsCXXRecordDecl();
+  if (TypeSystemClang::UseRedeclCompletion() && cxx_record_decl) {
+    clang::CXXRecordDecl *def = cxx_record_decl->getDefinition();
+    if (!def)
+      return nullptr;
+    return def->getTypeForDecl();
+  }
 
   // RecordType with no way of completing it, return the plain
   // TagType.
@@ -2714,7 +2724,7 @@ static const clang::RecordType *GetCompleteRecordType(clang::ASTContext *ast,
 /// function will try to complete the type if necessary (and allowed
 /// by the specified \ref allow_completion). If we fail to return a *complete*
 /// type, returns nullptr.
-static const clang::EnumType *GetCompleteEnumType(clang::ASTContext *ast,
+static const clang::Type *GetCompleteEnumType(clang::ASTContext *ast,
                                                   clang::QualType qual_type,
                                                   bool allow_completion) {
   assert(qual_type->isEnumeralType());
@@ -2725,6 +2735,13 @@ static const clang::EnumType *GetCompleteEnumType(clang::ASTContext *ast,
 
   auto *tag_decl = enum_type->getAsTagDecl();
   assert(tag_decl);
+
+  if (TypeSystemClang::UseRedeclCompletion()) {
+    if (clang::TagDecl *def = tag_decl->getDefinition())
+      return def->getTypeForDecl();
+
+    return tag_decl->getTypeForDecl();
+  }
 
   // Already completed, nothing to be done.
   if (tag_decl->getDefinition())
@@ -2750,7 +2767,7 @@ static const clang::EnumType *GetCompleteEnumType(clang::ASTContext *ast,
 /// function will try to complete the type if necessary (and allowed
 /// by the specified \ref allow_completion). If we fail to return a *complete*
 /// type, returns nullptr.
-static const clang::ObjCObjectType *
+static const clang::Type *
 GetCompleteObjCObjectType(clang::ASTContext *ast, QualType qual_type,
                           bool allow_completion) {
   assert(qual_type->isObjCObjectType());
@@ -2767,8 +2784,9 @@ GetCompleteObjCObjectType(clang::ASTContext *ast, QualType qual_type,
     return objc_class_type;
 
   // Already complete, nothing to be done.
-  if (class_interface_decl->getDefinition())
-    return objc_class_type;
+  if (auto *def = class_interface_decl->getDefinition())
+    return TypeSystemClang::UseRedeclCompletion() ? def->getTypeForDecl()
+                                                  : objc_class_type;
 
   if (!allow_completion)
     return nullptr;
@@ -2805,14 +2823,14 @@ static bool GetCompleteQualType(clang::ASTContext *ast,
   case clang::Type::Record: {
     if (const auto *RT =
             GetCompleteRecordType(ast, qual_type, allow_completion))
-      return !RT->isIncompleteType();
+      return TypeSystemClang::UseRedeclCompletion() || !RT->isIncompleteType();
 
     return false;
   } break;
 
   case clang::Type::Enum: {
     if (const auto *ET = GetCompleteEnumType(ast, qual_type, allow_completion))
-      return !ET->isIncompleteType();
+      return TypeSystemClang::UseRedeclCompletion() || !ET->isIncompleteType();
 
     return false;
   } break;
@@ -2820,7 +2838,7 @@ static bool GetCompleteQualType(clang::ASTContext *ast,
   case clang::Type::ObjCInterface: {
     if (const auto *OT =
             GetCompleteObjCObjectType(ast, qual_type, allow_completion))
-      return !OT->isIncompleteType();
+      return TypeSystemClang::UseRedeclCompletion() || !OT->isIncompleteType();
 
     return false;
   } break;
@@ -3539,7 +3557,9 @@ bool TypeSystemClang::IsDefined(lldb::opaque_compiler_type_t type) {
   if (tag_type) {
     clang::TagDecl *tag_decl = tag_type->getDecl();
     if (tag_decl)
-      return tag_decl->isCompleteDefinition();
+      return TypeSystemClang::UseRedeclCompletion()
+                 ? tag_decl->getDefinition() != nullptr
+                 : tag_decl->isCompleteDefinition();
     return false;
   } else {
     const clang::ObjCObjectType *objc_class_type =
@@ -5496,6 +5516,10 @@ TypeSystemClang::GetNumChildren(lldb::opaque_compiler_type_t type,
             objc_class_type->getInterface();
 
         if (class_interface_decl) {
+          if (TypeSystemClang::UseRedeclCompletion()) {
+            auto *def = class_interface_decl->getDefinition();
+            class_interface_decl = def;
+          }
 
           clang::ObjCInterfaceDecl *superclass_interface_decl =
               class_interface_decl->getSuperClass();
@@ -8546,9 +8570,13 @@ bool TypeSystemClang::CompleteTagDeclarationDefinition(
 
       if (!cxx_record_decl->isCompleteDefinition())
         cxx_record_decl->completeDefinition();
-      cxx_record_decl->setHasLoadedFieldsFromExternalStorage(true);
-      cxx_record_decl->setHasExternalLexicalStorage(false);
-      cxx_record_decl->setHasExternalVisibleStorage(false);
+
+      if (!TypeSystemClang::UseRedeclCompletion()) {
+        cxx_record_decl->setHasLoadedFieldsFromExternalStorage(true);
+        cxx_record_decl->setHasExternalLexicalStorage(false);
+        cxx_record_decl->setHasExternalVisibleStorage(false);
+      }
+
       lldb_ast->SetCXXRecordDeclAccess(cxx_record_decl,
                                        clang::AccessSpecifier::AS_none);
       return true;
@@ -9197,25 +9225,25 @@ static OptionalClangModuleID GetModuleForDecl(clang::Decl *d) {
   return OptionalClangModuleID(d->getOwningModuleID());
 }
 
-void TypeSystemClang::CreateRedeclaration(CompilerType ct) {
+CompilerType TypeSystemClang::CreateRedeclaration(CompilerType ct) {
   // All the cases below just check for a specific declaration kind, create
   // a new declaration with matching data. We don't care about metadata which
   // should only be tracked in the first redeclaration and should be identical
   // for all redeclarations.
 
-  if (clang::ObjCInterfaceDecl *interface = GetAsObjCInterfaceDecl(ct)) {
+  if (clang::ObjCInterfaceDecl *interface = ClangUtil::GetAsObjCDecl(ct)) {
     clang::NamedDecl *res = CreateObjCDecl(
         interface->getName(), interface->getDeclContext()->getRedeclContext(),
         GetModuleForDecl(interface), /*isForwardDecl=*/false,
         interface->isImplicit());
     clang::ObjCInterfaceDecl *redecl = llvm::cast<ObjCInterfaceDecl>(res);
     ConnectRedeclToPrev(*this, interface, redecl);
-    return;
+    return GetTypeForDecl(redecl);
   }
 
   clang::TagDecl *tag_decl = ClangUtil::GetAsTagDecl(ct);
   if (!tag_decl)
-    return;
+    return {};
 
   if (clang::EnumDecl *enum_decl = dyn_cast<EnumDecl>(tag_decl)) {
     Declaration decl;
@@ -9225,7 +9253,7 @@ void TypeSystemClang::CreateRedeclaration(CompilerType ct) {
         GetModuleForDecl(enum_decl), decl, GetType(enum_decl->getIntegerType()),
         enum_decl->isScoped());
     ConnectRedeclToPrev(*this, enum_decl, redecl);
-    return;
+    return GetTypeForDecl(redecl);
   }
 
   if (auto *template_decl =
@@ -9241,7 +9269,7 @@ void TypeSystemClang::CreateRedeclaration(CompilerType ct) {
         template_decl->getSpecializedTemplate(),
         llvm::to_underlying(tag_decl->getTagKind()), template_infos);
     ConnectRedeclToPrev(*this, template_decl, redecl);
-    return;
+    return GetType(clang::QualType(redecl->getTypeForDecl(), 0U));
   }
 
   assert(llvm::isa<RecordDecl>(tag_decl));
@@ -9252,7 +9280,7 @@ void TypeSystemClang::CreateRedeclaration(CompilerType ct) {
       nullptr);
   clang::TagDecl *redecl = llvm::cast<TagDecl>(redecl_record);
   ConnectRedeclToPrev(*this, tag_decl, redecl);
-  return;
+  return GetTypeForDecl(redecl);
 }
 
 DWARFASTParser *TypeSystemClang::GetDWARFParser() {

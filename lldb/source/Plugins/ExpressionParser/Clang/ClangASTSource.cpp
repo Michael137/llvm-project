@@ -363,8 +363,7 @@ clang::ObjCInterfaceDecl *ClangASTSource::GetCompleteObjCInterface(
     return nullptr;
 
   ObjCInterfaceDecl *complete_iface_decl(complete_interface_type->getDecl());
-
-  return complete_iface_decl;
+  return complete_iface_decl->getDefinition();
 }
 
 void ClangASTSource::FindExternalLexicalDecls(

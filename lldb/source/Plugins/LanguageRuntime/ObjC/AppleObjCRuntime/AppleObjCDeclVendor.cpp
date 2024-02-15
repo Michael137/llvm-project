@@ -12,6 +12,7 @@
 #include "Plugins/ExpressionParser/Clang/ClangUtil.h"
 #include "Plugins/LanguageRuntime/ObjC/ObjCLanguageRuntime.h"
 #include "Plugins/TypeSystem/Clang/ImporterBackedASTSource.h"
+#include "Plugins/TypeSystem/Clang/TypeSystemClang.h"
 #include "lldb/Core/Module.h"
 #include "lldb/Target/Process.h"
 #include "lldb/Target/Target.h"
@@ -30,6 +31,7 @@ public:
   AppleObjCExternalASTSource(AppleObjCDeclVendor &decl_vendor)
       : m_decl_vendor(decl_vendor) {}
 
+  // FIXME: unused when 'TypeSystemClang::UseRedeclCompletion == true'
   bool FindExternalVisibleDeclsByName(const clang::DeclContext *decl_ctx,
                                       clang::DeclarationName name) override {
 
@@ -179,8 +181,13 @@ AppleObjCDeclVendor::GetDeclForISA(ObjCLanguageRuntime::ObjCISA isa) {
   meta_data.SetISAPtr(isa);
   m_ast_ctx->SetMetadata(new_iface_decl, meta_data);
 
-  new_iface_decl->setHasExternalVisibleStorage();
-  new_iface_decl->setHasExternalLexicalStorage();
+  if (TypeSystemClang::UseRedeclCompletion()) {
+    m_interface_to_isa[new_iface_decl] = isa;
+    m_external_source->MarkRedeclChainsAsOutOfDate(m_ast_ctx->getASTContext());
+  } else {
+    new_iface_decl->setHasExternalVisibleStorage();
+    new_iface_decl->setHasExternalLexicalStorage();
+  }
 
   ast_ctx.getTranslationUnitDecl()->addDecl(new_iface_decl);
 
@@ -408,6 +415,21 @@ bool AppleObjCDeclVendor::FinishDecl(clang::ObjCInterfaceDecl *interface_decl) {
   Log *log(
       GetLog(LLDBLog::Expressions)); // FIXME - a more appropriate log channel?
 
+  clang::ObjCInterfaceDecl *iface_def = nullptr;
+  if (TypeSystemClang::UseRedeclCompletion()) {
+    // Already completed.
+    if (interface_decl->hasDefinition())
+      return true;
+
+    clang::QualType qt(interface_decl->getTypeForDecl(), 0U);
+    CompilerType type(m_ast_ctx, qt.getAsOpaquePtr());
+    CompilerType def_type = m_ast_ctx->CreateRedeclaration(type);
+    iface_def = ClangUtil::GetAsObjCDecl(def_type);
+
+    auto isa = m_interface_to_isa[interface_decl];
+    m_isa_to_interface[isa] = iface_def;
+  }
+
   ClangASTMetadata *metadata = m_ast_ctx->GetMetadata(interface_decl);
   ObjCLanguageRuntime::ObjCISA objc_isa = 0;
   if (metadata)
@@ -416,13 +438,20 @@ bool AppleObjCDeclVendor::FinishDecl(clang::ObjCInterfaceDecl *interface_decl) {
   if (!objc_isa)
     return false;
 
-  if (!interface_decl->hasExternalVisibleStorage())
+  if (!TypeSystemClang::UseRedeclCompletion() &&
+      !interface_decl->hasExternalVisibleStorage())
+    return true;
+
+  // Could've completed during CreateRedeclaration above
+  if (TypeSystemClang::UseRedeclCompletion() && interface_decl->hasDefinition())
     return true;
 
   interface_decl->startDefinition();
 
-  interface_decl->setHasExternalVisibleStorage(false);
-  interface_decl->setHasExternalLexicalStorage(false);
+  if (!TypeSystemClang::UseRedeclCompletion()) {
+    interface_decl->setHasExternalVisibleStorage(false);
+    interface_decl->setHasExternalLexicalStorage(false);
+  }
 
   ObjCLanguageRuntime::ClassDescriptorSP descriptor =
       m_runtime.GetClassDescriptorFromISA(objc_isa);

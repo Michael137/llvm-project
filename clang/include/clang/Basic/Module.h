@@ -27,6 +27,7 @@
 #include "llvm/ADT/StringMap.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/ADT/iterator_range.h"
+#include "llvm/Support/raw_ostream.h"
 #include <array>
 #include <cassert>
 #include <cstdint>
@@ -883,7 +884,9 @@ public:
   ASTSourceDescriptor(StringRef Name, StringRef Path, StringRef ASTFile,
                       ASTFileSignature Signature)
       : PCHModuleName(std::move(Name)), Path(std::move(Path)),
-        ASTFile(std::move(ASTFile)), Signature(Signature) {}
+        ASTFile(std::move(ASTFile)), Signature(Signature) {
+          llvm::errs() << "Created PCH: " << PCHModuleName << '\n';
+        }
   ASTSourceDescriptor(Module &M);
 
   std::string getModuleName() const;

@@ -2858,10 +2858,10 @@ llvm::DIModule *CGDebugInfo::getOrCreateModuleRef(ASTSourceDescriptor Mod,
   // Use the Module pointer as the key into the cache. This is a
   // nullptr if the "Module" is a PCH, which is safe because we don't
   // support chained PCH debug info, so there can only be a single PCH.
-  const Module *M = Mod.getModuleOrNull();
-  auto ModRef = ModuleCache.find(M);
-  if (ModRef != ModuleCache.end())
-    return cast<llvm::DIModule>(ModRef->second);
+  auto ModuleName = Mod.getModuleName();
+  auto &ModRef = ModuleRefCache[ModuleName];
+  if (ModRef)
+    return cast<llvm::DIModule>(ModRef);
 
   // Macro definitions that were defined with "-D" on the command line.
   SmallString<128> ConfigMacros;
@@ -2891,12 +2891,13 @@ llvm::DIModule *CGDebugInfo::getOrCreateModuleRef(ASTSourceDescriptor Mod,
     }
   }
 
-  bool IsRootModule = M ? !M->Parent : true;
+  const Module *ModulePtr = Mod.getModuleOrNull();
+  bool IsRootModule = ModulePtr ? !ModulePtr->Parent : true;
   // When a module name is specified as -fmodule-name, that module gets a
   // clang::Module object, but it won't actually be built or imported; it will
   // be textual.
-  if (CreateSkeletonCU && IsRootModule && Mod.getASTFile().empty() && M)
-    assert(StringRef(M->Name).starts_with(CGM.getLangOpts().ModuleName) &&
+  if (CreateSkeletonCU && IsRootModule && Mod.getASTFile().empty() && ModulePtr)
+    assert(StringRef(ModulePtr->Name).starts_with(CGM.getLangOpts().ModuleName) &&
            "clang module without ASTFile must be specified by -fmodule-name");
 
   // Return a StringRef to the remapped Path.
@@ -2941,13 +2942,13 @@ llvm::DIModule *CGDebugInfo::getOrCreateModuleRef(ASTSourceDescriptor Mod,
 
   llvm::DIModule *Parent =
       IsRootModule ? nullptr
-                   : getOrCreateModuleRef(ASTSourceDescriptor(*M->Parent),
+                   : getOrCreateModuleRef(ASTSourceDescriptor(*ModulePtr->Parent),
                                           CreateSkeletonCU);
   std::string IncludePath = Mod.getPath().str();
   llvm::DIModule *DIMod =
       DBuilder.createModule(Parent, Mod.getModuleName(), ConfigMacros,
                             RemapPath(IncludePath));
-  ModuleCache[M].reset(DIMod);
+  ModRef.reset(DIMod);
   return DIMod;
 }
 

@@ -28,6 +28,7 @@
 #include "lldb/lldb-types.h"
 
 #include "Plugins/ExpressionParser/Clang/CxxModuleHandler.h"
+#include "Plugins/TypeSystem/Clang/TypeSystemClang.h"
 
 #include "llvm/ADT/DenseMap.h"
 
@@ -385,6 +386,14 @@ public:
       assert(&decl->getASTContext() != origin.ctx &&
              "Trying to set decl origin to its own ASTContext?");
       assert(decl != origin.decl && "Trying to set decl origin to itself?");
+      if (auto * ND = llvm::dyn_cast<clang::NamedDecl>(decl)) {
+        auto name = ND->getNameAsString();
+        auto * orig_ctx = origin.ctx;
+        auto * dst_ctx = &decl->getASTContext();
+        auto orig_ts_name = TypeSystemClang::GetASTContext(orig_ctx)->getDisplayName();
+        auto dst_ts_name = TypeSystemClang::GetASTContext(dst_ctx)->getDisplayName();
+        llvm::errs() << llvm::formatv("{0}: {1}\n\t{2}\n\t{3}\n", __func__, name, orig_ts_name, dst_ts_name);
+      }
       m_origins[decl] = origin;
     }
 

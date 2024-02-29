@@ -775,11 +775,15 @@ bool ClangASTImporter::LayoutRecordType(
   // It's possible that we calculated the layout in a different
   // ClangASTImporter instance. Try to import such layout if
   // our decl has an origin.
-  if (auto origin = GetDeclOrigin(record_decl); origin.Valid())
+  if (auto origin = GetDeclOrigin(record_decl); origin.Valid()) {
     if (importRecordLayoutFromOrigin(record_decl, bit_size, alignment,
                                      field_offsets, base_offsets,
-                                     vbase_offsets))
+                                     vbase_offsets)) {
+      llvm::errs() << "Imported layout from origin:\n";
+      record_decl->dump();
       return true;
+    }
+  }
 
   bit_size = 0;
   alignment = 0;

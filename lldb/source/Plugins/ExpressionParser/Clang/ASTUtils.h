@@ -275,8 +275,8 @@ public:
   //===--------------------------------------------------------------------===//
 
   clang::Decl *GetExternalDecl(clang::GlobalDeclID ID) override {
-    for (size_t i = 0; i < Sources.size(); ++i)
-      if (clang::Decl *Result = Sources[i]->GetExternalDecl(ID))
+    for (auto * Source : Sources)
+      if (clang::Decl *Result = Source->GetExternalDecl(ID))
         return Result;
     return nullptr;
   }
@@ -285,8 +285,8 @@ public:
   /// on each AST source. Returns as soon as we got
   /// a definition for D.
   void CompleteRedeclChain(const clang::Decl *D) override {
-    for (size_t i = 0; i < Sources.size(); ++i) {
-      Sources[i]->CompleteRedeclChain(D);
+    for (auto * Source : Sources) {
+      Source->CompleteRedeclChain(D);
       if (auto *td = llvm::dyn_cast<clang::TagDecl>(D))
         if (td->getDefinition())
           return;
@@ -295,8 +295,8 @@ public:
 
   clang::Selector GetExternalSelector(uint32_t ID) override {
     clang::Selector Sel;
-    for (size_t i = 0; i < Sources.size(); ++i) {
-      Sel = Sources[i]->GetExternalSelector(ID);
+    for (auto * Source : Sources) {
+      Sel = Source->GetExternalSelector(ID);
       if (!Sel.isNull())
         return Sel;
     }
@@ -304,39 +304,39 @@ public:
   }
 
   uint32_t GetNumExternalSelectors() override {
-    for (size_t i = 0; i < Sources.size(); ++i)
-      if (uint32_t total = Sources[i]->GetNumExternalSelectors())
+    for (auto * Source : Sources)
+      if (uint32_t total = Source->GetNumExternalSelectors())
         return total;
     return 0;
   }
 
   clang::Stmt *GetExternalDeclStmt(uint64_t Offset) override {
-    for (size_t i = 0; i < Sources.size(); ++i)
-      if (clang::Stmt *Result = Sources[i]->GetExternalDeclStmt(Offset))
+    for (auto * Source : Sources)
+      if (clang::Stmt *Result = Source->GetExternalDeclStmt(Offset))
         return Result;
     return nullptr;
   }
 
   clang::CXXBaseSpecifier *
   GetExternalCXXBaseSpecifiers(uint64_t Offset) override {
-    for (size_t i = 0; i < Sources.size(); ++i)
+    for (auto * Source : Sources)
       if (clang::CXXBaseSpecifier *R =
-              Sources[i]->GetExternalCXXBaseSpecifiers(Offset))
+              Source->GetExternalCXXBaseSpecifiers(Offset))
         return R;
     return nullptr;
   }
 
   clang::CXXCtorInitializer **
   GetExternalCXXCtorInitializers(uint64_t Offset) override {
-    for (auto *S : Sources)
-      if (auto *R = S->GetExternalCXXCtorInitializers(Offset))
+    for (auto * Source : Sources)
+      if (auto *R = Source->GetExternalCXXCtorInitializers(Offset))
         return R;
     return nullptr;
   }
 
   ExtKind hasExternalDefinitions(const clang::Decl *D) override {
-    for (const auto &S : Sources)
-      if (auto EK = S->hasExternalDefinitions(D))
+    for (auto * Source : Sources)
+      if (auto EK = Source->hasExternalDefinitions(D))
         if (EK != EK_ReplyHazy)
           return EK;
     return EK_ReplyHazy;
@@ -344,24 +344,24 @@ public:
 
   bool FindExternalVisibleDeclsByName(const clang::DeclContext *DC,
                                       clang::DeclarationName Name) override {
-    for (size_t i = 0; i < Sources.size(); ++i)
-      if (Sources[i]->FindExternalVisibleDeclsByName(DC, Name))
+    for (auto * Source : Sources)
+      if (Source->FindExternalVisibleDeclsByName(DC, Name))
         return true;
     return false;
   }
 
   void completeVisibleDeclsMap(const clang::DeclContext *DC) override {
     // FIXME: Only one source should be able to complete the decls map.
-    for (size_t i = 0; i < Sources.size(); ++i)
-      Sources[i]->completeVisibleDeclsMap(DC);
+    for (auto * Source : Sources)
+      Source->completeVisibleDeclsMap(DC);
   }
 
   void FindExternalLexicalDecls(
       const clang::DeclContext *DC,
       llvm::function_ref<bool(clang::Decl::Kind)> IsKindWeWant,
       llvm::SmallVectorImpl<clang::Decl *> &Result) override {
-    for (size_t i = 0; i < Sources.size(); ++i) {
-      Sources[i]->FindExternalLexicalDecls(DC, IsKindWeWant, Result);
+    for (auto * Source : Sources) {
+      Source->FindExternalLexicalDecls(DC, IsKindWeWant, Result);
       if (!Result.empty())
         return;
     }
@@ -370,13 +370,13 @@ public:
   void
   FindFileRegionDecls(clang::FileID File, unsigned Offset, unsigned Length,
                       llvm::SmallVectorImpl<clang::Decl *> &Decls) override {
-    for (size_t i = 0; i < Sources.size(); ++i)
-      Sources[i]->FindFileRegionDecls(File, Offset, Length, Decls);
+    for (auto * Source : Sources)
+      Source->FindFileRegionDecls(File, Offset, Length, Decls);
   }
 
   void CompleteType(clang::TagDecl *Tag) override {
-    for (clang::ExternalSemaSource *S : Sources) {
-      S->CompleteType(Tag);
+    for (auto * Source : Sources) {
+      Source->CompleteType(Tag);
       // Stop after the first source completed the type.
       if (Tag->isCompleteDefinition())
         break;
@@ -384,35 +384,35 @@ public:
   }
 
   void CompleteType(clang::ObjCInterfaceDecl *Class) override {
-    for (size_t i = 0; i < Sources.size(); ++i)
-      Sources[i]->CompleteType(Class);
+    for (auto * Source : Sources)
+      Source->CompleteType(Class);
   }
 
   void ReadComments() override {
-    for (size_t i = 0; i < Sources.size(); ++i)
-      Sources[i]->ReadComments();
+    for (auto * Source : Sources)
+      Source->ReadComments();
   }
 
   void StartedDeserializing() override {
-    for (size_t i = 0; i < Sources.size(); ++i)
-      Sources[i]->StartedDeserializing();
+    for (auto * Source : Sources)
+      Source->StartedDeserializing();
   }
 
   void FinishedDeserializing() override {
-    for (size_t i = 0; i < Sources.size(); ++i)
-      Sources[i]->FinishedDeserializing();
+    for (auto * Source : Sources)
+      Source->FinishedDeserializing();
   }
 
   void StartTranslationUnit(clang::ASTConsumer *Consumer) override {
-    for (size_t i = 0; i < Sources.size(); ++i)
-      Sources[i]->StartTranslationUnit(Consumer);
+    for (auto * Source : Sources)
+      Source->StartTranslationUnit(Consumer);
   }
 
   void PrintStats() override;
 
   clang::Module *getModule(unsigned ID) override {
-    for (size_t i = 0; i < Sources.size(); ++i)
-      if (auto M = Sources[i]->getModule(ID))
+    for (auto * Source : Sources)
+      if (auto M = Source->getModule(ID))
         return M;
     return nullptr;
   }
@@ -424,15 +424,15 @@ public:
           &BaseOffsets,
       llvm::DenseMap<const clang::CXXRecordDecl *, clang::CharUnits>
           &VirtualBaseOffsets) override {
-    for (size_t i = 0; i < Sources.size(); ++i)
-      if (Sources[i]->layoutRecordType(Record, Size, Alignment, FieldOffsets,
+    for (auto * Source : Sources)
+      if (Source->layoutRecordType(Record, Size, Alignment, FieldOffsets,
                                        BaseOffsets, VirtualBaseOffsets))
         return true;
     return false;
   }
 
   void getMemoryBufferSizes(MemoryBufferSizes &sizes) const override {
-    for (auto &Source : Sources)
+    for (auto * Source : Sources)
       Source->getMemoryBufferSizes(sizes);
   }
 

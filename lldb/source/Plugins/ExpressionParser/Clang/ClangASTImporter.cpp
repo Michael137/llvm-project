@@ -830,13 +830,7 @@ bool ClangASTImporter::CompleteTagDecl(clang::TagDecl *decl) {
   ASTImporterDelegate::CxxModuleScope std_scope(*delegate_sp,
                                                 &decl->getASTContext());
 
-  if (!TypeSystemClang::UseRedeclCompletion()) {
-    if (!TypeSystemClang::GetCompleteDecl(decl_origin.ctx, decl_origin.decl))
-      return false;
-
-    if (delegate_sp)
-      delegate_sp->ImportDefinitionTo(decl, decl_origin.decl);
-  } else {
+  if (TypeSystemClang::UseRedeclCompletion()) {
     auto *origin_def = llvm::cast<TagDecl>(decl_origin.decl)->getDefinition();
     if (!origin_def)
       return false;
@@ -859,6 +853,12 @@ bool ClangASTImporter::CompleteTagDecl(clang::TagDecl *decl) {
     if (!decl->isThisDeclarationADefinition() && result_decl != decl)
       if (result_decl->getPreviousDecl() == nullptr)
         result_decl->setPreviousDecl(decl);
+  } else {
+    if (!TypeSystemClang::GetCompleteDecl(decl_origin.ctx, decl_origin.decl))
+      return false;
+
+    if (delegate_sp)
+      delegate_sp->ImportDefinitionTo(decl, decl_origin.decl);
   }
 
   return true;
@@ -883,16 +883,7 @@ bool ClangASTImporter::CompleteObjCInterfaceDecl(
   ImporterDelegateSP delegate_sp(
       GetDelegate(&interface_decl->getASTContext(), decl_origin.ctx));
 
-  if (!TypeSystemClang::UseRedeclCompletion()) {
-    if (!TypeSystemClang::GetCompleteDecl(decl_origin.ctx, decl_origin.decl))
-      return false;
-
-    if (delegate_sp)
-      delegate_sp->ImportDefinitionTo(interface_decl, decl_origin.decl);
-
-    if (ObjCInterfaceDecl *super_class = interface_decl->getSuperClass())
-      RequireCompleteType(clang::QualType(super_class->getTypeForDecl(), 0));
-  } else {
+  if (TypeSystemClang::UseRedeclCompletion()) {
     ObjCInterfaceDecl *origin_decl =
         llvm::cast<ObjCInterfaceDecl>(decl_origin.decl);
 
@@ -915,13 +906,25 @@ bool ClangASTImporter::CompleteObjCInterfaceDecl(
     return false;
   }
 
+  if (!TypeSystemClang::GetCompleteDecl(decl_origin.ctx, decl_origin.decl))
+    return false;
+
+  if (delegate_sp)
+    delegate_sp->ImportDefinitionTo(interface_decl, decl_origin.decl);
+
+  if (ObjCInterfaceDecl *super_class = interface_decl->getSuperClass())
+    RequireCompleteType(clang::QualType(super_class->getTypeForDecl(), 0));
+
   return true;
 }
 
 bool ClangASTImporter::CompleteAndFetchChildren(clang::QualType type) {
-  const auto ret = RequireCompleteType(type);
-  if (TypeSystemClang::UseRedeclCompletion() || !ret)
+  const bool ret = RequireCompleteType(type);
+  if (TypeSystemClang::UseRedeclCompletion())
     return ret;
+
+  if (!ret)
+    return false;
 
   Log *log = GetLog(LLDBLog::Expressions);
 
@@ -1206,7 +1209,7 @@ ClangASTImporter::ASTImporterDelegate::ImportImpl(Decl *From) {
       if (candidate->getKind() == From->getKind()) {
         RegisterImportedDecl(From, candidate);
 
-        // If we're dealing with redecl chains. We want to find the definition,
+        // If we're dealing with redecl chains, we want to find the definition,
         // so skip if the decl is actually just a forwad decl.
         if (TypeSystemClang::UseRedeclCompletion())
           if (auto *tag_decl = llvm::dyn_cast<TagDecl>(candidate);

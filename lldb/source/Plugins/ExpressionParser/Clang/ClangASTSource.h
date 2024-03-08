@@ -154,6 +154,17 @@ public:
   ///     The Decl to be completed in place.
   void CompleteType(clang::ObjCInterfaceDecl *Class) override;
 
+  /// Implements ExternalASTSource::CompleteRedeclChain.
+  ///
+  /// This function will simply complete \ref D, using
+  /// its origin to copy the definition if necessary.
+  /// If the definition for \ref D is on a different
+  /// Decl, this function will link the two into a
+  /// declaration chain (this can happen if we found
+  /// the definition on the origin).
+  ///
+  /// \param[in] D
+  ///     The Decl to complete.
   void CompleteRedeclChain(clang::Decl const *D) override;
 
   /// Called on entering a translation unit.  Tells Clang by calling

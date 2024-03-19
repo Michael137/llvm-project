@@ -2226,12 +2226,28 @@ bool DWARFASTParserClang::CompleteRecordType(const DWARFDIE &die,
                     contained_type_dies, delayed_properties,
                     default_accessibility, layout_info);
 
-  // Now parse any methods if there were any...
-  for (const DWARFDIE &die : member_function_dies)
-    dwarf->ResolveType(die);
-
   const bool type_is_objc_object_or_interface =
       TypeSystemClang::IsObjCObjectOrInterfaceType(clang_type);
+
+  // Now parse any methods if there were any...
+  for (const DWARFDIE &mem : member_function_dies) {
+    if (!TypeSystemClang::UseRedeclCompletion() ||
+        type_is_objc_object_or_interface) {
+      dwarf->ResolveType(mem);
+      continue;
+    }
+
+    ConstString mem_name(mem.GetName());
+    ConstString die_name(die.GetName());
+    const bool is_ctor = mem_name == die_name;
+    const bool is_virtual_method =
+        mem.GetAttributeValueAsUnsigned(
+            DW_AT_virtuality, DW_VIRTUALITY_none) > DW_VIRTUALITY_none;
+    const bool is_operator = mem_name.GetStringRef().starts_with("operator");
+
+    if (is_ctor || is_operator || is_virtual_method)
+      dwarf->ResolveType(mem);
+  }
 
   if (type_is_objc_object_or_interface) {
     ConstString class_name(clang_type.GetTypeName());

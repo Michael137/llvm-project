@@ -87,6 +87,9 @@ public:
   bool FindExternalVisibleDeclsByName(const clang::DeclContext *DC,
                                       clang::DeclarationName Name) override;
 
+  bool FindExternalVisibleMethodsByName(const clang::DeclContext *DC,
+                                        clang::DeclarationName Name) override;
+
   /// Enumerate all Decls in a given lexical context.
   ///
   /// \param[in] DC
@@ -208,6 +211,7 @@ public:
   /// \param[in] context
   ///     The NameSearchContext to use when filing results.
   virtual void FindExternalVisibleDecls(NameSearchContext &context);
+  virtual void FindExternalVisibleMethods(NameSearchContext &context);
 
   clang::Sema *getSema();
 
@@ -228,6 +232,12 @@ public:
     bool FindExternalVisibleDeclsByName(const clang::DeclContext *DC,
                                         clang::DeclarationName Name) override {
       return m_original.FindExternalVisibleDeclsByName(DC, Name);
+    }
+
+    bool
+    FindExternalVisibleMethodsByName(const clang::DeclContext *DC,
+                                     clang::DeclarationName Name) override {
+      return m_original.FindExternalVisibleMethodsByName(DC, Name);
     }
 
     void FindExternalLexicalDecls(
@@ -299,6 +309,9 @@ protected:
   void FindExternalVisibleDecls(NameSearchContext &context,
                                 lldb::ModuleSP module,
                                 CompilerDeclContext &namespace_decl);
+  void FindExternalVisibleMethods(NameSearchContext &context,
+                                  lldb::ModuleSP module,
+                                  CompilerDeclContext &namespace_decl);
 
   /// Find all Objective-C methods matching a given selector.
   ///
@@ -374,6 +387,10 @@ private:
   bool FindObjCPropertyAndIvarDeclsWithOrigin(
       NameSearchContext &context,
       DeclFromUser<const clang::ObjCInterfaceDecl> &origin_iface_decl);
+
+  bool CompilerDeclContextsMatch(CompilerDeclContext candidate_decl_ctx,
+                                 clang::DeclContext const *context,
+                                 TypeSystemClang &ts);
 
 protected:
   bool FindObjCMethodDeclsWithOrigin(

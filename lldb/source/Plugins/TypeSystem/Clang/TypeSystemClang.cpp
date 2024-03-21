@@ -92,6 +92,14 @@ using llvm::StringSwitch;
 
 LLDB_PLUGIN_DEFINE(TypeSystemClang)
 
+#define LLDB_PROPERTIES_typesystemclang
+#include "TypeSystemClangProperties.inc"
+
+enum {
+#define LLDB_PROPERTIES_typesystemclang
+#include "TypeSystemClangPropertiesEnum.inc"
+};
+
 namespace {
 static void VerifyDecl(clang::Decl *decl) {
   assert(decl && "VerifyDecl called with nullptr?");
@@ -115,6 +123,30 @@ TypeSystemClangSupportsLanguage(lldb::LanguageType language) {
          language == eLanguageTypeD ||
          // Open Dylan compiler debug info is designed to be Clang-compatible
          language == eLanguageTypeDylan;
+}
+
+class TypeSystemClangProperties : public Properties {
+public:
+  static llvm::StringRef GetSettingName() {
+    static constexpr llvm::StringLiteral g_setting_name("typesystemclang");
+    return g_setting_name;
+  }
+
+  TypeSystemClangProperties() : Properties() {
+    m_collection_sp = std::make_shared<OptionValueProperties>(GetSettingName());
+    m_collection_sp->Initialize(g_typesystemclang_properties);
+  }
+
+  ~TypeSystemClangProperties() override = default;
+
+  bool GetShowASTColors() const {
+    return GetPropertyAtIndexAs<bool>(ePropertyShowASTColors, true);
+  }
+};
+
+static TypeSystemClangProperties &GetGlobalProperties() {
+  static TypeSystemClangProperties g_settings;
+  return g_settings;
 }
 
 // Checks whether m1 is an overload of m2 (as opposed to an override). This is
@@ -650,7 +682,7 @@ LanguageSet TypeSystemClang::GetSupportedLanguagesForExpressions() {
 void TypeSystemClang::Initialize() {
   PluginManager::RegisterPlugin(
       GetPluginNameStatic(), "clang base AST context plug-in", CreateInstance,
-      GetSupportedLanguagesForTypes(), GetSupportedLanguagesForExpressions());
+      DebuggerInitialize, GetSupportedLanguagesForTypes(), GetSupportedLanguagesForExpressions());
 }
 
 void TypeSystemClang::Terminate() {
@@ -751,6 +783,7 @@ void TypeSystemClang::CreateASTContext() {
 
   m_diagnostic_consumer_up = std::make_unique<NullDiagnosticConsumer>();
   m_ast_up->getDiagnostics().setClient(m_diagnostic_consumer_up.get(), false);
+  m_ast_up->getDiagnostics().setShowColors(TypeSystemClang::GetShowASTColors());
 
   // This can be NULL if we don't know anything about the architecture or if
   // the target for an architecture isn't enabled in the llvm/clang that we
@@ -8436,6 +8469,10 @@ void TypeSystemClang::Dump(llvm::raw_ostream &output) {
   GetTranslationUnitDecl()->dump(output);
 }
 
+bool TypeSystemClang::GetShowASTColors() {
+  return GetGlobalProperties().GetShowASTColors();
+}
+
 void TypeSystemClang::DumpFromSymbolFile(Stream &s,
                                          llvm::StringRef symbol_name) {
   SymbolFile *symfile = GetSymbolFile();
@@ -9643,4 +9680,16 @@ bool TypeSystemClang::SetDeclIsForcefullyCompleted(const clang::TagDecl *td) {
   m_has_forcefully_completed_types = true;
   metadata->SetIsForcefullyCompleted();
   return true;
+}
+
+void TypeSystemClang::DebuggerInitialize(Debugger &debugger) {
+  if (PluginManager::GetSettingForPlatformPlugin(
+          debugger, TypeSystemClangProperties::GetSettingName()))
+    return;
+
+  const bool is_global_setting = true;
+  PluginManager::CreateSettingForTypeSystemClangPlugin(
+      debugger, GetGlobalProperties().GetValueProperties(),
+      "Properties for the Clang type system plug-in.", is_global_setting);
+  
 }

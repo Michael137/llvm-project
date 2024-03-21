@@ -464,6 +464,7 @@ ClangExpressionParser::ClangExpressionParser(
   // Limit the number of error diagnostics we emit.
   // A value of 0 means no limit for both LLDB and Clang.
   m_compiler->getDiagnostics().setErrorLimit(target_sp->GetExprErrorLimit());
+  m_compiler->getDiagnostics().setShowColors(TypeSystemClang::GetShowASTColors());
 
   auto target_info = TargetInfo::CreateTargetInfo(
       m_compiler->getDiagnostics(), m_compiler->getInvocation().TargetOpts);

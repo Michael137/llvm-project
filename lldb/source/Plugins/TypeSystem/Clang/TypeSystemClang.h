@@ -1031,6 +1031,9 @@ public:
   /// \see lldb_private::TypeSystem::Dump
   void Dump(llvm::raw_ostream &output) override;
 
+  /// If true, will any AST node dump will be syntax highlighted.
+  static bool GetShowASTColors();
+
   /// Dump clang AST types from the symbol file.
   ///
   /// \param[in] s
@@ -1144,6 +1147,8 @@ private:
 
   bool IsTypeImpl(lldb::opaque_compiler_type_t type,
                   llvm::function_ref<bool(clang::QualType)> predicate) const;
+
+  static void DebuggerInitialize(Debugger &debugger);
 
   // Classes that inherit from TypeSystemClang can see and modify these
   std::string m_target_triple;

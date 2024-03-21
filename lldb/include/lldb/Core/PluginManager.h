@@ -475,6 +475,7 @@ public:
   // TypeSystem
   static bool RegisterPlugin(llvm::StringRef name, llvm::StringRef description,
                              TypeSystemCreateInstance create_callback,
+                             DebuggerInitializeCallback debugger_init_callback,
                              LanguageSet supported_languages_for_types,
                              LanguageSet supported_languages_for_expressions);
 
@@ -578,6 +579,10 @@ public:
                                     llvm::StringRef setting_name);
 
   static bool CreateSettingForStructuredDataPlugin(
+      Debugger &debugger, const lldb::OptionValuePropertiesSP &properties_sp,
+      llvm::StringRef description, bool is_global_property);
+
+  static bool CreateSettingForTypeSystemClangPlugin(
       Debugger &debugger, const lldb::OptionValuePropertiesSP &properties_sp,
       llvm::StringRef description, bool is_global_property);
 };

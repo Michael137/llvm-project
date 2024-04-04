@@ -25,7 +25,9 @@ int b(int val)
 
 int c(int val)
 {
-    return val + 3; // Find the line number of function "c" here.
+    int id = 0; // Find the line number of function "c" here.
+    int Class = 0;
+    return val + id + Class + 3;
 }
 
 int main (int argc, char const *argv[])

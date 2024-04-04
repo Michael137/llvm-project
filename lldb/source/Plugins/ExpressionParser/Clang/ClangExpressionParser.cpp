@@ -90,6 +90,7 @@
 #include "lldb/Utility/StringList.h"
 
 #include "Plugins/LanguageRuntime/ObjC/ObjCLanguageRuntime.h"
+#include "lldb/lldb-enumerations.h"
 
 #include <cctype>
 #include <memory>
@@ -526,9 +527,14 @@ ClangExpressionParser::ClangExpressionParser(
     [[fallthrough]];
   case lldb::eLanguageTypeC_plus_plus_03:
     lang_opts.CPlusPlus = true;
-    if (process_sp)
+
+    if (process_sp
+        // We're stopped in a frame without debug-info. The user probably
+        // intends to make global queries (which should include Objective-C).
+        && !(frame_sp && frame_sp->HasDebugInformation()))
       lang_opts.ObjC =
           process_sp->GetLanguageRuntime(lldb::eLanguageTypeObjC) != nullptr;
+
     break;
   case lldb::eLanguageTypeObjC_plus_plus:
   case lldb::eLanguageTypeUnknown:

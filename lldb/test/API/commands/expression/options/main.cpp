@@ -12,6 +12,8 @@ bar()
 
 int main (int argc, char const *argv[])
 {
+    int id = 15;
+    int Class = 14;
     bar(); // breakpoint_in_main
-    return foo();
+    return foo() + id + Class;
 }

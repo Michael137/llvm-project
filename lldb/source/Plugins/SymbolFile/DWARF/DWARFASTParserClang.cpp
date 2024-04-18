@@ -2245,6 +2245,12 @@ bool DWARFASTParserClang::CompleteRecordType(const DWARFDIE &die,
             DW_AT_virtuality, DW_VIRTUALITY_none) > DW_VIRTUALITY_none;
     const bool is_operator = mem_name.GetStringRef().starts_with("operator");
 
+    // FIXME: With RedeclCompletion, we currently don't have a good
+    // way to call `FindExternalVisibleMethods` from Clang
+    // for constructors or operators. So resolve them now.
+    //
+    // We want to resolve virtual methods now too because
+    // we set the method overrides below.
     if (is_ctor || is_operator || is_virtual_method)
       dwarf->ResolveType(mem);
   }

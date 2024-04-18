@@ -642,9 +642,14 @@ bool ClangASTSource::CompilerDeclContextsMatch(
     TypeSystemClang &ts) {
   auto CDC1 = candidate_decl_ctx.GetTypeSystem()->DeclContextGetCompilerContext(
       candidate_decl_ctx.GetOpaqueDeclContext());
-  assert(CDC1.size() > 1); // Member functions have at least 2 entries (1
-                           // for method name, 1 for partent class)
-  CDC1.pop_back();         // drop last entry (which is function name)
+
+  // Member functions have at least 2 entries (1
+  // for method name, 1 for parent class)
+  assert(CDC1.size() > 1);
+
+  // drop last entry (which is function name)
+  CDC1.pop_back();
+
   const auto CDC2 = ts.DeclContextGetCompilerContext(
       const_cast<clang::DeclContext *>(context));
 
@@ -700,32 +705,34 @@ void ClangASTSource::FindExternalVisibleMethods(
                                       function_options, sc_list);
 
   auto num_matches = sc_list.GetSize();
-  if (num_matches > 0) {
-    for (const SymbolContext &sym_ctx : sc_list) {
-      assert(sym_ctx.function);
-      CompilerDeclContext decl_ctx = sym_ctx.function->GetDeclContext();
+  if (num_matches == 0)
+    return;
 
-      assert(decl_ctx);
-      assert(decl_ctx.IsClassMethod());
+  for (const SymbolContext &sym_ctx : sc_list) {
+    assert(sym_ctx.function);
+    CompilerDeclContext decl_ctx = sym_ctx.function->GetDeclContext();
+    if (!decl_ctx)
+      continue;
 
-      if (!CompilerDeclContextsMatch(decl_ctx, context.m_decl_context,
-                                     context.m_clang_ts))
-        continue;
+    assert(decl_ctx.IsClassMethod());
 
-      clang::CXXMethodDecl *src_method = llvm::cast<CXXMethodDecl>(
-          static_cast<clang::DeclContext *>(decl_ctx.GetOpaqueDeclContext()));
-      Decl *copied_decl = CopyDecl(src_method);
+    if (!CompilerDeclContextsMatch(decl_ctx, context.m_decl_context,
+                                   context.m_clang_ts))
+      continue;
 
-      if (!copied_decl)
-        continue;
+    clang::CXXMethodDecl *src_method = llvm::cast<CXXMethodDecl>(
+        static_cast<clang::DeclContext *>(decl_ctx.GetOpaqueDeclContext()));
+    Decl *copied_decl = CopyDecl(src_method);
 
-      CXXMethodDecl *copied_method_decl = dyn_cast<CXXMethodDecl>(copied_decl);
+    if (!copied_decl)
+      continue;
 
-      if (!copied_method_decl)
-        continue;
+    CXXMethodDecl *copied_method_decl = dyn_cast<CXXMethodDecl>(copied_decl);
 
-      context.AddNamedDecl(copied_method_decl);
-    }
+    if (!copied_method_decl)
+      continue;
+
+    context.AddNamedDecl(copied_method_decl);
   }
 }
 

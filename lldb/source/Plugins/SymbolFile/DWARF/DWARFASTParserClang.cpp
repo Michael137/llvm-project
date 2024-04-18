@@ -2244,14 +2244,18 @@ bool DWARFASTParserClang::CompleteRecordType(const DWARFDIE &die,
         mem.GetAttributeValueAsUnsigned(
             DW_AT_virtuality, DW_VIRTUALITY_none) > DW_VIRTUALITY_none;
     const bool is_operator = mem_name.GetStringRef().starts_with("operator");
+    const bool is_static_method =
+        mem.GetFirstChild().GetAttributeValueAsUnsigned(DW_AT_artificial,
+                                                        0) == 0;
 
     // FIXME: With RedeclCompletion, we currently don't have a good
     // way to call `FindExternalVisibleMethods` from Clang
-    // for constructors or operators. So resolve them now.
+    // for static functions, constructors or operators.
+    // So resolve them now.
     //
     // We want to resolve virtual methods now too because
     // we set the method overrides below.
-    if (is_ctor || is_operator || is_virtual_method)
+    if (is_ctor || is_operator || is_virtual_method || is_static_method)
       dwarf->ResolveType(mem);
   }
 

@@ -1886,6 +1886,14 @@ DWARFASTParserClang::ParseStructureLikeDIE(const SymbolContext &sc,
   PrepareContextToReceiveMembers(m_ast, GetClangASTImporter(), decl_ctx, die,
                                  attrs.name.GetCString());
 
+  // TODO: above call can complete the clang_type. If that's the case, we don't
+  // want to create another record_type below
+  auto found = m_die_to_record_map.find(die.GetDIE());
+  if (found != m_die_to_record_map.end()) {
+    clang_type = m_ast.GetTypeForDecl(found->getSecond());
+    clang_type_was_created = true;
+  }
+
   if (attrs.accessibility == eAccessNone && decl_ctx) {
     // Check the decl context that contains this class/struct/union. If
     // it is a class we must give it an accessibility.
@@ -1899,7 +1907,8 @@ DWARFASTParserClang::ParseStructureLikeDIE(const SymbolContext &sc,
   metadata.SetIsDynamicCXXType(dwarf->ClassOrStructIsVirtual(die));
 
   TypeSystemClang::TemplateParameterInfos template_param_infos;
-  if (ParseTemplateParameterInfos(die, template_param_infos)) {
+  if (!clang_type_was_created &&
+      ParseTemplateParameterInfos(die, template_param_infos)) {
     clang::ClassTemplateDecl *class_template_decl =
         m_ast.ParseClassTemplateDecl(
             decl_ctx, GetOwningClangModule(die), attrs.accessibility,

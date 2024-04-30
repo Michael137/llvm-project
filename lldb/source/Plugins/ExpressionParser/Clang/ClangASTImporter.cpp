@@ -824,16 +824,16 @@ bool ClangASTImporter::CompleteTagDecl(clang::TagDecl *decl) {
   if (!decl_origin.Valid())
     return false;
 
-  ImporterDelegateSP delegate_sp(
-      GetDelegate(&decl->getASTContext(), decl_origin.ctx));
-
-  ASTImporterDelegate::CxxModuleScope std_scope(*delegate_sp,
-                                                &decl->getASTContext());
-
   if (TypeSystemClang::UseRedeclCompletion()) {
     auto *origin_def = llvm::cast<TagDecl>(decl_origin.decl)->getDefinition();
     if (!origin_def)
       return false;
+
+    ImporterDelegateSP delegate_sp(
+        GetDelegate(&decl->getASTContext(), decl_origin.ctx));
+
+    ASTImporterDelegate::CxxModuleScope std_scope(*delegate_sp,
+                                                  &decl->getASTContext());
 
     // This is expected to pull in a definition for result_decl (if in redecl
     // completion mode)
@@ -856,6 +856,12 @@ bool ClangASTImporter::CompleteTagDecl(clang::TagDecl *decl) {
   } else {
     if (!TypeSystemClang::GetCompleteDecl(decl_origin.ctx, decl_origin.decl))
       return false;
+
+    ImporterDelegateSP delegate_sp(
+        GetDelegate(&decl->getASTContext(), decl_origin.ctx));
+
+    ASTImporterDelegate::CxxModuleScope std_scope(*delegate_sp,
+                                                  &decl->getASTContext());
 
     if (delegate_sp)
       delegate_sp->ImportDefinitionTo(decl, decl_origin.decl);
@@ -880,9 +886,6 @@ bool ClangASTImporter::CompleteObjCInterfaceDecl(
   if (!decl_origin.Valid())
     return false;
 
-  ImporterDelegateSP delegate_sp(
-      GetDelegate(&interface_decl->getASTContext(), decl_origin.ctx));
-
   if (TypeSystemClang::UseRedeclCompletion()) {
     ObjCInterfaceDecl *origin_decl =
         llvm::cast<ObjCInterfaceDecl>(decl_origin.decl);
@@ -891,7 +894,7 @@ bool ClangASTImporter::CompleteObjCInterfaceDecl(
     if (!origin_decl)
       return false;
 
-    auto delegate_sp(
+    ImporterDelegateSP delegate_sp(
         GetDelegate(&interface_decl->getASTContext(), decl_origin.ctx));
 
     llvm::Expected<Decl *> result = delegate_sp->Import(origin_decl);
@@ -908,6 +911,9 @@ bool ClangASTImporter::CompleteObjCInterfaceDecl(
 
   if (!TypeSystemClang::GetCompleteDecl(decl_origin.ctx, decl_origin.decl))
     return false;
+
+  ImporterDelegateSP delegate_sp(
+      GetDelegate(&interface_decl->getASTContext(), decl_origin.ctx));
 
   if (delegate_sp)
     delegate_sp->ImportDefinitionTo(interface_decl, decl_origin.decl);

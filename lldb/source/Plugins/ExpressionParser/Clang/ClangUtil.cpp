@@ -63,6 +63,9 @@ clang::TagDecl *ClangUtil::GetAsTagDecl(const CompilerType &type) {
   if (qual_type.isNull())
     return nullptr;
 
+  if (const TagType *tt = llvm::dyn_cast<TagType>(qual_type.getTypePtr()))
+    return tt->getCanonicalDecl();
+
   return qual_type->getAsTagDecl();
 }
 

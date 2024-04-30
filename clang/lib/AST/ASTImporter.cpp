@@ -1516,7 +1516,8 @@ ExpectedType ASTNodeImporter::VisitInjectedClassNameType(
 
 ExpectedType ASTNodeImporter::VisitRecordType(const RecordType *T) {
   // getCanonicalDecl in order to not trigger redeclaration completion
-  Expected<RecordDecl *> ToDeclOrErr = import(T->getDecl());
+  Expected<RecordDecl *> ToDeclOrErr = import(T->getCanonicalDecl());
+  // Expected<RecordDecl *> ToDeclOrErr = import(T->getDecl());
 
   if (!ToDeclOrErr)
     return ToDeclOrErr.takeError();
@@ -2227,11 +2228,15 @@ Error ASTNodeImporter::ImportDefinition(
     To->completeDefinition();
   };
 
-  bool hasDef = (Importer.hasLLDBRedeclCompletion() &&
-                 To->isThisDeclarationADefinition()) ||
-                To->getDefinition();
+  bool hasDef = false;
 
-  if (hasDef || To->isBeingDefined()) {
+  if (Importer.hasLLDBRedeclCompletion()) {
+    hasDef = To->isThisDeclarationADefinition() || To->isBeingDefined();
+  } else {
+    hasDef = To->getDefinition() || To->isBeingDefined();
+  }
+
+  if (hasDef) {
     if (Kind == IDK_Everything ||
         // In case of lambdas, the class already has a definition ptr set, but
         // the contained decls are not imported yet. Also, isBeingDefined was

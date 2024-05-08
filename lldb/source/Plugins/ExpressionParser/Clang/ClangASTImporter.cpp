@@ -1212,7 +1212,7 @@ ClangASTImporter::ASTImporterDelegate::ImportImpl(Decl *From) {
     DeclContext *dc = *dc_or_err;
     DeclContext::lookup_result lr = dc->lookup(*dn_or_err);
     for (clang::Decl *candidate : lr) {
-      if (candidate->getKind() == From->getKind()) {
+      if (candidate->getKind() == From->getKind() || TypeSystemClang::UseRedeclCompletion()) {
         // If we're dealing with redecl chains, we want to find the definition,
         // so skip if the decl is actually just a forwad decl.
         if (TypeSystemClang::UseRedeclCompletion())

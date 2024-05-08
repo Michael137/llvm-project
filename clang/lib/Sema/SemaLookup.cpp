@@ -2675,7 +2675,7 @@ bool Sema::LookupQualifiedName(LookupResult &R, DeclContext *LookupCtx,
 
 bool Sema::LookupParsedName(LookupResult &R, Scope *S, CXXScopeSpec *SS,
                             QualType ObjectType, bool AllowBuiltinCreation,
-                            bool EnteringContext) {
+                            bool EnteringContext, bool BuildingMemberRefExpr) {
   // When the scope specifier is invalid, don't even look for anything.
   if (SS && SS->isInvalid())
     return false;
@@ -2717,9 +2717,16 @@ bool Sema::LookupParsedName(LookupResult &R, Scope *S, CXXScopeSpec *SS,
 
   // If we were able to compute a declaration context, perform qualified name
   // lookup in that context.
-  if (DC)
+  if (DC) {
+    if (BuildingMemberRefExpr) {
+      if (ExternalASTSource *Source = DC->getParentASTContext().getExternalSource()) {
+        if (auto LookupName = R.getLookupName()) {
+          Source->FindExternalVisibleMethodsByName(DC, LookupName);
+        }
+      }
+    }
     return LookupQualifiedName(R, DC);
-  else if (IsDependent)
+  } else if (IsDependent)
     // We could not resolve the scope specified to a specific declaration
     // context, which means that SS refers to an unknown specialization.
     // Name lookup can't find anything in this case.

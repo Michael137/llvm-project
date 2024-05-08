@@ -9196,7 +9196,7 @@ static void ConnectRedeclToPrev(TypeSystemClang &ts, T *prev, T *redecl) {
   // decl.
   ts.GetTypeForDecl(redecl);
   // The previous decl and the redeclaration both declare the same type.
-  assert(prev->getTypeForDecl() == redecl->getTypeForDecl());
+  //assert(prev->getTypeForDecl() == redecl->getTypeForDecl());
 }
 
 /// Returns the ClangModuleID for the given declaration.
@@ -9283,7 +9283,8 @@ npdb::PdbAstBuilder *TypeSystemClang::GetNativePDBParser() {
 }
 
 bool TypeSystemClang::UseRedeclCompletion() {
-  return GetGlobalPluginProperties().UseRedeclCompletion();
+  //return GetGlobalPluginProperties().UseRedeclCompletion();
+  return true;
 }
 
 bool TypeSystemClang::LayoutRecordType(

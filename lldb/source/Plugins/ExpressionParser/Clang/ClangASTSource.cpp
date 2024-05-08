@@ -794,10 +794,10 @@ void ClangASTSource::FindExternalVisibleDecls(
     }
   }
 
-  if (!context.m_found_type) {
-    // Try the modules next.
-    FindDeclInModules(context, name);
-  }
+  //if (!context.m_found_type) {
+  //  // Try the modules next.
+  //  FindDeclInModules(context, name);
+  //}
 
   if (!context.m_found_type && m_ast_context->getLangOpts().ObjC) {
     FindDeclInObjCRuntime(context, name);

@@ -7590,7 +7590,11 @@ public:
                            CXXScopeSpec &SS);
   bool LookupParsedName(LookupResult &R, Scope *S, CXXScopeSpec *SS,
                         QualType ObjectType, bool AllowBuiltinCreation = false,
-                        bool EnteringContext = false);
+                        bool EnteringContext = false,
+                        bool BuildingMemberRefExpr = false);
+  ObjCProtocolDecl *LookupProtocol(
+      IdentifierInfo *II, SourceLocation IdLoc,
+      RedeclarationKind Redecl = RedeclarationKind::NotForRedeclaration);
   bool LookupInSuper(LookupResult &R, CXXRecordDecl *Class);
 
   void LookupOverloadedOperatorName(OverloadedOperatorKind Op, Scope *S,

@@ -3174,17 +3174,17 @@ TypeSP SymbolFileDWARF::ParseType(const SymbolContext &sc, const DWARFDIE &die,
     return {};
 
   TypeSP type_sp = dwarf_ast->ParseTypeFromDWARF(sc, die, type_is_new_ptr);
-  if (type_sp) {
-    if (die.Tag() == DW_TAG_subprogram) {
-      std::string scope_qualified_name(GetDeclContextForUID(die.GetID())
-                                           .GetScopeQualifiedName()
-                                           .AsCString(""));
-      if (scope_qualified_name.size()) {
-        m_function_scope_qualified_name_map[scope_qualified_name].insert(
-            *die.GetDIERef());
-      }
-    }
-  }
+  //if (type_sp) {
+  //  if (die.Tag() == DW_TAG_subprogram) {
+  //    std::string scope_qualified_name(GetDeclContextForUID(die.GetID())
+  //                                         .GetScopeQualifiedName()
+  //                                         .AsCString(""));
+  //    if (scope_qualified_name.size()) {
+  //      m_function_scope_qualified_name_map[scope_qualified_name].insert(
+  //          *die.GetDIERef());
+  //    }
+  //  }
+  //}
 
   return type_sp;
 }

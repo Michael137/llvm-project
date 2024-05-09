@@ -1237,8 +1237,20 @@ TypeSP SymbolFileDWARFDebugMap::FindCompleteObjCDefinitionTypeForDIE(
   return TypeSP();
 }
 
+static constexpr bool enabled = false;
 void SymbolFileDWARFDebugMap::FindTypes(const TypeQuery &query,
                                         TypeResults &results) {
+  static std::unique_ptr<llvm::raw_ostream> stream_up = []() -> std::unique_ptr<llvm::raw_fd_ostream> {
+    if constexpr (enabled) {
+        int FD = 0;
+        auto EC = llvm::sys::fs::openFileForWrite("find_types.log", FD);
+        assert(!EC);
+        return std::make_unique<llvm::raw_fd_ostream>(FD, true);
+    }
+
+    return nullptr;
+  }();
+
   std::lock_guard<std::recursive_mutex> guard(GetModuleMutex());
   ForEachSymbolFile([&](SymbolFileDWARF *oso_dwarf) {
     if (query.GetTypeBasename().GetStringRef().starts_with("initializer_list"))
@@ -1246,6 +1258,11 @@ void SymbolFileDWARFDebugMap::FindTypes(const TypeQuery &query,
     if (const_cast<TypeQuery&>(query).GetContextRef()[0].name.GetStringRef().contains("(anonymous namespace)"))
       assert(true);
     oso_dwarf->FindTypes(query, results);
+
+    if (stream_up)
+      if (auto *obj = oso_dwarf->GetObjectFile()) {
+        *stream_up << llvm::formatv("{0}: {1}:{2} {3} {4}\n", query.GetTypeBasename().AsCString("<<UNKNOWN>>"), obj->GetFileSpec().GetPath(), results.Done(query), query.GetFindOne(), query.GetExactMatch());
+    }
     return results.Done(query) ? IterationAction::Stop
                                : IterationAction::Continue;
   });

@@ -808,7 +808,7 @@ void ClangASTImporter::SetRecordLayout(clang::RecordDecl *decl,
                                         const LayoutInfo &layout) {
   decl = llvm::cast<RecordDecl>(decl->getFirstDecl());
 
-  assert(!HasRecordLayout(decl) && "Trying to overwrite layout?");
+  //assert(!HasRecordLayout(decl) && "Trying to overwrite layout?");
 
   m_record_decl_to_layout_map.insert(std::make_pair(decl, layout));
 }

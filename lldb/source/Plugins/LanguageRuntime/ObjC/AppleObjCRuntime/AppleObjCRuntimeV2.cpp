@@ -771,6 +771,7 @@ bool AppleObjCRuntimeV2::GetDynamicTypeAndAddress(
     ValueObject &in_value, lldb::DynamicValueType use_dynamic,
     TypeAndOrName &class_type_or_name, Address &address,
     Value::ValueType &value_type) {
+  return false;
   // We should never get here with a null process...
   assert(m_process != nullptr);
 

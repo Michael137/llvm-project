@@ -18,6 +18,7 @@
 #include "lldb/Symbol/Function.h"
 #include "lldb/Symbol/SymbolFile.h"
 #include "lldb/Symbol/TaggedASTType.h"
+#include "lldb/Symbol/Type.h"
 #include "lldb/Target/Target.h"
 #include "lldb/Utility/LLDBLog.h"
 #include "lldb/Utility/Log.h"
@@ -197,7 +198,7 @@ TagDecl *ClangASTSource::FindCompleteType(const TagDecl *decl) {
 
     LLDB_LOGV(log, "      CTD Inspecting namespace map{0:x} ({1} entries)",
               namespace_map.get(), namespace_map->size());
-
+    // TODO: hint for CU to search in
     for (const ClangASTImporter::NamespaceMapItem &item : *namespace_map) {
       LLDB_LOG(log, "      CTD Searching namespace {0} in module {1}",
                item.second.GetName(), item.first->GetFileSpec().GetFilename());
@@ -207,7 +208,7 @@ TagDecl *ClangASTSource::FindCompleteType(const TagDecl *decl) {
       // Create a type matcher using the CompilerDeclContext for the namespace
       // as the context (item.second) and search for the name inside of this
       // context.
-      TypeQuery query(item.second, name);
+      TypeQuery query(item.second, name/*, TypeQueryOptions::e_find_one*/);
       TypeResults results;
       item.first->FindTypes(query, results);
 
@@ -341,9 +342,31 @@ void ClangASTSource::CompleteRedeclChain(const Decl *d) {
 
     m_ast_importer_sp->CompleteTagDecl(const_cast<clang::TagDecl *>(td));
     if (!td->getDefinition() && m_ast_importer_sp->GetDeclOrigin(td).Valid()) {
-      if (TagDecl *alternate = FindCompleteType(td))
+      // This means we would do a lookup for a basename, but the index only
+      // contains DW_AT_names *with* template parameters, so the lookup
+      // would always fail. In the presence of SymbolFileDWARFDebugMap, a failed
+      // lookup can be very expensive.
+      if (auto * CXXRD = dyn_cast<CXXRecordDecl>(td))
+        if (td->getDescribedTemplate())
+          return;
+
+      //if (auto s = td->getNameAsString(); s == "__base")
+      //  __builtin_debugtrap();
+      //if (auto s = td->getNameAsString();
+      //    s == "__base" ||
+      //    s == "__union" ||
+      //    s == "__copy_assignment" ||
+      //    s == "__move_assignment" ||
+      //    s == "__dtor" ||
+      //    s.rfind("initializer_list", 0) == 0)
+      //  return;
+      if (TagDecl *alternate = FindCompleteType(td)) {
         m_ast_importer_sp->CompleteTagDeclWithOrigin(
             const_cast<clang::TagDecl *>(td), alternate);
+        //llvm::errs() << "Successfully called FindCompleteType: " << td->getNameAsString() << "\n";
+      } else {
+        llvm::errs() << "Started FindCompleteType query but didn't finish: " << td->getNameAsString() << '\n';
+      }
     }
   }
   if (const auto *od = llvm::dyn_cast<ObjCInterfaceDecl>(d)) {

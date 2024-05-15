@@ -352,14 +352,14 @@ void ClangASTSource::CompleteRedeclChain(const Decl *d) {
 
       //if (auto s = td->getNameAsString(); s == "__base")
       //  __builtin_debugtrap();
-      //if (auto s = td->getNameAsString();
+      if (auto s = td->getNameAsString();
       //    s == "__base" ||
       //    s == "__union" ||
       //    s == "__copy_assignment" ||
       //    s == "__move_assignment" ||
       //    s == "__dtor" ||
-      //    s.rfind("initializer_list", 0) == 0)
-      //  return;
+          s.rfind("initializer_list", 0) == 0)
+        return;
       if (TagDecl *alternate = FindCompleteType(td)) {
         m_ast_importer_sp->CompleteTagDeclWithOrigin(
             const_cast<clang::TagDecl *>(td), alternate);

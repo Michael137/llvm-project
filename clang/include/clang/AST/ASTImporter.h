@@ -155,7 +155,7 @@ class TypeSourceInfo;
     class ImportPathTy {
     public:
         static uint64_t print_id;
-        static constexpr bool enabled = false;
+        static constexpr bool enabled = true;
     public:
       ~ImportPathTy() {
         if constexpr (enabled) {

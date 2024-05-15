@@ -25,10 +25,18 @@
 #include "clang/Basic/IdentifierTable.h"
 #include "clang/Basic/LLVM.h"
 #include "clang/Basic/SourceLocation.h"
+#include "llvm/BinaryFormat/Swift.h"
+#include "llvm/Support/Casting.h"
+#include "llvm/Support/FileSystem.h"
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/DenseSet.h"
 #include "llvm/ADT/SmallVector.h"
+#include "llvm/Support/raw_ostream.h"
+#include "llvm/Support/FormatVariadic.h"
+#include <chrono>
+#include <memory>
 #include <optional>
+#include <string>
 #include <utility>
 
 namespace clang {
@@ -146,23 +154,96 @@ class TypeSourceInfo;
     // visited declaration.
     class ImportPathTy {
     public:
-      using VecTy = llvm::SmallVector<Decl *, 32>;
+        static uint64_t print_id;
+        static constexpr bool enabled = true;
+    public:
+      ~ImportPathTy() {
+        if constexpr (enabled) {
+          *stream_up << "// #### Finished logging import path ####\n";
+          *stream_up << "}\n";
+        }
+      }
+
+      ImportPathTy() {
+        if constexpr (enabled) {
+          ImportPathTy::print_id++;
+          EC = llvm::sys::fs::openFileForWrite(Twine("import-path-logging.", std::to_string(print_id)).concat(".dot"), FD);
+          assert(!EC);
+          stream_up = std::make_unique<llvm::raw_fd_ostream>(FD, true);
+          assert(stream_up);
+
+          *stream_up << "// #### Starting logging import path ####\n";
+          *stream_up << "strict digraph G {\n";
+        }
+      }
+
+      void log(std::string msg) {
+          if constexpr(enabled)
+            *stream_up << std::move(msg) << '\n';
+      }
+
+      struct ImportEvent {
+        std::chrono::steady_clock::time_point start;
+        Decl* D;
+
+        ImportEvent(std::chrono::steady_clock::time_point start,
+                    Decl* D) : start(start), D(D) {}
+
+        ImportEvent(ImportEvent const&) = default;
+        ImportEvent(ImportEvent &&) = default;
+        ImportEvent& operator=(ImportEvent const&) = default;
+        ImportEvent& operator=(ImportEvent &&) = default;
+        ~ImportEvent() = default;
+
+        friend bool operator==(ImportEvent const& LHS, ImportEvent const& RHS) {
+          return LHS.D == RHS.D;
+        }
+      };
+
+      using VecTy = llvm::SmallVector<ImportEvent, 32>;
+
+      void dump() {
+        if (!enabled) return;
+        if (Nodes.empty()) return;
+        
+        for (auto const* it = Nodes.begin(); it != Nodes.end(); ++it) {
+          *stream_up << "\""; // Start quote
+          if (auto const* ND = llvm::dyn_cast_or_null<clang::NamedDecl>(it->D))
+            ND->printName(*stream_up);
+          else if (it->D->getID() == 1)
+            *stream_up << "TranslationUnitDecl";
+          else
+            *stream_up << "<unknown>";
+
+          //*stream_up << "(ID=" << it->D->getID() << ")";
+          *stream_up << "\""; // End quote
+
+          if (std::next(it) != Nodes.end())
+            *stream_up << " -> ";
+        }
+
+         *stream_up << ";\n"; // Dot lines need to be ';' separated
+      }
 
       void push(Decl *D) {
-        Nodes.push_back(D);
+        Nodes.emplace_back(std::chrono::steady_clock::now(), D);
         ++Aux[D];
       }
 
       void pop() {
         if (Nodes.empty())
           return;
-        --Aux[Nodes.back()];
+
+        //auto last_node_duration = std::chrono::steady_clock::now() - Nodes.back().start;
+        //*stream_up << llvm::formatv("\nID={0} {1} ms\n", Nodes.back().D->getID(), std::chrono::duration_cast<std::chrono::milliseconds>(last_node_duration).count());
+
+        --Aux[Nodes.back().D];
         Nodes.pop_back();
       }
 
       /// Returns true if the last element can be found earlier in the path.
       bool hasCycleAtBack() const {
-        auto Pos = Aux.find(Nodes.back());
+        auto Pos = Aux.find(Nodes.back().D);
         return Pos != Aux.end() && Pos->second > 1;
       }
 
@@ -181,6 +262,9 @@ class TypeSourceInfo;
       }
 
     private:
+      std::error_code EC;
+      int FD = 0;
+      std::unique_ptr<llvm::raw_ostream> stream_up;
       // All nodes of the path.
       VecTy Nodes;
       // Auxiliary container to be able to answer "Do we have a cycle ending

@@ -25,6 +25,8 @@
 #include "clang/AST/ASTContext.h"
 #include "clang/AST/DeclCXX.h"
 #include "clang/Basic/SourceManager.h"
+#include "clang/Basic/Stack.h"
+#include "llvm/ADT/ScopeExit.h"
 
 #include "Plugins/ExpressionParser/Clang/ClangUtil.h"
 #include "Plugins/LanguageRuntime/ObjC/ObjCLanguageRuntime.h"
@@ -330,6 +332,15 @@ void ClangASTSource::CompleteType(clang::ObjCInterfaceDecl *interface_decl) {
 }
 
 void ClangASTSource::CompleteRedeclChain(const Decl *d) {
+  static std::atomic<uint64_t> cntr = 0;
+  auto on_exit = llvm::make_scope_exit([] { --cntr; });
+  cntr++;
+  clang::runWithSufficientStackSpace({}, [&] {
+             CompleteRedeclChainImpl(d);
+          }, cntr % 10 == 0);
+}
+
+void ClangASTSource::CompleteRedeclChainImpl(const Decl *d) {
   if (!TypeSystemClang::UseRedeclCompletion())
     return;
 

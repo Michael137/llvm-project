@@ -48,6 +48,18 @@ using namespace lldb;
 using namespace lldb_private;
 using namespace lldb_private::plugin::dwarf;
 
+static constexpr bool enabled = true;
+static std::unique_ptr<llvm::raw_ostream> stream_up = []() -> std::unique_ptr<llvm::raw_fd_ostream> {
+  if constexpr (enabled) {
+      int FD = 0;
+      auto EC = llvm::sys::fs::openFileForWrite("find_types.log", FD);
+      assert(!EC);
+      return std::make_unique<llvm::raw_fd_ostream>(FD, true);
+  }
+
+  return nullptr;
+}();
+
 char SymbolFileDWARFDebugMap::ID;
 
 // Subclass lldb_private::Module so we can intercept the
@@ -1086,6 +1098,10 @@ void SymbolFileDWARFDebugMap::FindFunctions(
     uint32_t sc_idx = sc_list.GetSize();
     oso_dwarf->FindFunctions(lookup_info, parent_decl_ctx, include_inlines,
                              sc_list);
+    if (stream_up)
+      if (auto *obj = oso_dwarf->GetObjectFile()) {
+        *stream_up << llvm::formatv("[FindFunctions]{0}: {1}:{2} \n", lookup_info.GetLookupName().AsCString("<<UNKNOWN>>"), obj->GetFileSpec().GetPath(), sc_idx != sc_list.GetSize());
+    }
     if (!sc_list.IsEmpty()) {
       RemoveFunctionsWithModuleNotEqualTo(m_objfile_sp->GetModule(), sc_list,
                                           sc_idx);
@@ -1105,6 +1121,10 @@ void SymbolFileDWARFDebugMap::FindFunctions(const RegularExpression &regex,
     uint32_t sc_idx = sc_list.GetSize();
 
     oso_dwarf->FindFunctions(regex, include_inlines, sc_list);
+    if (stream_up)
+      if (auto *obj = oso_dwarf->GetObjectFile()) {
+        *stream_up << llvm::formatv("[FindFunctions]{0}: {1}:{2} \n", regex.GetText(), obj->GetFileSpec().GetPath(), sc_idx != sc_list.GetSize());
+    }
     if (!sc_list.IsEmpty()) {
       RemoveFunctionsWithModuleNotEqualTo(m_objfile_sp->GetModule(), sc_list,
                                           sc_idx);
@@ -1239,18 +1259,6 @@ TypeSP SymbolFileDWARFDebugMap::FindCompleteObjCDefinitionTypeForDIE(
   return TypeSP();
 }
 
-static constexpr bool enabled = true;
-static std::unique_ptr<llvm::raw_ostream> stream_up = []() -> std::unique_ptr<llvm::raw_fd_ostream> {
-  if constexpr (enabled) {
-      int FD = 0;
-      auto EC = llvm::sys::fs::openFileForWrite("find_types.log", FD);
-      assert(!EC);
-      return std::make_unique<llvm::raw_fd_ostream>(FD, true);
-  }
-
-  return nullptr;
-}();
-
 void SymbolFileDWARFDebugMap::FindTypes(const TypeQuery &query,
                                         TypeResults &results) {
   std::lock_guard<std::recursive_mutex> guard(GetModuleMutex());
@@ -1267,7 +1275,7 @@ void SymbolFileDWARFDebugMap::FindTypes(const TypeQuery &query,
 
     if (stream_up)
       if (auto *obj = oso_dwarf->GetObjectFile()) {
-        *stream_up << llvm::formatv("{0}: {1}:{2} {3} {4}\n", query.GetTypeBasename().AsCString("<<UNKNOWN>>"), obj->GetFileSpec().GetPath(), results.Done(query), query.GetFindOne(), query.GetExactMatch());
+        *stream_up << llvm::formatv("[FindTypes]{0}: {1}:{2} {3} {4}\n", query.GetTypeBasename().AsCString("<<UNKNOWN>>"), obj->GetFileSpec().GetPath(), results.Done(query), query.GetFindOne(), query.GetExactMatch());
     }
     return results.Done(query) ? IterationAction::Stop
                                : IterationAction::Continue;
@@ -1318,7 +1326,7 @@ CompilerDeclContext SymbolFileDWARFDebugMap::FindNamespace(
 
     if (stream_up)
       if (auto *obj = hint->GetObjectFile()) {
-        *stream_up << llvm::formatv("{0}: {1}:{2} \n", name.AsCString("<<UNKNOWN>>"), obj->GetFileSpec().GetPath(), matching_namespace.IsValid());
+        *stream_up << llvm::formatv("[FindNamespace]{0}: {1}:{2} \n", name.AsCString("<<UNKNOWN>>"), obj->GetFileSpec().GetPath(), matching_namespace.IsValid());
     }
 
     return matching_namespace;
@@ -1330,7 +1338,7 @@ CompilerDeclContext SymbolFileDWARFDebugMap::FindNamespace(
 
     if (stream_up)
       if (auto *obj = oso_dwarf->GetObjectFile()) {
-        *stream_up << llvm::formatv("{0}: {1}:{2} \n", name.AsCString("<<UNKNOWN>>"), obj->GetFileSpec().GetPath(), matching_namespace.IsValid());
+        *stream_up << llvm::formatv("[FindNamespace]{0}: {1}:{2} \n", name.AsCString("<<UNKNOWN>>"), obj->GetFileSpec().GetPath(), matching_namespace.IsValid());
     }
 
     return matching_namespace ? IterationAction::Stop

@@ -68,7 +68,7 @@ void clang::runWithSufficientStackSpaceSlow(llvm::function_ref<void()> Diag,
   llvm::CrashRecoveryContext CRC;
   CRC.RunSafelyOnThread([&] {
     noteBottomOfStack();
-    Diag();
+    //Diag();
     Fn();
   }, DesiredStackSize);
 }

@@ -31,6 +31,7 @@
 #include "lldb/Symbol/TypeMap.h"
 #include "lldb/Symbol/VariableList.h"
 #include "llvm/ADT/STLExtras.h"
+#include "llvm/IR/PatternMatch.h"
 #include "llvm/Support/ScopedPrinter.h"
 
 #include "lldb/Target/StackFrame.h"
@@ -41,10 +42,23 @@
 
 #include <memory>
 #include <optional>
+#include <unordered_map>
 
 using namespace lldb;
 using namespace lldb_private;
 using namespace lldb_private::plugin::dwarf;
+
+static constexpr bool enabled = true;
+static std::unique_ptr<llvm::raw_ostream> stream_up = []() -> std::unique_ptr<llvm::raw_fd_ostream> {
+  if constexpr (enabled) {
+      int FD = 0;
+      auto EC = llvm::sys::fs::openFileForWrite("find_types.log", FD);
+      assert(!EC);
+      return std::make_unique<llvm::raw_fd_ostream>(FD, true);
+  }
+
+  return nullptr;
+}();
 
 char SymbolFileDWARFDebugMap::ID;
 
@@ -1085,6 +1099,10 @@ void SymbolFileDWARFDebugMap::FindFunctions(
     uint32_t sc_idx = sc_list.GetSize();
     oso_dwarf->FindFunctions(lookup_info, parent_decl_ctx, include_inlines,
                              sc_list);
+    if (stream_up)
+      if (auto *obj = oso_dwarf->GetObjectFile()) {
+        *stream_up << llvm::formatv("[FindFunctions]{0}: {1}:{2} \n", lookup_info.GetLookupName().AsCString("<<UNKNOWN>>"), obj->GetFileSpec().GetPath(), sc_idx != sc_list.GetSize());
+    }
     if (!sc_list.IsEmpty()) {
       RemoveFunctionsWithModuleNotEqualTo(m_objfile_sp->GetModule(), sc_list,
                                           sc_idx);
@@ -1104,6 +1122,10 @@ void SymbolFileDWARFDebugMap::FindFunctions(const RegularExpression &regex,
     uint32_t sc_idx = sc_list.GetSize();
 
     oso_dwarf->FindFunctions(regex, include_inlines, sc_list);
+    if (stream_up)
+      if (auto *obj = oso_dwarf->GetObjectFile()) {
+        *stream_up << llvm::formatv("[FindFunctions]{0}: {1}:{2} \n", regex.GetText(), obj->GetFileSpec().GetPath(), sc_idx != sc_list.GetSize());
+    }
     if (!sc_list.IsEmpty()) {
       RemoveFunctionsWithModuleNotEqualTo(m_objfile_sp->GetModule(), sc_list,
                                           sc_idx);
@@ -1246,6 +1268,15 @@ void SymbolFileDWARFDebugMap::FindTypes(const TypeQuery &query,
     if (const_cast<TypeQuery&>(query).GetContextRef()[0].name.GetStringRef().contains("(anonymous namespace)"))
       assert(true);
     oso_dwarf->FindTypes(query, results);
+
+    if (const_cast<TypeQuery&>(query).GetContextRef()[0].name.GetStringRef().contains("(anonymous namespace)"))
+      if (results.Done(query))
+        llvm::errs() << "Found type within anonymous namespace\n";
+
+    if (stream_up)
+      if (auto *obj = oso_dwarf->GetObjectFile()) {
+        *stream_up << llvm::formatv("[FindTypes]{0}: {1}:{2} {3} {4}\n", query.GetTypeBasename().AsCString("<<UNKNOWN>>"), obj->GetFileSpec().GetPath(), results.Done(query), query.GetFindOne(), query.GetExactMatch());
+    }
     return results.Done(query) ? IterationAction::Stop
                                : IterationAction::Continue;
   });
@@ -1289,14 +1320,14 @@ CompilerDeclContext SymbolFileDWARFDebugMap::FindNamespace(
   }
 
   if (hint) {
-    //llvm::errs() << "CACHE HIT FOR: " << name.GetStringRef() << '\n';
+    llvm::errs() << "CACHE HIT FOR: " << name.GetStringRef() << '\n';
     matching_namespace =
         hint->FindNamespace(name, parent_decl_ctx, only_root_namespaces);
 
-    //if (stream_up)
-    //  if (auto *obj = hint->GetObjectFile()) {
-    //    *stream_up << llvm::formatv("{0}: {1}:{2} \n", name.AsCString("<<UNKNOWN>>"), obj->GetFileSpec().GetPath(), matching_namespace.IsValid());
-    //}
+    if (stream_up)
+      if (auto *obj = hint->GetObjectFile()) {
+        *stream_up << llvm::formatv("[FindNamespace]{0}: {1}:{2} \n", name.AsCString("<<UNKNOWN>>"), obj->GetFileSpec().GetPath(), matching_namespace.IsValid());
+    }
 
     return matching_namespace;
   }
@@ -1304,6 +1335,11 @@ CompilerDeclContext SymbolFileDWARFDebugMap::FindNamespace(
   ForEachSymbolFile([&](SymbolFileDWARF *oso_dwarf) {
     matching_namespace =
         oso_dwarf->FindNamespace(name, parent_decl_ctx, only_root_namespaces);
+
+    if (stream_up)
+      if (auto *obj = oso_dwarf->GetObjectFile()) {
+        *stream_up << llvm::formatv("[FindNamespace]{0}: {1}:{2} \n", name.AsCString("<<UNKNOWN>>"), obj->GetFileSpec().GetPath(), matching_namespace.IsValid());
+    }
 
     return matching_namespace ? IterationAction::Stop
                               : IterationAction::Continue;

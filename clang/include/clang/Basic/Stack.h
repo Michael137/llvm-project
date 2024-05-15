@@ -38,9 +38,10 @@ namespace clang {
   /// Run a given function on a stack with "sufficient" space. If stack space
   /// is insufficient, calls Diag to emit a diagnostic before calling Fn.
   inline void runWithSufficientStackSpace(llvm::function_ref<void()> Diag,
-                                          llvm::function_ref<void()> Fn) {
+                                          llvm::function_ref<void()> Fn,
+                                          bool force_thread = false) {
 #if LLVM_ENABLE_THREADS
-    if (LLVM_UNLIKELY(isStackNearlyExhausted()))
+    if (force_thread || LLVM_UNLIKELY(isStackNearlyExhausted()))
       runWithSufficientStackSpaceSlow(Diag, Fn);
     else
       Fn();

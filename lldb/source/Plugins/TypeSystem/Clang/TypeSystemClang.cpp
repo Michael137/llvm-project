@@ -9321,8 +9321,8 @@ npdb::PdbAstBuilder *TypeSystemClang::GetNativePDBParser() {
 }
 
 bool TypeSystemClang::UseRedeclCompletion() {
-  //return GetGlobalPluginProperties().UseRedeclCompletion();
-  return true;
+  return GetGlobalPluginProperties().UseRedeclCompletion();
+  //return true;
 }
 
 bool TypeSystemClang::LayoutRecordType(

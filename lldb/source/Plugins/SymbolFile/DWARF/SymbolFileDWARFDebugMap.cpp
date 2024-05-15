@@ -1251,11 +1251,55 @@ void SymbolFileDWARFDebugMap::FindTypes(const TypeQuery &query,
   });
 }
 
+static llvm::DenseMap<llvm::StringRef, SymbolFileDWARF*> s_hints;
+
 CompilerDeclContext SymbolFileDWARFDebugMap::FindNamespace(
     lldb_private::ConstString name, const CompilerDeclContext &parent_decl_ctx,
     bool only_root_namespaces) {
   std::lock_guard<std::recursive_mutex> guard(GetModuleMutex());
   CompilerDeclContext matching_namespace;
+
+  auto get_or_insert_hint = [&](llvm::StringRef name, llvm::StringRef hint) {
+    if (auto it = s_hints.find(name);
+        it != s_hints.end())
+      return it->second;
+
+    SymbolFileDWARF * ret = nullptr;
+    ForEachSymbolFile([&](SymbolFileDWARF *oso_dwarf) {
+        if (auto * obj = oso_dwarf->GetObjectFile())
+          if (obj->GetFileSpec().GetFilename().GetStringRef().contains(hint)) {
+            s_hints[name] = oso_dwarf;
+            ret = oso_dwarf;
+            return IterationAction::Stop;
+          }
+
+       return IterationAction::Continue;
+    });
+
+    return ret;
+  };
+
+  SymbolFileDWARF * hint = nullptr;
+  if (name.GetStringRef() == "clang") {
+    hint = get_or_insert_hint("clang", "liblldbCore.a");
+  } else if (name.GetStringRef() == "dwarf") {
+    hint = get_or_insert_hint("dwarf", "liblldbExpression.a");
+  } else if (name.GetStringRef() == "pointer_union_detail") {
+    hint = get_or_insert_hint("pointer_union_detail", "liblldbCore.a");
+  }
+
+  if (hint) {
+    //llvm::errs() << "CACHE HIT FOR: " << name.GetStringRef() << '\n';
+    matching_namespace =
+        hint->FindNamespace(name, parent_decl_ctx, only_root_namespaces);
+
+    //if (stream_up)
+    //  if (auto *obj = hint->GetObjectFile()) {
+    //    *stream_up << llvm::formatv("{0}: {1}:{2} \n", name.AsCString("<<UNKNOWN>>"), obj->GetFileSpec().GetPath(), matching_namespace.IsValid());
+    //}
+
+    return matching_namespace;
+  }
 
   ForEachSymbolFile([&](SymbolFileDWARF *oso_dwarf) {
     matching_namespace =

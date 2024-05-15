@@ -51,6 +51,8 @@ bool lldb_private::contextMatches(llvm::ArrayRef<CompilerContext> context_chain,
     // Early exit if the pattern is too long.
     if (ctx == ctx_end)
       return false;
+    if (pat.name == "(anonymous namespace)")
+      continue;
     if (*ctx != pat) {
       // Skip any number of module matches.
       if (pat.kind == CompilerContextKind::AnyModule) {

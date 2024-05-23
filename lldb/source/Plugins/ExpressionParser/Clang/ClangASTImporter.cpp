@@ -1181,6 +1181,9 @@ void ClangASTImporter::ASTImporterDelegate::ImportDefinitionTo(
     }
   }
 
+  llvm::errs() << "TC EVENT(imported new definition)\n";
+  to->getTranslationUnitDecl()->dumpAsDecl();
+
   // If we're dealing with an Objective-C class, ensure that the inheritance
   // has been set up correctly.  The ASTImporter may not do this correctly if
   // the class was originally sourced from symbols.
@@ -1407,6 +1410,9 @@ void ClangASTImporter::ASTImporterDelegate::Imported(clang::Decl *from,
 
   if (clang::CXXMethodDecl *to_method = dyn_cast<CXXMethodDecl>(to))
     MaybeCompleteReturnType(m_main, to_method);
+
+  llvm::errs() << "TC EVENT(ASTImporter::Imported)\n";
+  to->getTranslationUnitDecl()->dumpAsDecl();
 }
 
 clang::Decl *

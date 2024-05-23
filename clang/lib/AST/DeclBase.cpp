@@ -86,6 +86,12 @@ void *Decl::operator new(std::size_t Size, const ASTContext &Context,
 
   // Store the global declaration ID in the second 4 bytes.
   PrefixPtr[1] = ID.get();
+  
+  // TODO: should add logging *after* the constructor of the decl has run
+  if (auto *TU  = Context.getTranslationUnitDecl()) {
+      llvm::errs() << "TC EVENT(AST node allocation):\n";
+      TU->dumpAsDecl();
+  }
 
   return Result;
 }

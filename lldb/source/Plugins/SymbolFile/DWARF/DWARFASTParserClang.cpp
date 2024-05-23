@@ -2274,6 +2274,9 @@ bool DWARFASTParserClang::CompleteRecordType(const DWARFDIE &die,
   for (const DWARFDIE &die : contained_type_dies)
     dwarf->ResolveType(die);
 
+  llvm::errs() << "TC EVENT(CompleteRecordType):\n";
+  m_ast.getASTContext().getTranslationUnitDecl()->dumpAsDecl();
+
   return (bool)clang_type;
 }
 

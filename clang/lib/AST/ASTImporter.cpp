@@ -386,7 +386,6 @@ namespace clang {
         Decl *From, DeclContext *&ToDC, DeclContext *&ToLexicalDC);
     Error ImportImplicitMethods(const CXXRecordDecl *From, CXXRecordDecl *To);
 
-    Error ImportFieldDeclDefinition(const FieldDecl *From, const FieldDecl *To);
     Expected<CXXCastPath> ImportCastPath(CastExpr *E);
     Expected<APValue> ImportAPValue(const APValue &FromValue);
 
@@ -1948,8 +1947,7 @@ Error ASTNodeImporter::ImportDefinitionIfNeeded(Decl *FromD, Decl *ToD) {
 
   if (RecordDecl *FromRecord = dyn_cast<RecordDecl>(FromD)) {
     if (RecordDecl *ToRecord = cast<RecordDecl>(ToD)) {
-      if (FromRecord->getDefinition() && FromRecord->isCompleteDefinition() &&
-          !ToRecord->getDefinition()) {
+      if (FromRecord->getDefinition() && !ToRecord->getDefinition()) {
         if (Error Err = ImportDefinition(FromRecord, ToRecord))
           return Err;
       }
@@ -2050,13 +2048,6 @@ ASTNodeImporter::ImportDeclContext(DeclContext *FromDC, bool ForceImport) {
                                                 ImportedOrErr.takeError());
       continue;
     }
-    FieldDecl *FieldFrom = dyn_cast_or_null<FieldDecl>(From);
-    Decl *ImportedDecl = *ImportedOrErr;
-    FieldDecl *FieldTo = dyn_cast_or_null<FieldDecl>(ImportedDecl);
-    if (FieldFrom && FieldTo) {
-      Error Err = ImportFieldDeclDefinition(FieldFrom, FieldTo);
-      HandleChildErrors.handleChildImportResult(ChildErrors, std::move(Err));
-    }
   }
 
   // We reorder declarations in RecordDecls because they may have another order
@@ -2125,39 +2116,6 @@ ASTNodeImporter::ImportDeclContext(DeclContext *FromDC, bool ForceImport) {
   return ChildErrors;
 }
 
-Error ASTNodeImporter::ImportFieldDeclDefinition(const FieldDecl *From,
-                                                 const FieldDecl *To) {
-  RecordDecl *FromRecordDecl = nullptr;
-  RecordDecl *ToRecordDecl = nullptr;
-  // If we have a field that is an ArrayType we need to check if the array
-  // element is a RecordDecl and if so we need to import the definition.
-  QualType FromType = From->getType();
-  QualType ToType = To->getType();
-  if (FromType->isArrayType()) {
-    // getBaseElementTypeUnsafe(...) handles multi-dimensonal arrays for us.
-    FromRecordDecl = FromType->getBaseElementTypeUnsafe()->getAsRecordDecl();
-    ToRecordDecl = ToType->getBaseElementTypeUnsafe()->getAsRecordDecl();
-  }
-
-  if (!FromRecordDecl || !ToRecordDecl) {
-    const RecordType *RecordFrom = FromType->getAs<RecordType>();
-    const RecordType *RecordTo = ToType->getAs<RecordType>();
-
-    if (RecordFrom && RecordTo) {
-      FromRecordDecl = RecordFrom->getDecl();
-      ToRecordDecl = RecordTo->getDecl();
-    }
-  }
-
-  if (FromRecordDecl && ToRecordDecl) {
-    if (FromRecordDecl->isCompleteDefinition() &&
-        !ToRecordDecl->isCompleteDefinition())
-      return ImportDefinition(FromRecordDecl, ToRecordDecl);
-  }
-
-  return Error::success();
-}
-
 Error ASTNodeImporter::ImportDeclContext(
     Decl *FromD, DeclContext *&ToDC, DeclContext *&ToLexicalDC) {
   auto ToDCOrErr = Importer.ImportContext(FromD->getDeclContext());
@@ -2216,7 +2174,7 @@ Error ASTNodeImporter::ImportDefinition(
     To->completeDefinition();
   };
 
-  if (To->getDefinition() || To->isBeingDefined()) {
+  if (To->isCompleteDefinition() || To->isBeingDefined()) {
     if (Kind == IDK_Everything ||
         // In case of lambdas, the class already has a definition ptr set, but
         // the contained decls are not imported yet. Also, isBeingDefined was
@@ -2737,6 +2695,10 @@ ASTNodeImporter::VisitTypedefNameDecl(TypedefNameDecl *D, bool IsAlias) {
                 !hasSameVisibilityContextAndLinkage(FoundR, FromR))
               continue;
           }
+
+          if (Importer.isMinimalImport())
+            return Importer.MapImported(D, FoundTypedef);
+
           // If the "From" context has a complete underlying type but we
           // already have a complete underlying type then return with that.
           if (!FromUT->isIncompleteType() && !FoundUT->isIncompleteType())
@@ -3259,7 +3221,7 @@ ExpectedDecl ASTNodeImporter::VisitRecordDecl(RecordDecl *D) {
     D2->setAnonymousStructOrUnion(true);
 
   if (D->isCompleteDefinition())
-    if (Error Err = ImportDefinition(D, D2, IDK_Default))
+    if (Error Err = ImportDefinition(D, D2, IDK_Everything))
       return std::move(Err);
 
   return D2;
@@ -5443,9 +5405,8 @@ Error ASTNodeImporter::ImportDefinition(
                           diag::note_odr_objc_missing_superclass);
     }
 
-    if (shouldForceImportDeclContext(Kind))
-      if (Error Err = ImportDeclContext(From))
-        return Err;
+    if (Error Err = ImportDeclContext(From))
+      return Err;
     return Error::success();
   }
 
@@ -6336,7 +6297,7 @@ ExpectedDecl ASTNodeImporter::VisitClassTemplateSpecializationDecl(
   }
 
   if (D->isCompleteDefinition())
-    if (Error Err = ImportDefinition(D, D2))
+    if (Error Err = ImportDefinition(D, D2, IDK_Everything))
       return std::move(Err);
 
   return D2;

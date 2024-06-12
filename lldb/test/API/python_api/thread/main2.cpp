@@ -1,4 +1,3 @@
-#include <stdio.h>
 #include <stdlib.h>
 
 int a(int);
@@ -22,7 +21,7 @@ int b(int val)
     if (!ptr)
         return -1;
     else
-        printf("ptr=%p\n", ptr);
+        __builtin_printf("ptr=%p\n", ptr);
     return rc;                // we should reach here after 3 step-over's.
 }
 
@@ -34,13 +33,13 @@ int c(int val)
 int main (int argc, char const *argv[])
 {
     int A1 = a(1);
-    printf("a(1) returns %d\n", A1);
+    __builtin_printf("a(1) returns %d\n", A1);
     
     int B2 = b(2);
-    printf("b(2) returns %d\n", B2);
+    __builtin_printf("b(2) returns %d\n", B2);
     
     int A3 = a(3);
-    printf("a(3) returns %d\n", A3);
+    __builtin_printf("a(3) returns %d\n", A3);
     
     return 0;
 }

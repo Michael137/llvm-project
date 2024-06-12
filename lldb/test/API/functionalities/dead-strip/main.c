@@ -1,6 +1,3 @@
-#include <stdio.h>
-
-
 int f1 (char *s);
 int f2 (char *s);
 int f3 (char *s);
@@ -9,7 +6,7 @@ int f3 (char *s);
 // We want f1 to start on line 20
 int f1 (char *s)
 {
-    return printf("f1: %s\n", s);
+    return __builtin_printf("f1: %s\n", s);
 }
 
 
@@ -19,7 +16,7 @@ int f1 (char *s)
 // We want f2 to start on line 30, this should get stripped
 int f2 (char *s)
 {
-    return printf("f2: %s\n", s);
+    return __builtin_printf("f2: %s\n", s);
 }
 
 
@@ -29,7 +26,7 @@ int f2 (char *s)
 // We want f3 to start on line 40
 int f3 (char *s)
 {
-    return printf("f3: %s\n", s);
+    return __builtin_printf("f3: %s\n", s);
 }
 
 

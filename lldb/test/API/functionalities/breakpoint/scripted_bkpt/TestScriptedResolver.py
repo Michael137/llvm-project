@@ -303,7 +303,7 @@ class TestScriptedResolver(TestBase):
         # Make sure setting a resolver breakpoint doesn't pollute further breakpoint setting
         # by checking the description of a regular file & line breakpoint to make sure it
         # doesn't mention the Python Resolver function:
-        bkpt_no = lldbutil.run_break_set_by_file_and_line(self, "main.c", 12)
+        bkpt_no = lldbutil.run_break_set_by_file_and_line(self, "main.c", 10)
         bkpt = target.FindBreakpointByID(bkpt_no)
         strm = lldb.SBStream()
         bkpt.GetDescription(strm, False)
@@ -317,7 +317,7 @@ class TestScriptedResolver(TestBase):
         bp_loc = bkpt.GetLocationAtIndex(0)
         bp_sc = bp_loc.GetAddress().GetSymbolContext(lldb.eSymbolContextEverything)
         bp_se = bp_sc.GetLineEntry()
-        self.assertEqual(bp_se.GetLine(), 12, "Got the right line number")
+        self.assertEqual(bp_se.GetLine(), 10, "Got the right line number")
         self.assertEqual(
             bp_se.GetFileSpec().GetFilename(), "main.c", "Got the right filename"
         )

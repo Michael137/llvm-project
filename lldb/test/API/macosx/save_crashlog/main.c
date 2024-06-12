@@ -1,8 +1,6 @@
-#include <stdio.h>
-
 void
 call_me() {
-  printf("I was called");
+  __builtin_printf("I was called");
 }
 
 int

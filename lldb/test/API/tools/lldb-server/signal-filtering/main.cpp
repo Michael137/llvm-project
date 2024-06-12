@@ -1,12 +1,11 @@
 #include <signal.h>
-#include <stdio.h>
 #include <vector>
 
 static int signal_counter = 0;
 
 static void count_signal(int signo) {
   ++signal_counter;
-  printf("Signal %d\n", signo);
+  __builtin_printf("Signal %d\n", signo);
 }
 
 static void raise_signals() {

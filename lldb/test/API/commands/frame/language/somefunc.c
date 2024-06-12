@@ -1,7 +1,5 @@
-#include <stdio.h>
-
 void
 some_func()
 {
-  printf("Set breakpoint here.");
+  __builtin_printf("Set breakpoint here.");
 }

@@ -2,7 +2,6 @@
 #include <unistd.h>
 #include <stdlib.h>
 #include <sys/mman.h>
-#include <stdio.h>
 #include <mach/mach.h>
 #include <mach/mach_vm.h>
 
@@ -11,7 +10,7 @@ size_t g_size = 10*sizeof(int);
 
 void
 saction_handler(int signo, siginfo_t info, void *baton) {
-  printf("Got into handler.\n");   // stop here in the signal handler
+  __builtin_printf("Got into handler.\n");   // stop here in the signal handler
   kern_return_t success
       = mach_vm_protect(mach_task_self(), (mach_vm_address_t) g_int_ptr,
                         g_size, 0, VM_PROT_READ|VM_PROT_WRITE);

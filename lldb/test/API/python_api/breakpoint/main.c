@@ -1,9 +1,7 @@
-#include <stdio.h>
-
 void
 AFunction()
 {
-  printf ("I am a function.\n");
+  __builtin_printf ("I am a function.\n");
 }
 
 int

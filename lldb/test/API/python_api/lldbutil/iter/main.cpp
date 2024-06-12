@@ -1,5 +1,4 @@
 // C includes
-#include <stdio.h>
 #include <stdint.h>
 #include <stdlib.h>
 
@@ -49,7 +48,7 @@ thread_func (void *arg)
 {
     uint32_t thread_index = *((uint32_t *)arg);
     uint32_t thread_mask = (1u << (thread_index));
-    printf ("%s (thread index = %u) startng...\n", __FUNCTION__, thread_index);
+    __builtin_printf ("%s (thread index = %u) startng...\n", __FUNCTION__, thread_index);
 
     std::default_random_engine generator;
     std::uniform_int_distribution<int> distribution(0, 3000000);
@@ -58,13 +57,13 @@ thread_func (void *arg)
     {
         // random micro second sleep from zero to 3 seconds
         int usec = distribution(generator);
-        printf ("%s (thread = %u) doing a usleep (%d)...\n", __FUNCTION__, thread_index, usec);
+        __builtin_printf ("%s (thread = %u) doing a usleep (%d)...\n", __FUNCTION__, thread_index, usec);
 
         std::chrono::microseconds duration(usec);
         std::this_thread::sleep_for(duration);
-        printf ("%s (thread = %u) after usleep ...\n", __FUNCTION__, thread_index); // Set break point at this line.
+        __builtin_printf ("%s (thread = %u) after usleep ...\n", __FUNCTION__, thread_index); // Set break point at this line.
     }
-    printf ("%s (thread index = %u) exiting...\n", __FUNCTION__, thread_index);
+    __builtin_printf ("%s (thread index = %u) exiting...\n", __FUNCTION__, thread_index);
     return NULL;
 }
 
@@ -89,7 +88,7 @@ int main (int argc, char const *argv[])
     char line[64];
     while (mask_access(eGet) != 0)
     {
-        printf ("Enter thread index to kill or ENTER for all:\n");
+        __builtin_printf ("Enter thread index to kill or ENTER for all:\n");
         fflush (stdout);
         // Kill threads by index, or ENTER for all threads
 
@@ -97,7 +96,7 @@ int main (int argc, char const *argv[])
         {
             if (line[0] == '\n' || line[0] == '\r' || line[0] == '\0')
             {
-                printf ("Exiting all threads...\n");
+                __builtin_printf ("Exiting all threads...\n");
                 break;
             }
             int32_t index = strtoul (line, NULL, 0);

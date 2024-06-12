@@ -11,7 +11,6 @@
 
 #include <arm_acle.h>
 #include <asm/mman.h>
-#include <stdio.h>
 #include <sys/mman.h>
 #include <sys/prctl.h>
 #include <unistd.h>
@@ -36,7 +35,7 @@ int main(int argc, char const *argv[]) {
   if (!mte_buf)
     return 1;
 
-  printf("mte_buf: %p\n", mte_buf);
+  __builtin_printf("mte_buf: %p\n", mte_buf);
 
   // Allocate some untagged memory before the tagged memory.
   char *buf = mmap(0, page_size, PROT_READ | PROT_WRITE,
@@ -44,7 +43,7 @@ int main(int argc, char const *argv[]) {
   if (!buf)
     return 1;
 
-  printf("buf: %p\n", buf);
+  __builtin_printf("buf: %p\n", buf);
 
   // This write means that the memory for buf is included in the corefile.
   // So we can read from the end of it into mte_buf during the test.

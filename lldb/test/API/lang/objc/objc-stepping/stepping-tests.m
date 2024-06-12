@@ -1,5 +1,4 @@
 #import <Foundation/Foundation.h>
-#include <stdio.h>
 
 struct return_me
 {
@@ -19,7 +18,7 @@ struct return_me
 @implementation SourceBase
 - (void) randomMethod
 {
-  printf ("Called in SourceBase version of randomMethod.\n"); // SourceBase randomMethod start line.
+  __builtin_printf ("Called in SourceBase version of randomMethod.\n"); // SourceBase randomMethod start line.
 }
 
 - (struct return_me) returnsStruct
@@ -54,12 +53,12 @@ struct return_me
 - (void) randomMethod
 {
   [super randomMethod];  // Source randomMethod start line.
-    printf ("Called in Source version of random method.");
+    __builtin_printf ("Called in Source version of random method.");
 }
 
 - (struct return_me) returnsStruct
 {
-  printf ("Called in Source version of returnsStruct.\n");  // Source returnsStruct start line.
+  __builtin_printf ("Called in Source version of returnsStruct.\n");  // Source returnsStruct start line.
   return [super returnsStruct];                             // Source returnsStruct call line.  
 }
 
@@ -103,7 +102,7 @@ struct return_me
 			 change: (NSDictionary *) change
 			context: (void *) context
 {
-  printf ("Observer function called.\n");
+  __builtin_printf ("Observer function called.\n");
   return;
 }
 @end

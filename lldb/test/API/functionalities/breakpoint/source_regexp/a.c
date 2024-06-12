@@ -1,11 +1,9 @@
-#include <stdio.h>
-
 #include "a.h"
 
 static int
 main_func(int input)
 {
-  return printf("Set B breakpoint here: %d", input);
+  return __builtin_printf("Set B breakpoint here: %d", input);
 }
 
 int

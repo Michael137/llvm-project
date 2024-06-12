@@ -1,6 +1,5 @@
 #include <chrono>
 #include <condition_variable>
-#include <cstdio>
 #include <thread>
 
 std::condition_variable g_condition_variable;
@@ -23,7 +22,7 @@ void
 do_bad_thing_with_location(unsigned index, char *char_ptr, char new_val)
 {
     unsigned what = new_val;
-    printf("new value written to array(%p) and index(%u) = %u\n", char_ptr, index, what);
+    __builtin_printf("new value written to array(%p) and index(%u) = %u\n", char_ptr, index, what);
     char_ptr[index] = new_val;
 }
 
@@ -55,7 +54,7 @@ access_pool (bool flag = false)
 void
 thread_func (uint32_t thread_index)
 {
-    printf ("%s (thread index = %u) startng...\n", __FUNCTION__, thread_index);
+    __builtin_printf ("%s (thread index = %u) startng...\n", __FUNCTION__, thread_index);
 
     barrier_wait();
 
@@ -63,7 +62,7 @@ thread_func (uint32_t thread_index)
     uint32_t val;
     while (count++ < 15)
     {
-        printf ("%s (thread = %u) sleeping for 1 second...\n", __FUNCTION__, thread_index);
+        __builtin_printf ("%s (thread = %u) sleeping for 1 second...\n", __FUNCTION__, thread_index);
         std::this_thread::sleep_for(std::chrono::seconds(1));
 
         if (count < 7)
@@ -71,9 +70,9 @@ thread_func (uint32_t thread_index)
         else
             val = access_pool (true);
 
-        printf ("%s (thread = %u) after sleep access_pool returns %d (count=%d)...\n", __FUNCTION__, thread_index, val, count);
+        __builtin_printf ("%s (thread = %u) after sleep access_pool returns %d (count=%d)...\n", __FUNCTION__, thread_index, val, count);
     }
-    printf ("%s (thread index = %u) exiting...\n", __FUNCTION__, thread_index);
+    __builtin_printf ("%s (thread index = %u) exiting...\n", __FUNCTION__, thread_index);
 }
 
 
@@ -94,7 +93,7 @@ int main (int argc, char const *argv[])
         int c;
     } MyAggregateDataType;
 
-    printf ("Before turning all three threads loose...\n"); // Set break point at this line.
+    __builtin_printf ("Before turning all three threads loose...\n"); // Set break point at this line.
     barrier_wait();
 
     // Join all of our threads

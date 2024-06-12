@@ -1,5 +1,3 @@
-#include <stdio.h>
-
 char g = 0;
 signed char gs = 0;
 unsigned char gu = 0;
@@ -12,6 +10,6 @@ int main() {
   char c = 0;
   signed char sc = 0;
   unsigned char uc = 0;
-  printf("%d %d %d\n", foo(c), foo(sc), foo(uc));
+  __builtin_printf("%d %d %d\n", foo(c), foo(sc), foo(uc));
   return 0; // Break here
 }

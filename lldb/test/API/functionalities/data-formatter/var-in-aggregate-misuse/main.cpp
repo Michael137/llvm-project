@@ -1,4 +1,3 @@
-#include <stdio.h>
 struct Summarize
 {
     int first;
@@ -24,8 +23,8 @@ main()
     
     TwoSummarizes twos = { {1,2}, {3,4} };
     
-    printf ("Summarize: first: %d second: %d and address: 0x%p\n", mine.first, mine.second, mine_ptr); // Set break point at this line.
-    printf ("Global summarize: first: %d second: %d.\n", global_mine.first, global_mine.second);
+    __builtin_printf ("Summarize: first: %d second: %d and address: 0x%p\n", mine.first, mine.second, mine_ptr); // Set break point at this line.
+    __builtin_printf ("Global summarize: first: %d second: %d.\n", global_mine.first, global_mine.second);
     return 0;
 }
 

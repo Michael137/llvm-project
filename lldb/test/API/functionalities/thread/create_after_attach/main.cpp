@@ -1,4 +1,3 @@
-#include <stdio.h>
 #include <chrono>
 #include <thread>
 
@@ -57,5 +56,5 @@ int main(int argc, char const *argv[])
     thread_1.join();
     thread_2.join();
 
-    printf("Exiting now\n");
+    __builtin_printf("Exiting now\n");
 }

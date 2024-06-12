@@ -1,7 +1,3 @@
-#include <stdio.h>
-
-#include <stdio.h>
-
 // Forward declare an enumeration (only works in C, not C++)
 typedef enum ops ops;
 
@@ -42,10 +38,10 @@ int main (int argc, char const *argv[])
 
     enum enum_test_days day;
     struct foo f;
-    f.op = NULL; // Breakpoint for bitfield
+    f.op = 0; // Breakpoint for bitfield
     for (day = Monday - 1; day <= kNumDays + 1; day++)
     {
-        printf("day as int is %i\n", (int)day); // Set break point at this line.
+        __builtin_printf("day as int is %i\n", (int)day); // Set break point at this line.
     }
     return 0;
 }

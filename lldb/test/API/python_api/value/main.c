@@ -1,4 +1,3 @@
-#include <stdio.h>
 #include <stdint.h>
 
 // This simple program is to test the lldb Python API SBValue.GetChildAtIndex().
@@ -57,13 +56,13 @@ int main (int argc, char const *argv[])
     struct Container my_container;
     my_container.data.big = f;
     int *my_int_ptr = &g_my_int;
-    printf("my_int_ptr points to location %p\n", my_int_ptr);
+    __builtin_printf("my_int_ptr points to location %p\n", my_int_ptr);
     int *fixed_int_ptr = (int*)(void*)0xAA;
     int *another_fixed_int_ptr = (int*)(void*)0xAA;
-    int *a_null_int_ptr = NULL;
+    int *a_null_int_ptr = 0;
     const char **str_ptr = days_of_week;
     for (i = 0; i < 7; ++i)
-        printf("%s\n", str_ptr[i]); // Break at this line
+        __builtin_printf("%s\n", str_ptr[i]); // Break at this line
                                     // and do str_ptr_val.GetChildAtIndex(5, lldb.eNoDynamicValues, True).
 
     return 0;

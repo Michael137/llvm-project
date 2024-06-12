@@ -1,5 +1,3 @@
-#include <stdio.h>
-
 // This simple program is to demonstrate the capability of the lldb command
 // "breakpoint command add" to add a set of commands to a breakpoint to be
 // executed when the breakpoint is hit.
@@ -34,13 +32,13 @@ int c(int val)
 int main (int argc, char const *argv[])
 {
     int A1 = a(1);  // a(1) -> b(1) -> c(1)
-    printf("a(1) returns %d\n", A1);
+    __builtin_printf("a(1) returns %d\n", A1);
     
     int B2 = b(2);  // b(2) -> c(2)
-    printf("b(2) returns %d\n", B2);
+    __builtin_printf("b(2) returns %d\n", B2);
     
     int A3 = a(3);  // a(3) -> c(3)
-    printf("a(3) returns %d\n", A3);
+    __builtin_printf("a(3) returns %d\n", A3);
     
     return 0;
 }

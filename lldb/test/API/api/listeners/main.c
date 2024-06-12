@@ -1,7 +1,5 @@
-#include <stdio.h>
-
 int
 main()
 {
-    printf ("Hello there.\n");
+    __builtin_printf ("Hello there.\n");
 }

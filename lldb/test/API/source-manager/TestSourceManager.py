@@ -21,7 +21,7 @@ from lldbsuite.test import lldbutil
 
 def ansi_underline_surround_regex(inner_regex_text):
     # return re.compile(r"\[4m%s\[0m" % inner_regex_text)
-    return "4.+\033\\[4m%s\033\\[0m" % inner_regex_text
+    return "3.+\033\\[4m%s\033\\[0m" % inner_regex_text
 
 
 def ansi_color_surround_regex(inner_regex_text):
@@ -120,11 +120,11 @@ class SourceManagerTestCase(TestBase):
             stream,
         )
 
-        #    2
-        #    3    int main(int argc, char const *argv[]) {
-        # => 4        printf("Hello world.\n"); // Set break point at this line.
-        #    5        return 0;
-        #    6    }
+        #    1
+        #    2    int main(int argc, char const *argv[]) {
+        # => 3        __builtin_printf("Hello world.\n"); // Set break point at this line.
+        #    4        return 0;
+        #    5    }
         self.expect(
             stream.GetData(),
             "Source code displayed correctly:\n" + stream.GetData(),
@@ -148,7 +148,7 @@ class SourceManagerTestCase(TestBase):
         """Test display of source using the SBSourceManager API, using a
         dumb terminal and thus no color support (the default)."""
         use_color = True
-        underline_regex = ansi_underline_surround_regex(r"printf")
+        underline_regex = ansi_underline_surround_regex(r"__builtin_printf")
         self.do_display_source_python_api(use_color, underline_regex)
 
     @add_test_categories(["pyapi"])
@@ -344,7 +344,7 @@ class SourceManagerTestCase(TestBase):
         # Make sure the main source file is in the source cache.
         self.expect(
             "source cache dump",
-            substrs=["Modification time", "Lines", "Path", " 7", self.file],
+            substrs=["Modification time", "Lines", "Path", " 5", self.file],
         )
 
         # Clear the cache.

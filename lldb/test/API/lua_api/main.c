@@ -1,12 +1,10 @@
-#include <stdio.h>
-
 void BFunction()
 {
 }
 
 void AFunction()
 {
-    printf("I am a function.\n");
+    __builtin_printf("I am a function.\n");
 }
 
 int main(int argc, const char *argv[])
@@ -30,6 +28,6 @@ int main(int argc, const char *argv[])
         BFunction();
         sum += i;
     }
-    printf("sum = %d\n", sum);
+    __builtin_printf("sum = %d\n", sum);
     return 0;
 }

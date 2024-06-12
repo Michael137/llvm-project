@@ -1,5 +1,4 @@
 #include <stdint.h>
-#include <stdio.h>
 
 struct Bytes {
   uint8_t ubyte;
@@ -9,5 +8,5 @@ struct Bytes {
 int main() {
   struct Bytes bytes = {0x30, 0x01};
   (void)bytes;
-  printf("break here\n");
+  __builtin_printf("break here\n");
 }

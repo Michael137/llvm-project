@@ -1,5 +1,3 @@
-#include <stdio.h>
-
 #include <chrono>
 #include <thread>
 
@@ -21,8 +19,8 @@ int main (int argc, char const *argv[])
             std::this_thread::sleep_for(std::chrono::microseconds(1));
     }
 
-    printf("my_string=%s\n", my_string);
-    printf("my_double=%g\n", my_double);
+    __builtin_printf("my_string=%s\n", my_string);
+    __builtin_printf("my_double=%g\n", my_double);
     outermost_return_long_double (my_long_double);
     return 0;
 }

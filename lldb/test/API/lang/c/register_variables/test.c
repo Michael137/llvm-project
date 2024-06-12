@@ -1,5 +1,3 @@
-#include <stdio.h>
-
 #if defined(__arm__) || defined(__aarch64__) || defined (__mips__) || defined(__powerpc64__)
 // Clang does not accept regparm attribute on these platforms.
 // Fortunately, the default calling convention passes arguments in registers
@@ -24,7 +22,7 @@ void f2(struct bar *b) __attribute__((noinline)) REGPARM(1);
 void f2(struct bar *b)
 {
   int c = b->m2;
-  printf("%d\n", c); // set breakpoint here
+  __builtin_printf("%d\n", c); // set breakpoint here
 }
 
 float f3() __attribute__((noinline));
@@ -39,6 +37,6 @@ int main()
   f2(&myBar);
 
   float f = f3();
-  printf("%f\n", f); // set breakpoint here
+  __builtin_printf("%f\n", f); // set breakpoint here
   return 0;
 }

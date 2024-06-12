@@ -1,5 +1,4 @@
 #import "ivars-in-blocks.h"
-#import <stdio.h>
 
 typedef int (^my_block_ptr_type) (int);
 
@@ -25,7 +24,7 @@ typedef int (^my_block_ptr_type) (int);
     int ret = foo + [self addend];
     return ret; // Break here inside the class method block.
   };
-  printf("%d\n", my_block(2));
+  __builtin_printf("%d\n", my_block(2));
 }
 
 - (void) makeBlockPtr;

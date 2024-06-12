@@ -1,7 +1,6 @@
 #include <arm_acle.h>
 #include <asm/hwcap.h>
 #include <linux/mman.h>
-#include <stdio.h>
 #include <sys/auxv.h>
 #include <sys/mman.h>
 #include <sys/prctl.h>
@@ -9,7 +8,7 @@
 
 int print_result(char *ptr) {
   // Page size allows the test to try reading off of the end of the page
-  printf("buffer: %p page_size: 0x%x\n", ptr, sysconf(_SC_PAGESIZE));
+  __builtin_printf("buffer: %p page_size: 0x%x\n", ptr, sysconf(_SC_PAGESIZE));
 
   // Exit after some time, so we don't leave a zombie process
   // if the test framework lost track of us.

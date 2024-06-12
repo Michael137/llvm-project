@@ -1,6 +1,4 @@
-#include <stdio.h>
-
-void __attribute__((noinline)) bar(unsigned i) { printf("%d\n", i); }
+void __attribute__((noinline)) bar(unsigned i) { __builtin_printf("%d\n", i); }
 
 void __attribute__((noinline)) foo(unsigned j) {
   unsigned i = j;

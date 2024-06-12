@@ -1,5 +1,3 @@
-#include <stdio.h>
-
 int main (int argc, char const *argv[])
 {
     enum days {
@@ -15,7 +13,7 @@ int main (int argc, char const *argv[])
     enum days day;
     for (day = Monday - 1; day <= kNumDays + 1; day++)
     {
-        printf("day as int is %i\n", (int)day);
+        __builtin_printf("day as int is %i\n", (int)day);
     }
     return 0; // Set break point at this line.
 }

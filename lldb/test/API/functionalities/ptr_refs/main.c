@@ -1,4 +1,3 @@
-#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -12,7 +11,7 @@ int main (int argc, char const *argv[])
     struct referent *r = malloc(sizeof(struct referent));
     r->p = my_ptr;
 
-    printf("%p\n", r); // break here
+    __builtin_printf("%p\n", r); // break here
 
     return 0;
 }

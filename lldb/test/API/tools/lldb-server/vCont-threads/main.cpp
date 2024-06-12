@@ -4,7 +4,6 @@
 #include <chrono>
 #include <cinttypes>
 #include <csignal>
-#include <cstdio>
 #include <cstdlib>
 #include <cstring>
 #include <mutex>
@@ -21,7 +20,7 @@ static void sigint_handler(int signo) {}
 
 static void sigusr1_handler(int signo) {
   std::lock_guard<std::mutex> lock{print_mutex};
-  std::printf("received SIGUSR1 on thread id: %" PRIx64 "\n", get_thread_id());
+  __builtin_printf("received SIGUSR1 on thread id: %" PRIx64 "\n", get_thread_id());
   can_exit_now = true;
 }
 
@@ -38,7 +37,7 @@ static void thread_func() {
   // the mutex guarantees that two writes don't get interspersed
   {
     std::lock_guard<std::mutex> lock{print_mutex};
-    std::printf("thread %" PRIx64 " running\n", get_thread_id());
+    __builtin_printf("thread %" PRIx64 " running\n", get_thread_id());
   }
 
   // give other threads a fair chance to run

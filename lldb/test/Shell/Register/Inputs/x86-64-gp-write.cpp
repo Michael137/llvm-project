@@ -1,6 +1,5 @@
 #include <cinttypes>
 #include <cstdint>
-#include <cstdio>
 
 int main() {
   constexpr uint64_t fill = 0x0F0F0F0F0F0F0F0F;
@@ -32,14 +31,14 @@ int main() {
     :
   );
 
-  printf("rax = 0x%016" PRIx64 "\n", rax);
-  printf("rbx = 0x%016" PRIx64 "\n", rbx);
-  printf("rcx = 0x%016" PRIx64 "\n", rcx);
-  printf("rdx = 0x%016" PRIx64 "\n", rdx);
-  printf("rsp = 0x%016" PRIx64 "\n", rsp);
-  printf("rbp = 0x%016" PRIx64 "\n", rbp);
-  printf("rsi = 0x%016" PRIx64 "\n", rsi);
-  printf("rdi = 0x%016" PRIx64 "\n", rdi);
+  __builtin_printf("rax = 0x%016" PRIx64 "\n", rax);
+  __builtin_printf("rbx = 0x%016" PRIx64 "\n", rbx);
+  __builtin_printf("rcx = 0x%016" PRIx64 "\n", rcx);
+  __builtin_printf("rdx = 0x%016" PRIx64 "\n", rdx);
+  __builtin_printf("rsp = 0x%016" PRIx64 "\n", rsp);
+  __builtin_printf("rbp = 0x%016" PRIx64 "\n", rbp);
+  __builtin_printf("rsi = 0x%016" PRIx64 "\n", rsi);
+  __builtin_printf("rdi = 0x%016" PRIx64 "\n", rdi);
 
   return 0;
 }

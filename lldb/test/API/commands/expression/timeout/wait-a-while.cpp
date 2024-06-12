@@ -1,4 +1,3 @@
-#include <stdio.h>
 #include <stdint.h>
 
 #include <chrono>
@@ -26,9 +25,9 @@ wait_a_while (int microseconds)
 int
 main (int argc, char **argv)
 {
-    printf ("stop here in main.\n");
+    __builtin_printf ("stop here in main.\n");
     int num_times = wait_a_while (argc * 1000);
-    printf ("Done, took %d times.\n", num_times);
+    __builtin_printf ("Done, took %d times.\n", num_times);
 
     return 0;
 

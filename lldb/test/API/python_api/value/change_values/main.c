@@ -1,4 +1,3 @@
-#include <stdio.h>
 #include <stdint.h>
 #include <stdlib.h>
 
@@ -19,11 +18,11 @@ int main ()
   ptr->third_val = 66666666;
 
   // Stop here and set values
-  printf ("Val - %d Mine - %d, %d, %llu. Ptr - %d, %d, %llu\n", val, 
+  __builtin_printf ("Val - %d Mine - %d, %d, %llu. Ptr - %d, %d, %llu\n", val, 
           mine.first_val, mine.second_val, mine.third_val,
           ptr->first_val, ptr->second_val, ptr->third_val); 
 
   // Stop here and check values
-  printf ("This is just another call which we won't make it over %d.", val);
+  __builtin_printf ("This is just another call which we won't make it over %d.", val);
   return 0; // Set a breakpoint here at the end
 }

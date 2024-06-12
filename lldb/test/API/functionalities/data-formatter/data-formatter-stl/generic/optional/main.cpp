@@ -1,4 +1,3 @@
-#include <cstdio>
 #include <string>
 #include <vector>
 
@@ -15,7 +14,7 @@
 int main() {
   bool has_optional = HAVE_OPTIONAL;
 
-  printf("%d\n", has_optional); // break here
+  __builtin_printf("%d\n", has_optional); // break here
 
 #if HAVE_OPTIONAL == 1
   using int_vect = std::vector<int>;
@@ -26,15 +25,15 @@ int main() {
   optional_int number_not_engaged;
   optional_int number_engaged = 42;
 
-  printf("%d\n", *number_engaged);
+  __builtin_printf("%d\n", *number_engaged);
 
   optional_int_vect numbers{{1, 2, 3, 4}};
 
-  printf("%d %d\n", numbers.value()[0], numbers.value()[1]);
+  __builtin_printf("%d %d\n", numbers.value()[0], numbers.value()[1]);
 
   optional_string ostring = "hello";
 
-  printf("%s\n", ostring->c_str());
+  __builtin_printf("%s\n", ostring->c_str());
 #endif
 
   return 0; // break here

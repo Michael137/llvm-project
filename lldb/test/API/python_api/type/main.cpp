@@ -1,5 +1,3 @@
-#include <stdio.h>
-
 class Task {
 public:
     int id;
@@ -60,12 +58,12 @@ WithNestedTypedef::TheTypedef typedefed_value;
 
 int main (int argc, char const *argv[])
 {
-    Task *task_head = new Task(-1, NULL);
-    Task *task1 = new Task(1, NULL);
-    Task *task2 = new Task(2, NULL);
-    Task *task3 = new Task(3, NULL); // Orphaned.
-    Task *task4 = new Task(4, NULL);
-    Task *task5 = new Task(5, NULL);
+    Task *task_head = new Task(-1, 0);
+    Task *task1 = new Task(1, 0);
+    Task *task2 = new Task(2, 0);
+    Task *task3 = new Task(3, 0); // Orphaned.
+    Task *task4 = new Task(4, 0);
+    Task *task5 = new Task(5, 0);
 
     task_head->next = task1;
     task1->next = task2;
@@ -74,15 +72,15 @@ int main (int argc, char const *argv[])
 
     int total = 0;
     Task *t = task_head;
-    while (t != NULL) {
+    while (t != 0) {
         if (t->id >= 0)
             ++total;
         t = t->next;
     }
-    printf("We have a total number of %d tasks\n", total);
+    __builtin_printf("We have a total number of %d tasks\n", total);
 
     // This corresponds to an empty task list.
-    Task *empty_task_head = new Task(-1, NULL);
+    Task *empty_task_head = new Task(-1, 0);
 
     typedef int myint;
     myint myint_arr[] = {1, 2, 3};

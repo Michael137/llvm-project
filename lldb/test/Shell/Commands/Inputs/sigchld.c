@@ -1,11 +1,10 @@
 #include <assert.h>
 #include <signal.h>
-#include <stdio.h>
 #include <unistd.h>
 #include <sys/wait.h>
 
 void handler(int signo) {
-  printf("SIGCHLD\n");
+  __builtin_printf("SIGCHLD\n");
 }
 
 int main() {
@@ -20,10 +19,10 @@ int main() {
     _exit(14);
   }
 
-  printf("signo = %d\n", SIGCHLD);
-  printf("code = %d\n", CLD_EXITED);
-  printf("child_pid = %d\n", child_pid);
-  printf("uid = %d\n", getuid());
+  __builtin_printf("signo = %d\n", SIGCHLD);
+  __builtin_printf("code = %d\n", CLD_EXITED);
+  __builtin_printf("child_pid = %d\n", child_pid);
+  __builtin_printf("uid = %d\n", getuid());
   pid_t waited = wait(NULL);
   assert(waited == child_pid);
 

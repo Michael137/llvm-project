@@ -1,4 +1,3 @@
-#include <stdio.h>
 #include <stdint.h>
 
 uint64_t pad0 = 0;
@@ -17,7 +16,7 @@ int main(int argc, char** argv) {
 
     for (i = 0; i < 8; i++)
     {
-        printf("About to write byteArray[%d] ...\n", i); // About to write byteArray
+        __builtin_printf("About to write byteArray[%d] ...\n", i); // About to write byteArray
         pad0++;
         byteArray[i] = 7;
         pad1++;
@@ -31,7 +30,7 @@ int main(int argc, char** argv) {
 
     for (i = 0; i < 4; i++)
     {
-        printf("About to write wordArray[%d] ...\n", i); // About to write wordArray
+        __builtin_printf("About to write wordArray[%d] ...\n", i); // About to write wordArray
         pad0++;
         wordArray[i] = 7;
         pad1++;
@@ -45,7 +44,7 @@ int main(int argc, char** argv) {
 
     for (i = 0; i < 2; i++)
     {
-        printf("About to write dwordArray[%d] ...\n", i); // About to write dwordArray
+        __builtin_printf("About to write dwordArray[%d] ...\n", i); // About to write dwordArray
         pad0++;
         dwordArray[i] = 7;
         pad1++;

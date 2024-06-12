@@ -1,4 +1,3 @@
-#include <stdio.h>
 #include <fcntl.h>
 
 #include <chrono>
@@ -7,7 +6,7 @@
 
 extern void dont_strip_me()
 {
-  printf("I wasn't stripped\n");
+  __builtin_printf("I wasn't stripped\n");
 }
 
 static void *a_function()

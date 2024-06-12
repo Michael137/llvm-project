@@ -1,4 +1,3 @@
-#include <stdio.h>
 #include <unistd.h>
 #include <string.h>
 
@@ -11,7 +10,7 @@ call_me()
 int
 main (int argc, char **argv)
 {
-  printf ("Hello there!\n"); // Set break point at this line.
+  __builtin_printf ("Hello there!\n"); // Set break point at this line.
   if (argc == 2 && strcmp(argv[1], "keep_waiting") == 0)
     while (1)
       {

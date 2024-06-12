@@ -1,5 +1,4 @@
 #include <stdint.h>
-#include <stdio.h>
 union ptrbytes {
   int *p;
   uint8_t bytes[8];
@@ -9,5 +8,5 @@ int main() {
   union ptrbytes pb;
   pb.p = &c;
   pb.bytes[7] = 0xfe;
-  printf("%d\n", *pb.p); // break here
+  __builtin_printf("%d\n", *pb.p); // break here
 }

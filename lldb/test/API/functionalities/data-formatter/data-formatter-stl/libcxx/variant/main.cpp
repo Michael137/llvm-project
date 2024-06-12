@@ -1,4 +1,3 @@
-#include <cstdio>
 #include <string>
 #include <vector>
 
@@ -20,7 +19,7 @@ int main()
 {
     bool has_variant = HAVE_VARIANT ;
 
-    printf( "%d\n", has_variant ) ; // break here
+    __builtin_printf( "%d\n", has_variant ) ; // break here
 
 #if HAVE_VARIANT == 1
     std::variant<int, double, char> v1;
@@ -61,34 +60,34 @@ int main()
     v1 = 12; // v contains int
     v_v1 = v1 ;
     int i = std::get<int>(v1);
-    printf( "%d\n", i ); // break here
+    __builtin_printf( "%d\n", i ); // break here
 
     v2 = 2.0 ;
     double d = std::get<double>(v2) ;
-    printf( "%f\n", d );
+    __builtin_printf( "%f\n", d );
 
     v3 = 'A' ;
     char c = std::get<char>(v3) ;
-    printf( "%d\n", c );
+    __builtin_printf( "%d\n", c );
 
     // Checking v1 above and here to make sure we done maintain the incorrect
     // state when we change its value.
     v1 = 2.0;
     d = std::get<double>(v1) ;
-    printf( "%f\n", d ); // break here
+    __builtin_printf( "%f\n", d ); // break here
 
      try {
        v_no_value.emplace<0>(S());
      } catch( ... ) {}
 
-     printf( "%zu\n", v_no_value.index() ) ;
+     __builtin_printf( "%zu\n", v_no_value.index() ) ;
 
      try {
        v_300_types_no_value.emplace<0>(S());
      } catch (...) {
      }
 
-     printf("%zu\n", v_300_types_no_value.index());
+     __builtin_printf("%zu\n", v_300_types_no_value.index());
 #endif
 
     return 0; // break here

@@ -1,4 +1,3 @@
-#include <cstdio>
 #include <iostream>
 #include <string>
 #include <map>
@@ -16,7 +15,7 @@ int main (int argc, char const *argv[])
     associative_array["world"] = 3;
 
     std::cout << "size of associative_array: " << associative_array.size() << std::endl;
-    printf("associative_array[\"hello\"]=%d\n", associative_array["hello"]);
+    __builtin_printf("associative_array[\"hello\"]=%d\n", associative_array["hello"]);
 
-    printf("before returning....\n"); // Set break point at this line.
+    __builtin_printf("before returning....\n"); // Set break point at this line.
 }

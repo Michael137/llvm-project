@@ -1,12 +1,11 @@
 #include <array>
 #include <span>
-#include <stdio.h>
 #include <string>
 #include <vector>
 
 template <class T, size_t N>
 void by_ref_and_ptr(std::span<T, N> &ref, std::span<T, N> *ptr) {
-  printf("Stop here to check by ref");
+  __builtin_printf("Stop here to check by ref");
   return;
 }
 
@@ -20,7 +19,7 @@ int main() {
   //   Full view of numbers with static extent
   std::span numbers_span = numbers;
 
-  printf("break here");
+  __builtin_printf("break here");
 
   by_ref_and_ptr(numbers_span, &numbers_span);
 
@@ -33,14 +32,14 @@ int main() {
 
   auto strings_span_it = strings_span.begin();
 
-  printf("break here");
+  __builtin_printf("break here");
 
   //   Vector size doesn't increase, span should
   //   print unchanged and the strings_span_it
   //   remains valid
   strings.emplace_back("???");
 
-  printf("break here");
+  __builtin_printf("break here");
 
   // Now some empty spans
   std::span<int, 0> static_zero_span;
@@ -50,7 +49,7 @@ int main() {
   std::array span_arr{strings_span, strings_span};
   std::span<std::span<std::string>, 2> nested = span_arr;
 
-  printf("break here");
+  __builtin_printf("break here");
 
   return 0; // break here
 }

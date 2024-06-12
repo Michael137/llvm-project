@@ -1,6 +1,5 @@
 #include <chrono>
 #include <condition_variable>
-#include <cstdio>
 #include <random>
 #include <thread>
 
@@ -26,7 +25,7 @@ void
 do_bad_thing_with_location(char *char_ptr, char new_val)
 {
     unsigned what = new_val;
-    printf("new value written to location(%p) = %u\n", char_ptr, what);
+    __builtin_printf("new value written to location(%p) = %u\n", char_ptr, what);
     *char_ptr = new_val;
 }
 
@@ -47,7 +46,7 @@ access_pool (bool flag = false)
 void
 thread_func (uint32_t thread_index)
 {
-    printf ("%s (thread index = %u) startng...\n", __FUNCTION__, thread_index);
+    __builtin_printf ("%s (thread index = %u) startng...\n", __FUNCTION__, thread_index);
 
     barrier_wait();
 
@@ -57,7 +56,7 @@ thread_func (uint32_t thread_index)
     {
         // random micro second sleep from zero to 3 seconds
         int usec = g_distribution(g_random_engine);
-        printf ("%s (thread = %u) doing a usleep (%d)...\n", __FUNCTION__, thread_index, usec);
+        __builtin_printf ("%s (thread = %u) doing a usleep (%d)...\n", __FUNCTION__, thread_index, usec);
         std::this_thread::sleep_for(std::chrono::microseconds{usec});
 
         if (count < 7)
@@ -65,9 +64,9 @@ thread_func (uint32_t thread_index)
         else
             val = access_pool (true);
 
-        printf ("%s (thread = %u) after usleep access_pool returns %d (count=%d)...\n", __FUNCTION__, thread_index, val, count);
+        __builtin_printf ("%s (thread = %u) after usleep access_pool returns %d (count=%d)...\n", __FUNCTION__, thread_index, val, count);
     }
-    printf ("%s (thread index = %u) exiting...\n", __FUNCTION__, thread_index);
+    __builtin_printf ("%s (thread index = %u) exiting...\n", __FUNCTION__, thread_index);
 }
 
 
@@ -82,7 +81,7 @@ int main (int argc, char const *argv[])
     for (auto &thread : threads)
         thread = std::thread{thread_func, std::distance(threads, &thread)};
 
-    printf ("Before turning all three threads loose...\n"); // Set break point at this line.
+    __builtin_printf ("Before turning all three threads loose...\n"); // Set break point at this line.
     barrier_wait();
 
     // Join all of our threads

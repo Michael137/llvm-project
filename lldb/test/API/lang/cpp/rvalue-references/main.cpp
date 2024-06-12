@@ -1,8 +1,6 @@
-#include <stdio.h>
-
 void foo (int &&i)
 {
-  printf("%d\n", i); // breakpoint 1
+  __builtin_printf("%d\n", i); // breakpoint 1
 }
 
 int main()

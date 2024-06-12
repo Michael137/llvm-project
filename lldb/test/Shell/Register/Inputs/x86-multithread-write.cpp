@@ -1,6 +1,5 @@
 #include <cinttypes>
 #include <cstdint>
-#include <cstdio>
 #include <mutex>
 #include <thread>
 
@@ -35,12 +34,12 @@ void t_func(std::mutex &t_mutex) {
     : "memory", "st"
   );
 
-  printf("eax = 0x%08" PRIx32 "\n", out.eax);
-  printf("ebx = 0x%08" PRIx32 "\n", out.ebx);
-  printf("st0 = { ");
+  __builtin_printf("eax = 0x%08" PRIx32 "\n", out.eax);
+  __builtin_printf("ebx = 0x%08" PRIx32 "\n", out.ebx);
+  __builtin_printf("st0 = { ");
   for (int i = 0; i < sizeof(out.st0.data); ++i)
-    printf("0x%02" PRIx8 " ", out.st0.data[i]);
-  printf("}\n");
+    __builtin_printf("0x%02" PRIx8 " ", out.st0.data[i]);
+  __builtin_printf("}\n");
 }
 
 int main() {

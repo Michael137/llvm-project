@@ -1,5 +1,5 @@
 #include "dylib.h"
-#include <stdio.h>
+#include "stdio.h"
 
 int
 doSomething()

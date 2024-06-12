@@ -1,5 +1,3 @@
-#include <stdio.h>
-
 struct SummaryAndChildren {
   int child = 30;
 };
@@ -19,6 +17,6 @@ int main() {
   auto &summary_and_children_ref = summary_and_children;
   auto &summary_only_ref = summary_only;
   auto &children_only_ref = children_only;
-  printf("break here\n");
+  __builtin_printf("break here\n");
   return 0;
 }

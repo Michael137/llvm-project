@@ -1,4 +1,3 @@
-#include <stdio.h>
 #include <memory>
 
 class Extra
@@ -22,9 +21,9 @@ public:
   virtual void
   doSomething (A &anotherA)
   {
-    printf ("In A %p doing something with %d.\n", this, m_a_value);
+    __builtin_printf ("In A %p doing something with %d.\n", this, m_a_value);
     int tmp_value = anotherA.Value();
-    printf ("Also have another A at %p: %d.\n", &anotherA, tmp_value); // Break here in doSomething.
+    __builtin_printf ("Also have another A at %p: %d.\n", &anotherA, tmp_value); // Break here in doSomething.
   }
 
   int 

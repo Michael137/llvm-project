@@ -76,12 +76,12 @@ namespace ns2 {
 void test_namespace_scopes() {
     do {
         using namespace ns1;
-        printf("ns1::value = %d\n", value); // Evaluate ns1::value
+        __builtin_printf("ns1::value = %d\n", value); // Evaluate ns1::value
     } while(0);
     
     do {
         using namespace ns2;
-        printf("ns2::value = %d\n", value); // Evaluate ns2::value
+        __builtin_printf("ns2::value = %d\n", value); // Evaluate ns2::value
     } while(0);
 }
 
@@ -95,9 +95,9 @@ int Foo::myfunc(int a)
     Y::uint_t y_uint = 3;
     i = 3;
     j = 4;
-    printf("::i=%d\n", ::i);
-    printf("A::B::j=%d\n", A::B::j);
-    printf("variadic_sum=%d\n", variadic_sum(3, 1, 2, 3));
+    __builtin_printf("::i=%d\n", ::i);
+    __builtin_printf("A::B::j=%d\n", A::B::j);
+    __builtin_printf("variadic_sum=%d\n", variadic_sum(3, 1, 2, 3));
     myanonfunc(3);
     return myfunc2(3) + j + i + a + 2 + anon_uint + a_uint + b_uint + y_uint; // Set break point at this line.
 }

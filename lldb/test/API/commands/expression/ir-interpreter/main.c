@@ -1,7 +1,5 @@
-#include <stdio.h>
-
 int main()
 {
-    printf("This is a dummy\n"); // Set breakpoint here   
+    __builtin_printf("This is a dummy\n"); // Set breakpoint here   
     return 0;
 }

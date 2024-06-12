@@ -1,5 +1,3 @@
-#include <stdio.h>
-
 typedef struct Struct
 {
   int one;
@@ -10,6 +8,6 @@ int
 main()
 {
   Struct myStruct = {10, 20};
-  printf ("Break here: %d\n.", myStruct.one);
+  __builtin_printf ("Break here: %d\n.", myStruct.one);
   return 0;
 }

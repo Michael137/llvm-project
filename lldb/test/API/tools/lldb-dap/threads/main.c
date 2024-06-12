@@ -1,5 +1,4 @@
 #include <pthread.h>
-#include <stdio.h>
 
 int state_var;
 
@@ -16,6 +15,6 @@ int main(int argc, char **argv) {
   pthread_create(&t2, NULL, *thread, NULL);
   pthread_join(t2, NULL);
 
-  printf("state_var is %d\n", state_var);
+  __builtin_printf("state_var is %d\n", state_var);
   return 0;
 }

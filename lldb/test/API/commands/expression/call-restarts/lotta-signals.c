@@ -1,5 +1,4 @@
 #include <unistd.h>
-#include <stdio.h>
 #include <signal.h>
 
 static int sigchld_no;
@@ -10,7 +9,7 @@ void
 sigchld_handler (int signo)
 {
   sigchld_no++;
-  printf ("Got sigchld %d.\n", sigchld_no);
+  __builtin_printf ("Got sigchld %d.\n", sigchld_no);
 }
 
 int

@@ -1,11 +1,9 @@
-#include <stdio.h>
-
 namespace namesp
 {
   class Virtual {
   public:
     virtual void doSomething() {
-      printf ("namesp function did something.\n");
+      __builtin_printf ("namesp function did something.\n");
     }
   }; 
 }
@@ -13,7 +11,7 @@ namespace namesp
 class Virtual {
   public:
   virtual void doSomething() {
-    printf("Virtual function did something.\n");
+    __builtin_printf("Virtual function did something.\n");
   }
 };
 

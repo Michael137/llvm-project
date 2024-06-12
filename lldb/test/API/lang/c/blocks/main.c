@@ -1,5 +1,3 @@
-#include <stdio.h>
-
 struct CG {int x; int y;};
 
 int g(int (^callback)(struct CG)) {
@@ -26,8 +24,8 @@ int main()
         return -a;
     };
 
-    printf("%d\n", add(3, 4));
-    printf("%d\n", neg(-5)); // Set breakpoint 1 here.
+    __builtin_printf("%d\n", add(3, 4));
+    __builtin_printf("%d\n", neg(-5)); // Set breakpoint 1 here.
 
     int (^add_struct)(struct CG) = ^int(struct CG cg)
     {

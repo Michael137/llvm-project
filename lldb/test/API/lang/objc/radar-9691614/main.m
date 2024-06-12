@@ -1,5 +1,4 @@
 #import <Foundation/Foundation.h>
-#include <stdio.h>
 
 @interface MyString : NSObject {
     NSString *str;
@@ -47,7 +46,7 @@ Test_MyString (const char *program)
     NSString *str = [NSString stringWithFormat:@"Hello from '%s'", program];
     MyString *my = [[MyString alloc] initWithNSString:str];
     if ([my isValid])
-        printf("my is valid!\n");
+        __builtin_printf("my is valid!\n");
 
     NSLog(@"NSString instance: %@", [str description]); // Set breakpoint here.
                                                         // Test 'p (int)[my isValid]'.

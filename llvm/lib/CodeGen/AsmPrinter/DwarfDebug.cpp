@@ -879,6 +879,8 @@ void DwarfDebug::constructCallSiteEntryDIEs(const DISubprogram &SP,
   if (!SP.areAllCallsDescribed() || !SP.isDefinition())
     return;
 
+  // 558.34s
+
   // Use DW_AT_call_all_calls to express that call site entries are present
   // for both tail and non-tail calls. Don't use DW_AT_call_all_source_calls
   // because one of its requirements is not met: call site entries for

@@ -4,13 +4,12 @@
 #define protected public
 
 #include <list>
-#include <stdio.h>
 #include <assert.h>
 
 int main()
 {
     std::list<int> numbers_list{1,2,3,4,5,6,7,8,9,10};
-    printf("// Set break point at this line.");
+    __builtin_printf("// Set break point at this line.");
     std::list<int>::iterator it1=numbers_list.begin();
     while (it1 != numbers_list.end()){
        *it1++;

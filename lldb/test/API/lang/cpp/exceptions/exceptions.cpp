@@ -1,5 +1,4 @@
 #include <exception>
-#include <stdio.h>
 
 int throws_exception_on_even (int value);
 int intervening_function (int value);
@@ -27,7 +26,7 @@ intervening_function (int value)
 int
 throws_exception_on_even (int value)
 {
-    printf ("Mod two works: %d.\n", value%2);
+    __builtin_printf ("Mod two works: %d.\n", value%2);
     if (value % 2 == 0)
         throw 30;
     else

@@ -1,10 +1,8 @@
-#include <stdio.h>
-
 void
 doSomething()
 {
-  printf ("Set a breakpoint here.\n");
-  printf ("Need a bit more code.\n");
+  __builtin_printf ("Set a breakpoint here.\n");
+  __builtin_printf ("Need a bit more code.\n");
 }
 
 int

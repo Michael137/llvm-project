@@ -1,6 +1,5 @@
 #include <assert.h>
 #include <cstring>
-#include <iostream>
 #include <mutex>
 #include <string.h>
 #include <sys/wait.h>
@@ -31,7 +30,7 @@ int call_vfork(int index) {
   } else if (child_pid == 0) {
     // This code is executed by the child process
     g_pid = getpid();
-    printf("Child process: %d\n", g_pid);
+    __builtin_printf("Child process: %d\n", g_pid);
 
     if (g_call_exec) {
       std::string child_exit_code = std::to_string(index + 10);
@@ -41,7 +40,7 @@ int call_vfork(int index) {
     }
   } else {
     // This code is executed by the parent process
-    printf("[Parent] Forked process id: %d\n", child_pid);
+    __builtin_printf("[Parent] Forked process id: %d\n", child_pid);
   }
   return 0;
 }
@@ -54,7 +53,7 @@ void wait_all_children_to_exit() {
     if (child_status != 0) {
       int exit_code = WEXITSTATUS(child_status);
       if (exit_code > 15 || exit_code < 10) {
-        printf("Error: child process exits with unexpected code %d\n",
+        __builtin_printf("Error: child process exits with unexpected code %d\n",
                exit_code);
         _exit(1); // This will let our program know that some child processes
                   // didn't exist with an expected exit status.
@@ -70,7 +69,7 @@ void create_threads(int num_threads) {
   for (int i = 0; i < num_threads; ++i) {
     threads.emplace_back(std::thread(call_vfork, i));
   }
-  printf("Created %d threads, joining...\n",
+  __builtin_printf("Created %d threads, joining...\n",
          num_threads); // end_of_create_threads
   for (auto &thread : threads) {
     thread.join();
@@ -92,7 +91,7 @@ int main(int argc, char *argv[]) {
     if (strcmp(argv[i], "--child") == 0) {
       assert(i + 1 < argc);
       int child_exit_code = std::stoi(argv[i + 1]);
-      printf("Child process: %d, exiting with code %d\n", g_pid,
+      __builtin_printf("Child process: %d, exiting with code %d\n", g_pid,
              child_exit_code);
       _exit(child_exit_code);
     } else if (strcmp(argv[i], "--fork") == 0)

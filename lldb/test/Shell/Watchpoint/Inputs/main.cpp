@@ -1,5 +1,3 @@
-#include <stdio.h>
-
 int main (int argc, char const *argv[])
 {
     struct {
@@ -8,6 +6,6 @@ int main (int argc, char const *argv[])
         int c;
     } MyAggregateDataType;
 
-    printf ("Set break point at this line.\n");
+    __builtin_printf ("Set break point at this line.\n");
     return 0;
 }

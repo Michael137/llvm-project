@@ -1,5 +1,4 @@
 #include <limits.h>
-#include <stdio.h>
 #include <stdlib.h>
 
 int compare_ints(const void *a, const void *b) {
@@ -22,9 +21,9 @@ int main(void) {
   qsort(ints, size, sizeof(int), compare_ints);
 
   for (int i = 0; i < size; i++) {
-    printf("%d ", ints[i]);
+    __builtin_printf("%d ", ints[i]);
   }
 
-  printf("\n");
+  __builtin_printf("\n");
   return 0;
 }

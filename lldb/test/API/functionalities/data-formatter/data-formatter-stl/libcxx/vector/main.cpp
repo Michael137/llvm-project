@@ -1,4 +1,3 @@
-#include <stdio.h>
 #include <string>
 #include <vector>
 typedef std::vector<int> int_vect;
@@ -22,7 +21,7 @@ int main()
     (numbers.push_back(1234567));
     by_ref_and_ptr(numbers, &numbers);
     
-    printf("break here");
+    __builtin_printf("break here");
     numbers.clear();
     
     (numbers.push_back(7)); // break here
@@ -31,10 +30,10 @@ int main()
     (strings.push_back(std::string("goofy")));
     (strings.push_back(std::string("is")));
     (strings.push_back(std::string("smart")));
-    printf("break here");
+    __builtin_printf("break here");
     (strings.push_back(std::string("!!!")));
      
-    printf("break here");
+    __builtin_printf("break here");
     strings.clear();
     
     return 0;  // break here

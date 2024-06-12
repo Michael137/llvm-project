@@ -33,4 +33,4 @@ class TestSourceTextRegexBreakpoint(TestBase):
         frame = self.frame()
         self.assertTrue(frame.IsValid())
         self.assertEqual(frame.GetLineEntry().GetFileSpec().GetFilename(), "main.cpp")
-        self.assertEqual(frame.GetLineEntry().GetLine(), 4)
+        self.assertEqual(frame.GetLineEntry().GetLine(), 2)

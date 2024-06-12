@@ -1,80 +1,78 @@
-#include <stdio.h>
-
 void set_char(void)
 {
     char i = 'a';
-    printf("before (char) i = %c\n", i);
-    printf("after  (char) i = %c\n", i);    // Set break point #1. //// break $source:$line
+    __builtin_printf("before (char) i = %c\n", i);
+    __builtin_printf("after  (char) i = %c\n", i);    // Set break point #1. //// break $source:$line
 }
 
 void set_uchar(void)
 {
     unsigned char i = 'a';
-    printf("before (unsigned char) i = %c\n", i);
-    printf("after  (unsigned char) i = %c\n", i);   //// break $source:$line
+    __builtin_printf("before (unsigned char) i = %c\n", i);
+    __builtin_printf("after  (unsigned char) i = %c\n", i);   //// break $source:$line
 }
 
 void set_short(void)
 {
     short i = 33;
-    printf("before (short) i = %i\n", i);
-    printf("after  (short) i = %i\n", i);   //// break $source:$line
+    __builtin_printf("before (short) i = %i\n", i);
+    __builtin_printf("after  (short) i = %i\n", i);   //// break $source:$line
 }
 
 void set_ushort(void)
 {
     unsigned short i = 33;
-    printf("before (unsigned short) i = %i\n", i);
-    printf("after  (unsigned short) i = %i\n", i);  // Set break point #2. //// break $source:$line
+    __builtin_printf("before (unsigned short) i = %i\n", i);
+    __builtin_printf("after  (unsigned short) i = %i\n", i);  // Set break point #2. //// break $source:$line
 }
 
 void set_int(void)
 {
     int i = 33;
-    printf("before (int) i = %i\n", i);
-    printf("after  (int) i = %i\n", i); //// break $source:$line
+    __builtin_printf("before (int) i = %i\n", i);
+    __builtin_printf("after  (int) i = %i\n", i); //// break $source:$line
 }
 
 void set_uint(void)
 {
     unsigned int i = 33;
-    printf("before (unsigned int) i = %u\n", i);
-    printf("after  (unsigned int) i = %u\n", i);    //// break $source:$line
+    __builtin_printf("before (unsigned int) i = %u\n", i);
+    __builtin_printf("after  (unsigned int) i = %u\n", i);    //// break $source:$line
 }
 
 void set_long(void)
 {
     long i = 33;
-    printf("before (long) i = %li\n", i);
-    printf("after  (long) i = %li\n", i);   // Set break point #3. //// break $source:$line
+    __builtin_printf("before (long) i = %li\n", i);
+    __builtin_printf("after  (long) i = %li\n", i);   // Set break point #3. //// break $source:$line
 }
 
 void set_ulong(void)
 {
     unsigned long i = 33;
-    printf("before (unsigned long) i = %lu\n", i);
-    printf("after  (unsigned long) i = %lu\n", i);  //// break $source:$line
+    __builtin_printf("before (unsigned long) i = %lu\n", i);
+    __builtin_printf("after  (unsigned long) i = %lu\n", i);  //// break $source:$line
 }
 
 void set_float(void)
 {
     float i = 2.25;
-    printf("before (float) i = %g\n", i);
-    printf("after  (float) i = %g\n", i);   //// break $source:$line
+    __builtin_printf("before (float) i = %g\n", i);
+    __builtin_printf("after  (float) i = %g\n", i);   //// break $source:$line
 }
 
 void set_double(void)
 {
     double i = 2.25;
-    printf("before (double) i = %g\n", i);
-    printf("after  (double) i = %g\n", i);  // Set break point #4. //// break $source:$line
+    __builtin_printf("before (double) i = %g\n", i);
+    __builtin_printf("after  (double) i = %g\n", i);  // Set break point #4. //// break $source:$line
 }
 
 void set_long_double(void)
 {
     long double i = 2.25;
-    printf("before (long double) i = %Lg\n", i);
-    printf("after  (long double) i = %Lg\n", i);    // Set break point #5. //// break $source:$line
+    __builtin_printf("before (long double) i = %Lg\n", i);
+    __builtin_printf("after  (long double) i = %Lg\n", i);    // Set break point #5. //// break $source:$line
 }
 
 void set_point (void)

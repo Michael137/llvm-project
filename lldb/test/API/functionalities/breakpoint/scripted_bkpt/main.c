@@ -1,15 +1,13 @@
-#include <stdio.h>
-
 int
 test_func()
 {
-  return printf("I am a test function.");
+  return __builtin_printf("I am a test function.");
 }
 
 void
 break_on_me()
 {
-  printf("I was called.\n");
+  __builtin_printf("I was called.\n");
 }
 
 int

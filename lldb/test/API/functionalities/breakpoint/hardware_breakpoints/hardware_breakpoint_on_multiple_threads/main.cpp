@@ -1,5 +1,4 @@
 #include <chrono>
-#include <cstdio>
 #include <mutex>
 #include <random>
 #include <thread>
@@ -10,13 +9,13 @@ std::mutex hw_break_mutex;
 
 void
 hw_break_function (uint32_t thread_index) {
-  printf ("%s called by Thread #%u...\n", __FUNCTION__, thread_index);
+  __builtin_printf ("%s called by Thread #%u...\n", __FUNCTION__, thread_index);
 }
 
 
 void
 thread_func (uint32_t thread_index) {
-  printf ("%s (thread index = %u) starting...\n", __FUNCTION__, thread_index);
+  __builtin_printf ("%s (thread index = %u) starting...\n", __FUNCTION__, thread_index);
 
   hw_break_mutex.lock();
   
@@ -30,7 +29,7 @@ int main (int argc, char const *argv[])
 {
   std::thread threads[NUM_OF_THREADS]; 
 
-  printf ("Starting thread creation with hardware breakpoint set...\n");
+  __builtin_printf ("Starting thread creation with hardware breakpoint set...\n");
 
   for (auto &thread : threads)
     thread = std::thread{thread_func, std::distance(threads, &thread)};

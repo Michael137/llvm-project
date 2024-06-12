@@ -1,4 +1,3 @@
-#include <stdio.h>
 #include <stdlib.h>
 
 int a(int);
@@ -22,7 +21,7 @@ int b(int val)
     if (!ptr)  // Set breakpoint here to test target stop-hook.
         return -1;
     else
-        printf("ptr=%p\n", ptr); // We should stop here after stepping.
+        __builtin_printf("ptr=%p\n", ptr); // We should stop here after stepping.
     return rc; // End of the line range for which stop-hook is to be run.
 }
 
@@ -34,13 +33,13 @@ int c(int val)
 int main (int argc, char const *argv[])
 {
     int A1 = a(1);
-    printf("a(1) returns %d\n", A1);
+    __builtin_printf("a(1) returns %d\n", A1);
     
     int C2 = c(2); // Another breakpoint which is outside of the stop-hook range.
-    printf("c(2) returns %d\n", C2);
+    __builtin_printf("c(2) returns %d\n", C2);
     
     int A3 = a(3);
-    printf("a(3) returns %d\n", A3);
+    __builtin_printf("a(3) returns %d\n", A3);
     
     return 0;
 }

@@ -1,6 +1,5 @@
 #include <cinttypes>
 #include <cstdint>
-#include <cstdio>
 
 int main() {
   constexpr uint32_t fill = 0x0F0F0F0F;
@@ -38,14 +37,14 @@ int main() {
     : "%mm0", "%mm1"
   );
 
-  printf("eax = 0x%08" PRIx32 "\n", eax);
-  printf("ebx = 0x%08" PRIx32 "\n", ebx);
-  printf("ecx = 0x%08" PRIx32 "\n", ecx);
-  printf("edx = 0x%08" PRIx32 "\n", edx);
-  printf("esp = 0x%08" PRIx32 "\n", static_cast<uint32_t>(esp));
-  printf("ebp = 0x%08" PRIx32 "\n", static_cast<uint32_t>(ebp));
-  printf("esi = 0x%08" PRIx32 "\n", esi);
-  printf("edi = 0x%08" PRIx32 "\n", edi);
+  __builtin_printf("eax = 0x%08" PRIx32 "\n", eax);
+  __builtin_printf("ebx = 0x%08" PRIx32 "\n", ebx);
+  __builtin_printf("ecx = 0x%08" PRIx32 "\n", ecx);
+  __builtin_printf("edx = 0x%08" PRIx32 "\n", edx);
+  __builtin_printf("esp = 0x%08" PRIx32 "\n", static_cast<uint32_t>(esp));
+  __builtin_printf("ebp = 0x%08" PRIx32 "\n", static_cast<uint32_t>(ebp));
+  __builtin_printf("esi = 0x%08" PRIx32 "\n", esi);
+  __builtin_printf("edi = 0x%08" PRIx32 "\n", edi);
 
   return 0;
 }

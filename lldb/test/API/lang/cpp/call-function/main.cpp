@@ -1,5 +1,3 @@
-#include <stdio.h>
-
 int a_function_to_call()
 { 
     return 0;
@@ -7,5 +5,5 @@ int a_function_to_call()
 
 int main()
 {
-    printf("%d\n", a_function_to_call()); // breakpoint
+    __builtin_printf("%d\n", a_function_to_call()); // breakpoint
 }

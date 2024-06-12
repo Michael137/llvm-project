@@ -1,5 +1,3 @@
-#include <stdio.h>
-
 struct A {
     int aa;
     char ab;
@@ -39,5 +37,5 @@ int main()
     B myB;
     C myC;
 
-    printf("%d\n", CallStaticA() + CallStaticB()); // breakpoint
+    __builtin_printf("%d\n", CallStaticA() + CallStaticB()); // breakpoint
 }

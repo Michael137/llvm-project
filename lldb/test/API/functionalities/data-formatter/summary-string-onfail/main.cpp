@@ -1,5 +1,3 @@
-#include <stdio.h>
-
 struct contained
 {
     int first;
@@ -15,7 +13,7 @@ struct container
 int main ()
 {
     struct container mine = {1, 0};
-    printf ("Mine's scalar is the only thing that is good: %d.\n", mine.scalar); // Set break point at this line.
+    __builtin_printf ("Mine's scalar is the only thing that is good: %d.\n", mine.scalar); // Set break point at this line.
     return 0;
 }
 

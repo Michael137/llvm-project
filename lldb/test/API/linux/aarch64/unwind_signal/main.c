@@ -1,5 +1,4 @@
 #include <signal.h>
-#include <stdio.h>
 #include <stdlib.h>
 
 void handler(int sig) {
@@ -26,7 +25,7 @@ void handler(int sig) {
             "x19", "x20", "x21", "x22", "x23", "x24", "x25", "x26", "x27",
             "x28",
             /* skipped fp/x29 */ "x30");
-  printf("Set a breakpoint here.\n");
+  __builtin_printf("Set a breakpoint here.\n");
   exit(0);
 }
 

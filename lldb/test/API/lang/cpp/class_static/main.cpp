@@ -8,8 +8,6 @@
 //    of the array by dividing the size of the variable by the number of
 //    elements.
 
-#include <stdio.h>
-
 typedef struct PointType
 {
     int x, y;
@@ -50,9 +48,9 @@ int
 main (int argc, char const *argv[])
 {
     const char *hello_world = "Hello, world!";
-    printf ("A::g_points[1].x = %i\n", A::g_points[1].x); // Set break point at this line.
-    printf ("AA::g_points[1].x = %i\n", AA::g_points[1].x);
-    printf ("::g_points[1].x = %i\n", g_points[1].x);
-    printf ("%s\n", hello_world);
+    __builtin_printf ("A::g_points[1].x = %i\n", A::g_points[1].x); // Set break point at this line.
+    __builtin_printf ("AA::g_points[1].x = %i\n", AA::g_points[1].x);
+    __builtin_printf ("::g_points[1].x = %i\n", g_points[1].x);
+    __builtin_printf ("%s\n", hello_world);
     return 0;
 }

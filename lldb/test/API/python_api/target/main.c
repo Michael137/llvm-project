@@ -1,5 +1,3 @@
-#include <stdio.h>
-
 // This simple program is to test the lldb Python API SBTarget.
 //
 // When stopped on breakpoint 1, and then 2, we can get the line entries using
@@ -40,20 +38,20 @@ int main (int argc, char const *argv[], char** env)
 {
     // Set a break at entry to main.
     int A1 = a(1);  // a(1) -> b(1) -> c(1)
-    printf("a(1) returns %d\n", A1);
+    __builtin_printf("a(1) returns %d\n", A1);
 
     int B2 = b(2);  // b(2) -> c(2)
-    printf("b(2) returns %d\n", B2);
+    __builtin_printf("b(2) returns %d\n", B2);
 
     int A3 = a(3);  // a(3) -> c(3)
-    printf("a(3) returns %d\n", A3);
+    __builtin_printf("a(3) returns %d\n", A3);
 
     for (int i = 1; i < argc; i++) {
-      printf("arg: %s\n", argv[i]);
+      __builtin_printf("arg: %s\n", argv[i]);
     }
 
     while (*env)
-      printf("env: %s\n", *env++);
+      __builtin_printf("env: %s\n", *env++);
 
     return 0;
 }

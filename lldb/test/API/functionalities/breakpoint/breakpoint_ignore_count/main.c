@@ -1,5 +1,3 @@
-#include <stdio.h>
-
 // This simple program is to demonstrate the capability of the lldb command
 // "breakpoint modify -i <count> breakpt-id" to set the number of times a
 // breakpoint is skipped before stopping.  Ignore count can also be set upon
@@ -31,23 +29,23 @@ int c(int val)
 
 void spin_a_bit () {
   for (unsigned int i = 0; i < 10; i++) {
-    printf("Set a breakpoint here, with i = %d.\n", i);
+    __builtin_printf("Set a breakpoint here, with i = %d.\n", i);
   }
 }
 
 int main (int argc, char const *argv[])
 {
     int A1 = a(1);  // a(1) -> b(1) -> c(1) // Stop here at start of main
-    printf("a(1) returns %d\n", A1);
+    __builtin_printf("a(1) returns %d\n", A1);
     
     int B2 = b(2);  // b(2) -> c(2) Find the call site of b(2).
-    printf("b(2) returns %d\n", B2);
+    __builtin_printf("b(2) returns %d\n", B2);
     
     int A3 = a(3);  // a(3) -> c(3) Find the call site of a(3).
-    printf("a(3) returns %d\n", A3);
+    __builtin_printf("a(3) returns %d\n", A3);
     
     int C1 = c(5); // Find the call site of c in main.
-    printf ("c(5) returns %d\n", C1);
+    __builtin_printf ("c(5) returns %d\n", C1);
 
     spin_a_bit();
     return 0;

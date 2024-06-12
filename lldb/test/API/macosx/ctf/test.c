@@ -1,5 +1,4 @@
 #include <stdbool.h>
-#include <stdio.h>
 
 struct ForwardDecl;
 
@@ -65,6 +64,6 @@ void populate(MyInt i) {
 
 int main(int argc, char** argv) {
   populate(argc);
-  printf("foo is at address: %p\n", (void*)&foo); // Break here
+  __builtin_printf("foo is at address: %p\n", (void*)&foo); // Break here
   return 0;
 }

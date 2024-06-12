@@ -1,6 +1,5 @@
 #include "a.h"
-#include <stdio.h>
 int main()
 {
-      printf ("%d\n", foo());
+      __builtin_printf ("%d\n", foo());
 }

@@ -73,7 +73,6 @@ protected:
     int m_b_int;
 };
 
-#include <cstdio>
 class C : public B
 {
 public:
@@ -81,7 +80,7 @@ public:
         B(ai, bi),
         m_c_int(ci)
     {
-      std::printf("Within C::ctor() m_c_int=%d\n", m_c_int); // Set break point at this line.
+      __builtin_printf("Within C::ctor() m_c_int=%d\n", m_c_int); // Set break point at this line.
     }
 
     //virtual

@@ -1,6 +1,5 @@
 #include <cinttypes>
 #include <cstdint>
-#include <cstdio>
 
 union alignas(32) ymm_t {
   uint64_t as_uint64[4];
@@ -64,10 +63,10 @@ int main() {
   );
 
   for (int i = 0; i < 16; ++i) {
-    printf("ymm%d = { ", i);
+    __builtin_printf("ymm%d = { ", i);
     for (int j = 0; j < sizeof(ymm->as_uint8); ++j)
-      printf("0x%02x ", ymm[i].as_uint8[j]);
-    printf("}\n");
+      __builtin_printf("0x%02x ", ymm[i].as_uint8[j]);
+    __builtin_printf("}\n");
   }
 
   return 0;

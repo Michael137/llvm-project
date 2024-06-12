@@ -1,4 +1,3 @@
-#include <cstdio>
 #include <string>
 #include <unistd.h>
 
@@ -19,7 +18,7 @@ std::string getline() {
 void input_copy_loop() {
   std::string str;
   while (str = getline(), !str.empty())
-    printf("read: %s\n", str.c_str());
+    __builtin_printf("read: %s\n", str.c_str());
 }
 
 int main() {

@@ -1,9 +1,8 @@
 #include <pthread.h>
-#include <stdio.h>
 #include <stdlib.h>
 
 void *f1(void *p) {
-    printf("hello\n");
+    __builtin_printf("hello\n");
     return NULL;
 }
 

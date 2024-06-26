@@ -21,6 +21,7 @@
 #include "TargetInfo.h"
 #include "clang/AST/ASTContext.h"
 #include "clang/AST/Attr.h"
+#include "clang/AST/Attrs.inc"
 #include "clang/AST/DeclFriend.h"
 #include "clang/AST/DeclObjC.h"
 #include "clang/AST/DeclTemplate.h"
@@ -65,7 +66,7 @@ static uint32_t getTypeAlignIfRequired(const Type *Ty, const ASTContext &Ctx) {
   // MaxFieldAlignmentAttr is the attribute added to types
   // declared after #pragma pack(n).
   if (auto *Decl = Ty->getAsRecordDecl())
-    if (Decl->hasAttr<MaxFieldAlignmentAttr>())
+    if (Decl->hasAttr<MaxFieldAlignmentAttr>() || Decl->hasAttr<PackedAttr>())
       return TI.Align;
 
   return 0;

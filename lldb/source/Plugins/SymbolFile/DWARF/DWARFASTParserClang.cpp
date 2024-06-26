@@ -1860,7 +1860,7 @@ DWARFASTParserClang::ParseStructureLikeDIE(const SymbolContext &sc,
 
   // TODO: above call can complete the clang_type. If that's the case, we don't
   // want to create another record_type below
-  auto found = m_die_to_record_map.find(die.GetDIE());
+  auto found = m_die_to_record_map.find(def_die.GetDIE());
   if (found != m_die_to_record_map.end()) {
     clang_type = m_ast.GetTypeForDecl(found->getSecond());
     clang_type_was_created = true;
@@ -1910,7 +1910,7 @@ DWARFASTParserClang::ParseStructureLikeDIE(const SymbolContext &sc,
     m_ast.SetMetadata(class_template_decl, metadata);
     m_ast.SetMetadata(class_specialization_decl, metadata);
 
-    RegisterDIE(die.GetDIE(), clang_type);
+    RegisterDIE(def_die.GetDIE(), clang_type);
     if (auto *source = llvm::dyn_cast_or_null<ImporterBackedASTSource>(
             m_ast.getASTContext().getExternalSource()))
       source->MarkRedeclChainsAsOutOfDate(m_ast.getASTContext());
@@ -1981,7 +1981,7 @@ DWARFASTParserClang::ParseStructureLikeDIE(const SymbolContext &sc,
   if (!TypeSystemClang::UseRedeclCompletion())
     adjustArgPassing(m_ast, attrs, clang_type);
   else if (should_directly_complete)
-    m_to_complete.push_back({clang_type, die, type_sp});
+    m_to_complete.push_back({clang_type, def_die, type_sp});
 
   return type_sp;
 }

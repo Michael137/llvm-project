@@ -6244,8 +6244,6 @@ llvm::Expected<CompilerType> TypeSystemClang::GetChildCompilerTypeAtIndex(
           llvm::cast<clang::RecordType>(parent_qual_type.getTypePtr());
       const clang::RecordDecl *record_decl = record_type->getDecl();
       assert(record_decl);
-      if (idx == 4 )
-        __builtin_debugtrap();
       const clang::ASTRecordLayout &record_layout =
           getASTContext().getASTRecordLayout(record_decl);
       uint32_t child_idx = 0;

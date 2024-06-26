@@ -327,7 +327,6 @@ void lldb_private::formatters::LibcxxStdMapSyntheticFrontEnd::GetValueOffset(
     bool child_is_base_class;
     bool child_is_deref_of_parent;
     uint64_t language_flags;
-    //__builtin_debugtrap();
     auto child_type =
         llvm::expectedToStdOptional(tree_node_type.GetChildCompilerTypeAtIndex(
             nullptr, 4, true, true, true, child_name, child_byte_size,

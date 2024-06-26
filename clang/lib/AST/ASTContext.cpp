@@ -1811,8 +1811,6 @@ static getConstantArrayInfoInChars(const ASTContext &Context,
 }
 
 TypeInfoChars ASTContext::getTypeInfoInChars(const Type *T) const {
-  if (T->getCanonicalTypeInternal().getAsString() == "struct std::pair<const class std::basic_string<char>, std::string>")
-    __builtin_debugtrap();
   if (const auto *CAT = dyn_cast<ConstantArrayType>(T))
     return getConstantArrayInfoInChars(*this, CAT);
   TypeInfo Info = getTypeInfo(T);
@@ -1821,8 +1819,6 @@ TypeInfoChars ASTContext::getTypeInfoInChars(const Type *T) const {
 }
 
 TypeInfoChars ASTContext::getTypeInfoInChars(QualType T) const {
-  if (T.getAsString() == "struct std::pair<const class std::basic_string<char>, std::string>")
-    __builtin_debugtrap();
   return getTypeInfoInChars(T.getTypePtr());
 }
 

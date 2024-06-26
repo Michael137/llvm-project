@@ -2087,8 +2087,6 @@ void ItaniumRecordLayoutBuilder::LayoutField(const FieldDecl *D,
     }
   }
 
-  if (Context.toBits(FieldOffset) == 200)
-    __builtin_debugtrap();
   // Place this field at the current location.
   FieldOffsets.push_back(Context.toBits(FieldOffset));
 
@@ -2609,14 +2607,10 @@ public:
   ElementInfo getAdjustedElementInfo(const FieldDecl *FD);
   /// Places a field at an offset in CharUnits.
   void placeFieldAtOffset(CharUnits FieldOffset) {
-    if (Context.toBits(FieldOffset) == 200)
-      __builtin_debugtrap();
     FieldOffsets.push_back(Context.toBits(FieldOffset));
   }
   /// Places a bitfield at a bit offset.
   void placeFieldAtBitOffset(uint64_t FieldOffset) {
-    if (FieldOffset == 200)
-      __builtin_debugtrap();
     FieldOffsets.push_back(FieldOffset);
   }
   /// Compute the set of virtual bases for which vtordisps are required.
@@ -3390,12 +3384,6 @@ ASTContext::getASTRecordLayout(const RecordDecl *D) const {
     if (const auto *RD = dyn_cast<CXXRecordDecl>(D)) {
       EmptySubobjectMap EmptySubobjects(*this, RD);
       ItaniumRecordLayoutBuilder Builder(*this, &EmptySubobjects);
-      if (D->getNameAsString() == "pair")
-        __builtin_debugtrap();
-      if (D->getNameAsString() == "basic_string")
-        __builtin_debugtrap();
-      if (D->getNameAsString() == "allocator")
-        __builtin_debugtrap();
 
       Builder.Layout(RD);
 

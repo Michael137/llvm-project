@@ -2847,7 +2847,6 @@ SymbolFileDWARF::FindNamespace(ConstString name,
     return namespace_decl_ctx;
 
   m_index->GetNamespaces(name, [&](DWARFDIE die) {
-    llvm::errs() << "Trying to match namespace " << name.AsCString("<<NULL>>") << '\n';
     if (!DIEInDeclContext(parent_decl_ctx, die, only_root_namespaces))
       return true; // The containing decl contexts don't match
 
@@ -2856,7 +2855,6 @@ SymbolFileDWARF::FindNamespace(ConstString name,
       return true;
 
     namespace_decl_ctx = dwarf_ast->GetDeclContextForUIDFromDWARF(die);
-    llvm::errs() << "\tSUCCESS\n";
     return !namespace_decl_ctx.IsValid();
   });
 

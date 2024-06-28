@@ -169,7 +169,6 @@ public:
   /// \param[in] D
   ///     The Decl to complete.
   void CompleteRedeclChain(clang::Decl const *D) override;
-  void CompleteRedeclChainImpl(clang::Decl const *D);
 
   /// Called on entering a translation unit.  Tells Clang by calling
   /// setHasExternalVisibleStorage() and setHasExternalLexicalStorage() that

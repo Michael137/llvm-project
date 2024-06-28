@@ -220,12 +220,7 @@ DWARFUnit::ScopedExtractDIEs::operator=(DWARFUnit::ScopedExtractDIEs &&rhs) {
 // Parses a compile unit and indexes its DIEs, m_die_array_mutex must be
 // held R/W and m_die_array must be empty.
 void DWARFUnit::ExtractDIEsRWLocked() {
-  static std::atomic<uint64_t> cnt = 0;
   llvm::sys::ScopedWriter first_die_lock(m_first_die_mutex);
-
-  llvm::errs() << "Extracting: " << cnt++ << '\n';
-  if (cnt.load() == 250)
-    assert(cnt.load());
 
   ElapsedTime elapsed(m_dwarf.GetDebugInfoParseTimeRef());
   LLDB_SCOPED_TIMERF(

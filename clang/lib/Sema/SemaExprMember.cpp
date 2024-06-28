@@ -722,7 +722,7 @@ static bool LookupMemberExprInRecord(Sema &SemaRef, LookupResult &R,
                                       /*S=*/nullptr, SS, ObjectType,
                                       /*EnteringContext=*/false, TemplateKWLoc);
 
-  SemaRef.LookupParsedName(R, /*S=*/nullptr, &SS, ObjectType, false, false, /*BaseExpr->hasNonTrivialCall(SemaRef.getASTContext())*/true);
+  SemaRef.LookupParsedName(R, /*S=*/nullptr, &SS, ObjectType, false, false, true);
 
   if (!R.empty() || R.wasNotFoundInCurrentInstantiation())
     return false;

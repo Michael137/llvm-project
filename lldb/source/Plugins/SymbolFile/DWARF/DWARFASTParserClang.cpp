@@ -1217,11 +1217,6 @@ DWARFASTParserClang::ParseSubroutine(const DWARFDIE &die,
   const clang::Decl::Kind containing_decl_kind =
       containing_decl_ctx->getDeclKind();
 
-  if (TypeSystemClang::UseRedeclCompletion())
-    PrepareContextToReceiveMembers(m_ast, GetClangASTImporter(),
-                                   containing_decl_ctx, die,
-                                   attrs.name.GetCString());
-
   bool is_cxx_method = DeclKindIsCXXClass(containing_decl_kind);
   // Start off static. This will be set to false in
   // ParseChildParameters(...) if we find a "this" parameters as the

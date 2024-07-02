@@ -83,6 +83,8 @@ private:
   /// the __declspec(align()) trumps #pramga pack and must always be obeyed.
   CharUnits RequiredAlignment;
 
+  CharUnits UnpackedAlignment;
+
   /// FieldOffsets - Array of field offsets in bits.
   ASTVector<uint64_t> FieldOffsets;
 
@@ -151,7 +153,7 @@ private:
   ASTRecordLayout(const ASTContext &Ctx, CharUnits size, CharUnits alignment,
                   CharUnits preferredAlignment, CharUnits unadjustedAlignment,
                   CharUnits requiredAlignment, CharUnits datasize,
-                  ArrayRef<uint64_t> fieldoffsets);
+                  CharUnits unpackedAlignment, ArrayRef<uint64_t> fieldoffsets);
 
   using BaseOffsetsMapTy = CXXRecordLayoutInfo::BaseOffsetsMapTy;
 
@@ -160,7 +162,8 @@ private:
                   CharUnits preferredAlignment, CharUnits unadjustedAlignment,
                   CharUnits requiredAlignment, bool hasOwnVFPtr,
                   bool hasExtendableVFPtr, CharUnits vbptroffset,
-                  CharUnits datasize, ArrayRef<uint64_t> fieldoffsets,
+                  CharUnits datasize, CharUnits unpackedAlignment,
+                  ArrayRef<uint64_t> fieldoffsets,
                   CharUnits nonvirtualsize, CharUnits nonvirtualalignment,
                   CharUnits preferrednvalignment,
                   CharUnits SizeOfLargestEmptySubobject,
@@ -188,6 +191,8 @@ public:
   /// getUnadjustedAlignment - Get the record alignment in characters, before
   /// alignment adjustement.
   CharUnits getUnadjustedAlignment() const { return UnadjustedAlignment; }
+
+  CharUnits getUnpackedAlignment() const { return UnpackedAlignment; }
 
   /// getSize - Get the record size in characters.
   CharUnits getSize() const { return Size; }

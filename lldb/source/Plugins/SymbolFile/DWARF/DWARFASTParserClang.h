@@ -271,6 +271,9 @@ private:
       // bit offset than any previous bitfield + size.
       return (bit_size + bit_offset) <= next_bit_offset;
     }
+
+    // TODO
+    bool NextOffsetIsOverlapping(const uint64_t next_offset) const { return false; }
   };
 
   /// Parsed form of all attributes that are relevant for parsing type members.

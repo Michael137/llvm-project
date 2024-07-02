@@ -58,6 +58,7 @@
 using namespace clang;
 using namespace clang::CodeGen;
 
+/// Returns alignment of 'Ty' in bits.
 static uint32_t getTypeAlignIfRequired(const Type *Ty, const ASTContext &Ctx) {
   auto TI = Ctx.getTypeInfo(Ty);
   if (TI.isAlignRequired())
@@ -65,9 +66,14 @@ static uint32_t getTypeAlignIfRequired(const Type *Ty, const ASTContext &Ctx) {
 
   // MaxFieldAlignmentAttr is the attribute added to types
   // declared after #pragma pack(n).
-  if (auto *Decl = Ty->getAsRecordDecl())
-    if (Decl->hasAttr<MaxFieldAlignmentAttr>() || Decl->hasAttr<PackedAttr>())
+  if (auto *Decl = Ty->getAsRecordDecl()) {
+    if (Decl->hasAttr<MaxFieldAlignmentAttr>())
       return TI.Align;
+
+    //if (TI.Align != Ctx.getTypeUnadjustedAlign(Ty))
+    if (TI.Align != Ctx.toBits(Ctx.getASTRecordLayout(Decl).getUnpackedAlignment()))
+      return TI.Align;
+  }
 
   return 0;
 }

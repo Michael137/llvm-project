@@ -30,7 +30,7 @@ public:
       : m_entry_sp(entry ? entry->GetSP() : ValueObjectSP()) {}
 
   ValueObjectSP left() const {
-    static ConstString g_left("__left_");
+    static ConstString g_left("__left_"); // TODO: these aren't needed (same with function below)
     if (!m_entry_sp)
       return m_entry_sp;
     return m_entry_sp->GetSyntheticChildAtOffset(
@@ -85,11 +85,11 @@ class MapIterator {
 public:
   MapIterator() = default;
   MapIterator(MapEntry entry, size_t depth = 0)
-      : m_entry(std::move(entry)), m_max_depth(depth), m_error(false) {}
+      : m_entry(std::move(entry)), m_max_depth(depth), m_error(false) {/* TODO: redundant*/}
   MapIterator(ValueObjectSP entry, size_t depth = 0)
-      : m_entry(std::move(entry)), m_max_depth(depth), m_error(false) {}
+      : m_entry(std::move(entry)), m_max_depth(depth), m_error(false) {/* TODO: redundant*/}
   MapIterator(const MapIterator &rhs)
-      : m_entry(rhs.m_entry), m_max_depth(rhs.m_max_depth), m_error(false) {}
+      : m_entry(rhs.m_entry), m_max_depth(rhs.m_max_depth), m_error(false) { /* TODO: redundant? */}
   MapIterator(ValueObject *entry, size_t depth = 0)
       : m_entry(entry), m_max_depth(depth), m_error(false) {}
 
@@ -112,6 +112,7 @@ public:
   }
 
 protected:
+  // MimicksA libc++'s __tree_min
   void next() {
     if (m_entry.null())
       return;
@@ -137,6 +138,7 @@ protected:
   }
 
 private:
+  // MimicksA libc++'s __tree_min
   MapEntry tree_min(MapEntry x) {
     if (x.null())
       return MapEntry();
@@ -198,7 +200,7 @@ private:
   ValueObject *m_tree = nullptr;
   ValueObject *m_root_node = nullptr;
   CompilerType m_element_type;
-  uint32_t m_skip_size = UINT32_MAX;
+  uint32_t m_skip_size = UINT32_MAX; // TODO: document
   size_t m_count = UINT32_MAX;
   std::map<size_t, MapIterator> m_iterators;
   bool m_has_compressed_pair_layout = false;
@@ -358,6 +360,11 @@ lldb_private::formatters::LibcxxStdMapSyntheticFrontEnd::GetChildAtIndex(
     if (cached_iterator != m_iterators.end()) {
       iterator = cached_iterator->second;
       actual_advancde = 1;
+      Status error;
+      auto lchild = iterator.value()->Dereference(error)->GetChildMemberWithName("__left_");
+      auto lchild_deref = lchild->Dereference(error);
+      auto child = lchild_deref->GetChildMemberWithName("__right_");
+      auto * tmp = child.get();
     }
   }
 
@@ -372,6 +379,9 @@ lldb_private::formatters::LibcxxStdMapSyntheticFrontEnd::GetChildAtIndex(
     if (!need_to_skip) {
       Status error;
       iterated_sp = iterated_sp->Dereference(error);
+      auto lchild = iterated_sp->GetChildMemberWithName("__left_");
+      auto lchild_deref = lchild->Dereference(error);
+      auto child = lchild_deref->GetChildMemberWithName("__right_");
       if (!iterated_sp || error.Fail()) {
         m_tree = nullptr;
         return lldb::ValueObjectSP();

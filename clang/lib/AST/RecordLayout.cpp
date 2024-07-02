@@ -33,11 +33,13 @@ ASTRecordLayout::ASTRecordLayout(const ASTContext &Ctx, CharUnits size,
                                  CharUnits unadjustedAlignment,
                                  CharUnits requiredAlignment,
                                  CharUnits datasize,
+                                 CharUnits unpackedAlignment,
                                  ArrayRef<uint64_t> fieldoffsets)
     : Size(size), DataSize(datasize), Alignment(alignment),
       PreferredAlignment(preferredAlignment),
       UnadjustedAlignment(unadjustedAlignment),
-      RequiredAlignment(requiredAlignment) {
+      RequiredAlignment(requiredAlignment),
+      UnpackedAlignment(unpackedAlignment) {
   FieldOffsets.append(Ctx, fieldoffsets.begin(), fieldoffsets.end());
 }
 
@@ -46,7 +48,8 @@ ASTRecordLayout::ASTRecordLayout(
     const ASTContext &Ctx, CharUnits size, CharUnits alignment,
     CharUnits preferredAlignment, CharUnits unadjustedAlignment,
     CharUnits requiredAlignment, bool hasOwnVFPtr, bool hasExtendableVFPtr,
-    CharUnits vbptroffset, CharUnits datasize, ArrayRef<uint64_t> fieldoffsets,
+    CharUnits vbptroffset, CharUnits datasize, CharUnits unpackedAlignment,
+    ArrayRef<uint64_t> fieldoffsets,
     CharUnits nonvirtualsize, CharUnits nonvirtualalignment,
     CharUnits preferrednvalignment, CharUnits SizeOfLargestEmptySubobject,
     const CXXRecordDecl *PrimaryBase, bool IsPrimaryBaseVirtual,
@@ -57,6 +60,7 @@ ASTRecordLayout::ASTRecordLayout(
       PreferredAlignment(preferredAlignment),
       UnadjustedAlignment(unadjustedAlignment),
       RequiredAlignment(requiredAlignment),
+      UnpackedAlignment(unpackedAlignment),
       CXXInfo(new (Ctx) CXXRecordLayoutInfo) {
   FieldOffsets.append(Ctx, fieldoffsets.begin(), fieldoffsets.end());
 

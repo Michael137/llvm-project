@@ -74,6 +74,7 @@ public:
     llvm::DenseMap<const clang::FieldDecl *, uint64_t> field_offsets;
     OffsetMap base_offsets;
     OffsetMap vbase_offsets;
+    bool is_packed_structure = false;
   };
 
   ClangASTImporter()

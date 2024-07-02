@@ -6339,6 +6339,7 @@ llvm::Expected<CompilerType> TypeSystemClang::GetChildCompilerTypeAtIndex(
           // Figure out the field offset within the current struct/union/class
           // type
           bit_offset = record_layout.getFieldOffset(field_idx);
+          llvm::errs() << llvm::formatv("{0} {1} {2} {3} (idx: {4}) (size: {5})\n", child_name, bit_offset, record_layout.getAlignment().getQuantity(), getASTContext().getTypeUnadjustedAlign(field->getType()) / 8, idx, child_byte_size);
           if (FieldIsBitfield(*field, child_bitfield_bit_size)) {
             child_bitfield_bit_offset = bit_offset % child_bit_size;
             const uint32_t child_bit_offset =

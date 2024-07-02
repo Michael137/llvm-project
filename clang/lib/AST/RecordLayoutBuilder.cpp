@@ -802,7 +802,8 @@ protected:
   /// \param Field The field whose offset is being queried.
   /// \param ComputedOffset The offset that we've computed for this field.
   uint64_t updateExternalFieldOffset(const FieldDecl *Field,
-                                     uint64_t ComputedOffset);
+                                     uint64_t ComputedOffset,
+                                     uint64_t PreviousOffset);
 
   void CheckFieldPadding(uint64_t Offset, uint64_t UnpaddedOffset,
                           uint64_t UnpackedOffset, unsigned UnpackedAlign,
@@ -1298,9 +1299,10 @@ ItaniumRecordLayoutBuilder::LayoutBase(const BaseSubobjectInfo *Base) {
     assert(Allowed && "Base subobject externally placed at overlapping offset");
 
     if (InferAlignment && Offset < getDataSize().alignTo(AlignTo)) {
+      __builtin_debugtrap();
       // The externally-supplied base offset is before the base offset we
       // computed. Assume that the structure is packed.
-      //Alignment = CharUnits::One();
+      Alignment = CharUnits::One();
       InferAlignment = false;
     }
   }
@@ -1770,7 +1772,7 @@ void ItaniumRecordLayoutBuilder::LayoutBitField(const FieldDecl *D) {
   // If we're using external layout, give the external layout a chance
   // to override this information.
   if (UseExternalLayout)
-    FieldOffset = updateExternalFieldOffset(D, FieldOffset);
+    FieldOffset = updateExternalFieldOffset(D, FieldOffset, FieldOffsets.empty() ? -1 : FieldOffsets.back());
 
   // Okay, place the bitfield at the calculated offset.
   FieldOffsets.push_back(FieldOffset);
@@ -2064,7 +2066,7 @@ void ItaniumRecordLayoutBuilder::LayoutField(const FieldDecl *D,
 
   if (UseExternalLayout) {
     FieldOffset = Context.toCharUnitsFromBits(
-        updateExternalFieldOffset(D, Context.toBits(FieldOffset)));
+        updateExternalFieldOffset(D, Context.toBits(FieldOffset), FieldOffsets.empty() ? -1 : FieldOffsets.back()));
 
     if (!IsUnion && EmptySubobjects) {
       // Record the fact that we're placing a field at this offset.
@@ -2252,16 +2254,18 @@ void ItaniumRecordLayoutBuilder::UpdateAlignment(
 
 uint64_t
 ItaniumRecordLayoutBuilder::updateExternalFieldOffset(const FieldDecl *Field,
-                                                      uint64_t ComputedOffset) {
+                                                      uint64_t ComputedOffset,
+                                                      uint64_t PreviousOffset) {
   uint64_t ExternalFieldOffset = External.getExternalFieldOffset(Field);
 
-  if (InferAlignment && ExternalFieldOffset < ComputedOffset) {
-    // The externally-supplied field offset is before the field offset we
-    // computed. Assume that the structure is packed.
-    // TODO: there could be other reasons why external offset is less than computed,
-    //       particularly, if Field has NUA, in which case we don't want to reset alignment.
-    //Alignment = CharUnits::One();
-    //PreferredAlignment = CharUnits::One();
+  // The last check ensures we don't misinterpret overlapping fields as packedness
+  const bool assume_packed = ExternalFieldOffset > 0 &&
+                       ExternalFieldOffset < ComputedOffset &&
+                       (ExternalFieldOffset > PreviousOffset || PreviousOffset == (uint64_t)-1);
+
+  if (InferAlignment && assume_packed) {
+    Alignment = CharUnits::One();
+    PreferredAlignment = CharUnits::One();
     InferAlignment = false;
   }
 
@@ -3367,7 +3371,7 @@ ASTContext::getASTRecordLayout(const RecordDecl *D) const {
           *this, Builder.Size, Builder.Alignment, Builder.Alignment,
           Builder.Alignment, Builder.RequiredAlignment, Builder.HasOwnVFPtr,
           Builder.HasOwnVFPtr || Builder.PrimaryBase, Builder.VBPtrOffset,
-          Builder.DataSize, Builder.FieldOffsets, Builder.NonVirtualSize,
+          Builder.DataSize, {} /* TODO */, Builder.FieldOffsets, Builder.NonVirtualSize,
           Builder.Alignment, Builder.Alignment, CharUnits::Zero(),
           Builder.PrimaryBase, false, Builder.SharedVBPtrBase,
           Builder.EndsWithZeroSizedObject, Builder.LeadsWithZeroSizedBase,
@@ -3378,7 +3382,7 @@ ASTContext::getASTRecordLayout(const RecordDecl *D) const {
       NewEntry = new (*this) ASTRecordLayout(
           *this, Builder.Size, Builder.Alignment, Builder.Alignment,
           Builder.Alignment, Builder.RequiredAlignment, Builder.Size,
-          Builder.FieldOffsets);
+          {} /* TODO */, Builder.FieldOffsets);
     }
   } else {
     if (const auto *RD = dyn_cast<CXXRecordDecl>(D)) {
@@ -3403,7 +3407,7 @@ ASTContext::getASTRecordLayout(const RecordDecl *D) const {
           Builder.PreferredAlignment, Builder.UnadjustedAlignment,
           /*RequiredAlignment : used by MS-ABI)*/
           Builder.Alignment, Builder.HasOwnVFPtr, RD->isDynamicClass(),
-          CharUnits::fromQuantity(-1), DataSize, Builder.FieldOffsets,
+          CharUnits::fromQuantity(-1), DataSize, Builder.UnpackedAlignment, Builder.FieldOffsets,
           NonVirtualSize, Builder.NonVirtualAlignment,
           Builder.PreferredNVAlignment,
           EmptySubobjects.SizeOfLargestEmptySubobject, Builder.PrimaryBase,
@@ -3417,7 +3421,7 @@ ASTContext::getASTRecordLayout(const RecordDecl *D) const {
           *this, Builder.getSize(), Builder.Alignment,
           Builder.PreferredAlignment, Builder.UnadjustedAlignment,
           /*RequiredAlignment : used by MS-ABI)*/
-          Builder.Alignment, Builder.getSize(), Builder.FieldOffsets);
+          Builder.Alignment, Builder.getSize(), Builder.UnpackedAlignment, Builder.FieldOffsets);
     }
   }
 
@@ -3572,7 +3576,7 @@ ASTContext::getObjCLayout(const ObjCInterfaceDecl *D,
       *this, Builder.getSize(), Builder.Alignment, Builder.PreferredAlignment,
       Builder.UnadjustedAlignment,
       /*RequiredAlignment : used by MS-ABI)*/
-      Builder.Alignment, Builder.getDataSize(), Builder.FieldOffsets);
+      Builder.Alignment, Builder.UnpackedAlignment, Builder.getDataSize(), Builder.FieldOffsets);
 
   ObjCLayouts[Key] = NewEntry;
 

@@ -2914,6 +2914,9 @@ void DWARFASTParserClang::ParseSingleMember(
                                    ? 0
                                    : (attrs.member_byte_offset * 8ULL));
 
+  // class_clang_type->SetIsPacked
+  //if (attrs.name && strcmp(attrs.name, "e") == 0)
+  //  __builtin_debugtrap();
   if (attrs.bit_size > 0) {
     FieldInfo this_field_info;
     this_field_info.bit_offset = field_bit_offset;

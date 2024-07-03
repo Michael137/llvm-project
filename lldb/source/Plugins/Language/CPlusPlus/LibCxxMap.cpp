@@ -361,10 +361,16 @@ lldb_private::formatters::LibcxxStdMapSyntheticFrontEnd::GetChildAtIndex(
       iterator = cached_iterator->second;
       actual_advancde = 1;
       Status error;
-      auto lchild = iterator.value()->Dereference(error)->GetChildMemberWithName("__left_");
+      auto lchild = iterator.value()->GetChildMemberWithName("__left_");
       auto lchild_deref = lchild->Dereference(error);
+      auto casted = lchild->Cast(m_tree->GetCompilerType().GetDirectNestedTypeWithName("__node_pointer"));
+      auto casted_deref = casted->Dereference(error);
+      StreamString ss;
+      if (llvm::Error error = casted_deref->Dump(ss)) {
+        llvm::errs() << "error: " << toString(std::move(error));
+      }
+      __builtin_debugtrap();
       auto child = lchild_deref->GetChildMemberWithName("__right_");
-      auto * tmp = child.get();
     }
   }
 
@@ -378,10 +384,26 @@ lldb_private::formatters::LibcxxStdMapSyntheticFrontEnd::GetChildAtIndex(
   if (GetDataType()) {
     if (!need_to_skip) {
       Status error;
+      auto casted_iterated = iterated_sp->Cast(m_tree->GetCompilerType().GetDirectNestedTypeWithName("__node_pointer"))->Dereference(error);
+      StreamString ss3;
+      if (llvm::Error error = casted_iterated->Dump(ss3)) {
+        llvm::errs() << "error: " << toString(std::move(error));
+      }
       iterated_sp = iterated_sp->Dereference(error);
       auto lchild = iterated_sp->GetChildMemberWithName("__left_");
       auto lchild_deref = lchild->Dereference(error);
+      auto casted = lchild->Cast(m_tree->GetCompilerType().GetDirectNestedTypeWithName("__node_pointer"));
+      auto casted_deref = casted->Dereference(error);
+      StreamString ss;
+      if (llvm::Error error = casted_deref->Dump(ss)) {
+        llvm::errs() << "error: " << toString(std::move(error));
+      }
       auto child = lchild_deref->GetChildMemberWithName("__right_");
+      StreamString ss2;
+      if (llvm::Error error = child->Dump(ss2)) {
+        llvm::errs() << "error: " << toString(std::move(error));
+      }
+      __builtin_debugtrap();
       if (!iterated_sp || error.Fail()) {
         m_tree = nullptr;
         return lldb::ValueObjectSP();

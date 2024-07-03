@@ -2179,11 +2179,11 @@ void ItaniumRecordLayoutBuilder::FinishLayout(const NamedDecl *D) {
     // If we're inferring alignment, and the external size is smaller than
     // our size after we've rounded up to alignment, conservatively set the
     // alignment to 1.
-    if (InferAlignment && External.Size < RoundedSize) {
-      Alignment = CharUnits::One();
-      PreferredAlignment = CharUnits::One();
-      InferAlignment = false;
-    }
+    //if (InferAlignment && External.Size < RoundedSize) {
+    //  Alignment = CharUnits::One();
+    //  PreferredAlignment = CharUnits::One();
+    //  InferAlignment = false;
+    //}
     setSize(External.Size);
     return;
   }
@@ -2230,7 +2230,7 @@ void ItaniumRecordLayoutBuilder::UpdateAlignment(
     CharUnits PreferredNewAlignment) {
   // The alignment is not modified when using 'mac68k' alignment or when
   // we have an externally-supplied layout that also provides overall alignment.
-  if (IsMac68kAlign || (UseExternalLayout && !InferAlignment))
+  if (IsMac68kAlign) // || (UseExternalLayout && !InferAlignment))
     return;
 
   if (NewAlignment > Alignment) {
@@ -2259,15 +2259,15 @@ ItaniumRecordLayoutBuilder::updateExternalFieldOffset(const FieldDecl *Field,
   uint64_t ExternalFieldOffset = External.getExternalFieldOffset(Field);
 
   // The last check ensures we don't misinterpret overlapping fields as packedness
-  const bool assume_packed = ExternalFieldOffset > 0 &&
-                       ExternalFieldOffset < ComputedOffset &&
-                       (ExternalFieldOffset > PreviousOffset || PreviousOffset == (uint64_t)-1);
+  const bool assume_packed = /*ExternalFieldOffset > 0 &&*/
+                       ExternalFieldOffset < ComputedOffset; /*&&
+                       (ExternalFieldOffset > PreviousOffset || PreviousOffset == (uint64_t)-1);*/
 
-  if (InferAlignment && assume_packed) {
-    Alignment = CharUnits::One();
-    PreferredAlignment = CharUnits::One();
-    InferAlignment = false;
-  }
+  //if (InferAlignment && assume_packed) {
+  //  Alignment = CharUnits::One();
+  //  PreferredAlignment = CharUnits::One();
+  //  InferAlignment = false;
+  //}
 
   // Use the externally-supplied field offset.
   return ExternalFieldOffset;

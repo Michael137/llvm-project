@@ -21,6 +21,8 @@
 #include "TargetInfo.h"
 #include "clang/AST/ASTContext.h"
 #include "clang/AST/Attr.h"
+#include "clang/AST/Decl.h"
+#include "clang/AST/DeclBase.h"
 #include "clang/AST/DeclFriend.h"
 #include "clang/AST/DeclObjC.h"
 #include "clang/AST/DeclTemplate.h"
@@ -2877,8 +2879,13 @@ CGDebugInfo::CreateTypeDefinition(const RecordType *Ty) {
 
   // Collect data fields (including static variables and any initializers).
   CollectRecordFields(RD, DefUnit, EltTys, FwdDecl);
-  if (CXXDecl && !CGM.getCodeGenOpts().DebugOmitUnreferencedMethods)
-    CollectCXXMemberFunctions(CXXDecl, DefUnit, EltTys, FwdDecl);
+  if (CXXDecl) {
+    if (!CGM.getCodeGenOpts().DebugOmitUnreferencedMethods)
+      CollectCXXMemberFunctions(CXXDecl, DefUnit, EltTys, FwdDecl);
+
+    //if (!CGM.getCodeGenOpts().DebugOmitUnreferencedTypedefs)
+    CollectCXXTypedefs(CXXDecl, DefUnit, EltTys);
+  }
 
   LexicalBlockStack.pop_back();
   RegionMap.erase(Ty->getDecl());
@@ -6150,4 +6157,26 @@ CGDebugInfo::createConstantValueExpression(const clang::ValueDecl *VD,
     return DBuilder.createConstantValueExpression(ValIntOpt.value());
 
   return nullptr;
+}
+
+void CGDebugInfo::CollectCXXTypedefs(
+    const CXXRecordDecl *RD, llvm::DIFile *Unit,
+    SmallVectorImpl<llvm::Metadata *> &EltTys) {
+
+  using typealias_iter = CXXRecordDecl::specific_decl_iterator<TypeAliasDecl>;
+  using typealias_range = llvm::iterator_range<typealias_iter>;
+  for (const TypeAliasDecl *TD : typealias_range(RD->decls())) {
+    if (TD->hasAttr<NoDebugAttr>())
+      continue;
+
+    llvm::Metadata * Typedef = nullptr;
+    if (auto MI = TypeCache.find(TD->getCanonicalDecl());
+        MI != TypeCache.end()) {
+      Typedef = static_cast<llvm::Metadata *>(MI->second);
+    } else {
+      QualType Ty = CGM.getContext().getTypedefType(TD);
+      Typedef = CreateType(Ty->getAs<TypedefType>(), Unit);
+    }
+    EltTys.push_back(Typedef);
+  }
 }

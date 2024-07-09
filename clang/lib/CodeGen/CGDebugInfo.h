@@ -270,6 +270,9 @@ class CGDebugInfo {
                                  SmallVectorImpl<llvm::Metadata *> &E,
                                  llvm::DIType *T);
 
+  void CollectCXXTypedefs(const CXXRecordDecl *Decl, llvm::DIFile *F,
+                          SmallVectorImpl<llvm::Metadata *> &E);
+
   /// A helper function to collect debug info for C++ base
   /// classes. This is used while creating debug info entry for a
   /// Record.

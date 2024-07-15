@@ -21,6 +21,7 @@ struct __compressed_pair_elem {
   explicit __compressed_pair_elem(_Tp __t) : __value_(__t) {}
 
   _Tp &__get() { return __value_; }
+  _Tp const& __get() const noexcept { return __value_; }
 
 private:
   _Tp __value_;
@@ -51,6 +52,10 @@ public:
       : _Base1(std::forward<_U1>(__t1)), _Base2(std::forward<_U2>(__t2)) {}
 
   _T1 &first() { return static_cast<_Base1 &>(*this).__get(); }
+  _T2 &second() { return static_cast<_Base2 &>(*this).__get(); }
+
+  _T1 const &first() const { return static_cast<_Base1 const &>(*this).__get(); }
+  _T2 const &second() const { return static_cast<_Base2 const &>(*this).__get(); }
 };
 } // namespace __lldb
 } // namespace std

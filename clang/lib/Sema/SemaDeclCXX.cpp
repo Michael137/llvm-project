@@ -1316,7 +1316,7 @@ static bool checkTupleLikeDecomposition(Sema &S,
         S.Context.getTrivialTypeSourceInfo(T, Loc), Src->getStorageClass());
     RefVD->setLexicalDeclContext(Src->getLexicalDeclContext());
     RefVD->setTSCSpec(Src->getTSCSpec());
-    RefVD->setImplicit();
+    //RefVD->setImplicit();
     if (Src->isInlineSpecified())
       RefVD->setInlineSpecified();
     RefVD->getLexicalDeclContext()->addHiddenDecl(RefVD);

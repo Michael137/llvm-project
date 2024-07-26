@@ -5461,7 +5461,7 @@ TypeSystemClang::GetNumChildren(lldb::opaque_compiler_type_t type,
             GetDynamicArrayInfo(*this, GetSymbolFile(), qual_type, exe_ctx))
       // FIXME: Only 1-dimensional arrays are supported.
       num_children = array_info->element_orders.size()
-                         ? array_info->element_orders.back().value_or(0)
+                         ? array_info->element_orders.front().value_or(0)
                          : 0;
     break;
 

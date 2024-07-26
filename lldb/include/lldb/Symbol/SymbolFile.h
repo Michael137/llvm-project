@@ -214,6 +214,11 @@ public:
     llvm::SmallVector<uint64_t, 1> element_orders;
     uint32_t byte_stride = 0;
     uint32_t bit_stride = 0;
+
+    //< Is true for array types whose size could not
+    //< be determined (e.g., variable-length arrays with
+    //< non-constant bounds and flexible array members).
+    bool is_incomplete = false;
   };
   /// If \c type_uid points to an array type, return its characteristics.
   /// To support variable-length array types, this function takes an

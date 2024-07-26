@@ -41,6 +41,17 @@ DWARFASTParser::ParseChildArrayInfo(const DWARFDIE &parent_die,
     uint64_t lower_bound = 0;
     uint64_t upper_bound = 0;
     bool upper_bound_valid = false;
+    bool is_incomplete = true; // TODO: check that this works fine for
+                               // multi-dimensional arrays. E.g., vla[1][0]
+                               // vla[1][]
+                               // vla[1][0][1]
+                               // vla[][0]
+                               // vla[][1]
+                               // vla[0][0]
+                               // vla[1][n]
+                               // vla[n][]
+                               // vla[n][n]
+                               // struct { fla[1][]; }
     for (size_t i = 0; i < attributes.Size(); ++i) {
       const dw_attr_t attr = attributes.AttributeAtIndex(i);
       DWARFFormValue form_value;
@@ -60,12 +71,15 @@ DWARFASTParser::ParseChildArrayInfo(const DWARFDIE &parent_die,
                       var_die.GetName(), eNoDynamicValues, 0, var_sp, error);
                   if (valobj_sp) {
                     num_elements = valobj_sp->GetValueAsUnsigned(0);
+                    is_incomplete = false;
                     break;
                   }
                 }
               }
-          } else
+          } else {
             num_elements = form_value.Unsigned();
+            is_incomplete = false;
+          }
           break;
 
         case DW_AT_bit_stride:
@@ -97,6 +111,7 @@ DWARFASTParser::ParseChildArrayInfo(const DWARFDIE &parent_die,
     }
 
     array_info.element_orders.push_back(num_elements);
+    array_info.is_incomplete = is_incomplete;
   }
   return array_info;
 }

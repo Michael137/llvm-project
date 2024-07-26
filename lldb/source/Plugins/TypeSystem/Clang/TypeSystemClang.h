@@ -498,7 +498,8 @@ public:
   // Array Types
 
   CompilerType CreateArrayType(const CompilerType &element_type,
-                               size_t element_count, bool is_vector);
+                               size_t element_count, bool is_vector,
+                               bool is_flexible_array = false);
 
   // Enumeration Types
   CompilerType CreateEnumerationType(llvm::StringRef name,

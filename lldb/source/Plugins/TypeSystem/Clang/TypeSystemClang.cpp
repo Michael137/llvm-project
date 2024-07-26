@@ -4765,6 +4765,7 @@ TypeSystemClang::GetBitSize(lldb::opaque_compiler_type_t type,
   clang::QualType qual_type(GetCanonicalQualType(type));
   const clang::Type::TypeClass type_class = qual_type->getTypeClass();
   switch (type_class) {
+  case clang::Type::IncompleteArray:
   case clang::Type::ConstantArray:
   case clang::Type::FunctionProto:
   case clang::Type::Record:
@@ -4772,15 +4773,6 @@ TypeSystemClang::GetBitSize(lldb::opaque_compiler_type_t type,
   case clang::Type::ObjCInterface:
   case clang::Type::ObjCObject:
     return GetObjCBitSize(qual_type, exe_scope);
-  case clang::Type::IncompleteArray: {
-    const uint64_t bit_size = getASTContext().getTypeSize(qual_type);
-    if (bit_size == 0)
-      return getASTContext().getTypeSize(
-          qual_type->getArrayElementTypeNoTypeQual()
-              ->getCanonicalTypeUnqualified());
-
-    return bit_size;
-  }
   default:
     if (const uint64_t bit_size = getASTContext().getTypeSize(qual_type))
       return bit_size;

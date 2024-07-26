@@ -43,5 +43,14 @@ class TestVLA(TestBase):
             self.expect("expr vla", error=True, substrs=["incomplete"])
 
         test(2)
+
+        vla = self.frame().FindVariable("vla")
+        self.assertTrue(vla.IsValid())
+        self.assertEqual(vla.GetByteSize(), 0) # TODO: is this correct?
+
+        vla0 = self.frame().FindVariable("vla0")
+        self.assertTrue(vla0.IsValid())
+        self.assertEqual(vla0.GetByteSize(), 0)
+
         process.Continue()
         test(4)

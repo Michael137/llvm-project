@@ -6,6 +6,8 @@ int foo(int a) {
   for (int i = 0; i < a; ++i)
     vla[i] = a-i;
 
+  int vla0[0];
+
   pause(); // break here
   return vla[a-1];
 }

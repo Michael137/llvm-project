@@ -4,4 +4,4 @@ REQUIRES: system-darwin
 
 RUN: llvm-cxxfilt __Z1fv _Z2bav | FileCheck %s
 CHECK: f()
-CHECK: _Z2bav
+CHECK: ba()

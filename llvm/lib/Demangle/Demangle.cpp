@@ -39,7 +39,10 @@ std::string llvm::demangle(std::string_view MangledName) {
 
 static bool isItaniumEncoding(std::string_view S) {
   // Itanium encoding requires 1 or 3 leading underscores, followed by 'Z'.
-  return starts_with(S, "_Z") || starts_with(S, "___Z");
+  // The LLVM ItaniumDemangler allows for __Z and ____Z prefixes too (for MachO
+  // platforms where an extra underscore is prepended to symbols).
+  return starts_with(S, "_Z") || starts_with(S, "___Z")
+         || starts_with(S, "__Z") || starts_with(S, "____Z");
 }
 
 static bool isRustEncoding(std::string_view S) { return starts_with(S, "_R"); }

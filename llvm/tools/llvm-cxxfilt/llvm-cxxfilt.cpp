@@ -165,13 +165,10 @@ int llvm_cxxfilt_main(int argc, char **argv, const llvm::ToolContext &) {
     return 0;
   }
 
-  // The default value depends on the default triple. Mach-O has symbols
-  // prefixed with "_", so strip by default.
+  StripUnderscore = false;
   if (opt::Arg *A =
           Args.getLastArg(OPT_strip_underscore, OPT_no_strip_underscore))
     StripUnderscore = A->getOption().matches(OPT_strip_underscore);
-  else
-    StripUnderscore = Triple(sys::getProcessTriple()).isOSBinFormatMachO();
 
   ParseParams = !Args.hasArg(OPT_no_params);
 

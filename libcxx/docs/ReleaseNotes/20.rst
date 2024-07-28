@@ -40,13 +40,15 @@ Implemented Papers
 
 - TODO
 
-
 Improvements and New Features
 -----------------------------
 
 - The ``lexicographical_compare`` and ``ranges::lexicographical_compare`` algorithms have been optimized for trivially
   equality comparable types, resulting in a performance improvement of up to 40x.
 
+- The internal structure ``__compressed_pair`` has been replaced with ``[[no_unique_address]]``, resulting in reduced
+  compile times and smaller debug information as well as better code generation if optimizations are disabled.
+  The Chromium project measured a 5% reduction in object file and debug information size.
 
 Deprecations and Removals
 -------------------------
@@ -87,8 +89,11 @@ LLVM 21
 ABI Affecting Changes
 ---------------------
 
-- TODO
-
+- The internal structure ``__compressed_pair`` has been replaced with ``[[no_unique_address]]``. When using the Itanium
+  ABI (most non-MSVC platforms), this change results in empty final types being placed at the beginning of the enclosing
+  object instead of where the beginning of the ``__compressed_pair`` subobject was. This is only observable by checking
+  the address of the subobject. When using the MSVC ABI, this change results in some classes having a completely
+  different memory layout.
 
 Build System Changes
 --------------------

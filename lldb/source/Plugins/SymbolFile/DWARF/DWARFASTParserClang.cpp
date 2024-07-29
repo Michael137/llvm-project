@@ -1396,6 +1396,10 @@ DWARFASTParserClang::ParseArrayType(const DWARFDIE &die,
                                                                            //              (and do the same for GetDynamicArrayInfoForUID)
                                                                            //              When parsing DW_TAG_array, save metadata for the DW_TAG_subrange_type DIEs.
                                                                            //              Then when we get to GetBitSize, we call GetDynamicArrayInfoForUID on each of the subranges.
+                                                                           //              Does this account for aligment?
+                                                                           //
+                                                                           // TODO: Need to make sure we account for alignment of underlying element type when calculating size of the various VLA possibilities.
+                                                                           //       We might need to go with the "synthesize intermediate array types" approach to do this properly?
   TypeSystemClang::RequireCompleteType(array_element_type);
 
   uint64_t array_element_bit_stride = byte_stride * 8 + bit_stride;

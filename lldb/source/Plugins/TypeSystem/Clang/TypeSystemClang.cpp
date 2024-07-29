@@ -4799,7 +4799,7 @@ TypeSystemClang::GetBitSize(lldb::opaque_compiler_type_t type,
     if (array_info->element_orders.empty())
       return 0;
 
-    size_t total_children = std::accumulate(array_info->element_orders.begin(), array_info->element_orders.end(), 0);
+    size_t total_children = std::accumulate(array_info->element_orders.begin(), array_info->element_orders.end(), 1, std::multiplies<uint64_t>());
     const auto maybe_bitsize = GetBitSize(qual_type->getAsArrayTypeUnsafe()->getElementType().getAsOpaquePtr(), exe_scope);
     if (!maybe_bitsize)
       return 0;

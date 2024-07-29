@@ -18,6 +18,7 @@
 #include <memory>
 #include <string>
 #include <vector>
+#include <numeric>
 
 #include "clang/AST/ASTContext.h"
 #include "clang/AST/ASTImporter.h"
@@ -441,6 +442,17 @@ bool TypeSystemClang::IsOperator(llvm::StringRef name,
                 .Default(clang::NUM_OVERLOADED_OPERATORS);
 
   return true;
+}
+
+static std::optional<SymbolFile::ArrayInfo>
+GetDynamicArrayInfo(TypeSystemClang &ast, SymbolFile *sym_file,
+                    clang::QualType qual_type,
+                    const ExecutionContext *exe_ctx) {
+  if (qual_type->isIncompleteArrayType())
+    if (auto *metadata = ast.GetMetadata(qual_type.getTypePtr()))
+      return sym_file->GetDynamicArrayInfoForUID(metadata->GetUserID(),
+                                                 exe_ctx);
+  return std::nullopt;
 }
 
 clang::AccessSpecifier
@@ -4765,7 +4777,6 @@ TypeSystemClang::GetBitSize(lldb::opaque_compiler_type_t type,
   clang::QualType qual_type(GetCanonicalQualType(type));
   const clang::Type::TypeClass type_class = qual_type->getTypeClass();
   switch (type_class) {
-  case clang::Type::IncompleteArray:
   case clang::Type::ConstantArray:
   case clang::Type::FunctionProto:
   case clang::Type::Record:
@@ -4773,6 +4784,28 @@ TypeSystemClang::GetBitSize(lldb::opaque_compiler_type_t type,
   case clang::Type::ObjCInterface:
   case clang::Type::ObjCObject:
     return GetObjCBitSize(qual_type, exe_scope);
+  case clang::Type::IncompleteArray: {
+    if (!exe_scope)
+      return 0;
+
+    ExecutionContext exe_ctx;
+    exe_scope->CalculateExecutionContext(exe_ctx);
+    auto array_info =
+            GetDynamicArrayInfo(*this, GetSymbolFile(), qual_type, &exe_ctx);
+    if (!array_info)
+      return 0;
+
+    // Only 1-dimensional arrays are supported.
+    if (array_info->element_orders.empty())
+      return 0;
+
+    size_t total_children = std::accumulate(array_info->element_orders.begin(), array_info->element_orders.end(), 0);
+    const auto maybe_bitsize = GetBitSize(array_info->elem_type, exe_scope);
+    if (!maybe_bitsize)
+      return 0;
+
+    return total_children * *maybe_bitsize;
+  }
   default:
     if (const uint64_t bit_size = getASTContext().getTypeSize(qual_type))
       return bit_size;
@@ -5307,17 +5340,6 @@ static bool ObjCDeclHasIVars(clang::ObjCInterfaceDecl *class_interface_decl,
       break;
   }
   return false;
-}
-
-static std::optional<SymbolFile::ArrayInfo>
-GetDynamicArrayInfo(TypeSystemClang &ast, SymbolFile *sym_file,
-                    clang::QualType qual_type,
-                    const ExecutionContext *exe_ctx) {
-  if (qual_type->isIncompleteArrayType())
-    if (auto *metadata = ast.GetMetadata(qual_type.getTypePtr()))
-      return sym_file->GetDynamicArrayInfoForUID(metadata->GetUserID(),
-                                                 exe_ctx);
-  return std::nullopt;
 }
 
 llvm::Expected<uint32_t>

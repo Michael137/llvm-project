@@ -25,6 +25,7 @@
 #include "lldb/Utility/StructuredData.h"
 #include "lldb/Utility/XcodeSDK.h"
 #include "lldb/lldb-private.h"
+#include "lldb/lldb-types.h"
 #include "llvm/ADT/DenseSet.h"
 #include "llvm/ADT/SmallSet.h"
 #include "llvm/Support/Errc.h"
@@ -210,7 +211,7 @@ public:
 
   /// The characteristics of an array type.
   struct ArrayInfo {
-    int64_t first_index = 0;
+    int64_t first_index = 0; // TODO: unused
     llvm::SmallVector<uint64_t, 1> element_orders;
     uint32_t byte_stride = 0;
     uint32_t bit_stride = 0;
@@ -219,6 +220,7 @@ public:
     //< be determined (e.g., variable-length arrays with
     //< non-constant bounds and flexible array members).
     bool is_incomplete = false;
+    lldb::opaque_compiler_type_t elem_type;
   };
   /// If \c type_uid points to an array type, return its characteristics.
   /// To support variable-length array types, this function takes an

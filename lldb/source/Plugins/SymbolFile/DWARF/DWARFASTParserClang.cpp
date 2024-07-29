@@ -1389,7 +1389,14 @@ DWARFASTParserClang::ParseArrayType(const DWARFDIE &die,
   }
   if (byte_stride == 0 && bit_stride == 0)
     byte_stride = element_type->GetByteSize(nullptr).value_or(0);
-  CompilerType array_element_type = element_type->GetForwardCompilerType();
+  CompilerType array_element_type = element_type->GetForwardCompilerType();// TODO: element_type is Foo because of how multi-dimensional VLAs get represented in DWARF.
+                                                                           // TODO: To solve the "struct Foo[]" doesn't have metadata issue we should do below for each array element. I.e., MakeType and SetMetadata for each dimension. (For Foo[][], we want to set it on Foo[] and Foo[][]). To do this we'd have to synthesize types for each subrange before finally calling MakeType on the main DW_TAG_array_type die.
+                                                                           // ALTERNATIVE: In GetBitSize we just iterate over all element_orders and manually sum up the size (does this account for alignment?)
+                                                                           // ALTERNATIVE: Split ParseChildArrayInfo into ParseChildArrayInfos (which gets called on DW_TAG_array_type) and ParseChildArrayInfo.
+                                                                           //              (and do the same for GetDynamicArrayInfoForUID)
+                                                                           //              When parsing DW_TAG_array, save metadata for the DW_TAG_subrange_type DIEs.
+                                                                           //              Then when we get to GetBitSize, we call GetDynamicArrayInfoForUID on each of the subranges.
+  array_info->elem_type = array_element_type.GetOpaqueQualType();
   TypeSystemClang::RequireCompleteType(array_element_type);
 
   uint64_t array_element_bit_stride = byte_stride * 8 + bit_stride;
@@ -1418,7 +1425,8 @@ DWARFASTParserClang::ParseArrayType(const DWARFDIE &die,
                       &attrs.decl, clang_type, Type::ResolveState::Full);
   type_sp->SetEncodingType(element_type);
   const clang::Type *type = ClangUtil::GetQualType(clang_type).getTypePtr();
-  m_ast.SetMetadataAsUserID(type, die.GetID());
+  m_ast.SetMetadataAsUserID(type, die.GetID()); // TODO: why isn't this set for struct Foo[]; We have to explicitly run `v foos[0]` for the multi_vla case to work
+                                                         // ANSWER: struct Foo[] might not even have it's own DWARF DIE. Multi-dimensional arrays are represented as DW_TAG_array_types with a single underlying element type and multiple subranges (one for each dimension)
   return type_sp;
 }
 

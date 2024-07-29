@@ -46,7 +46,7 @@ class TestVLA(TestBase):
 
         vla = self.frame().FindVariable("vla")
         self.assertTrue(vla.IsValid())
-        self.assertEqual(vla.GetByteSize(), 0) # TODO: is this correct?
+        self.assertEqual(vla.GetByteSize(), 8)
 
         vla0 = self.frame().FindVariable("vla0")
         self.assertTrue(vla0.IsValid())
@@ -54,3 +54,11 @@ class TestVLA(TestBase):
 
         process.Continue()
         test(4)
+
+        vla = self.frame().FindVariable("vla")
+        self.assertTrue(vla.IsValid())
+        self.assertEqual(vla.GetByteSize(), 16)
+
+# WORKS: ./debug-build/bin/lldb a.out -o "b 27" -o run -o "v foos[0]" -o "script -- lldb.frame.FindVariable('multi_vla').GetByteSize()"
+# FAILS: ./debug-build/bin/lldb a.out -o "b 27" -o run -o "script -- lldb.frame.FindVariable('multi_vla').GetByteSize()"
+  # fails due to GetMetadata not succeeding for Foo[] when running GetDynamicArrayInfo on the element-type of Foo[][]

@@ -10,12 +10,25 @@ from lldbsuite.test import lldbutil
 class ImportStdModule(TestBase):
     @add_test_categories(["libc++"])
     @skipIf(compiler=no_match("clang"))
-    def test(self):
+    @skipIf(macos_version=[">=", "15.0"])
+    def test_old_sdk(self):
+        self.run_test(False)
+
+    @add_test_categories(["libc++"])
+    @skipIf(compiler=no_match("clang"))
+    @skipIf(macos_version=["<", "15.0"])
+    def test_new_sdk(self):
+        self.run_test(True)
+
+    def run_test(self, supports_builtin_headers_in_modules: bool):
         self.build()
 
         lldbutil.run_to_source_breakpoint(
             self, "// Set break point at this line.", lldb.SBFileSpec("main.cpp")
         )
+
+        if supports_builtin_headers_in_modules:
+            self.runCmd("settings set target.experimental.builtin-headers-in-system-modules false")
 
         # Activate importing of std module.
         self.runCmd("settings set target.import-std-module true")

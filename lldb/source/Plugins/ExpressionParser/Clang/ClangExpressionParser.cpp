@@ -504,8 +504,12 @@ static void SetupImportStdModuleLangOpts(CompilerInstance &compiler,
   lang_opts.GNUMode = true;
   lang_opts.GNUKeywords = true;
   lang_opts.CPlusPlus11 = true;
-  lang_opts.BuiltinHeadersInSystemModules =
-      target.GetBuiltinHeadersInSystemModules();
+  // TODO:
+  // * find SDKSettings.json file from the sysroot that we set up in the header modules
+  // * add helper function that extracts version number from SDKSettings.json into XcodeSDK
+  // * add XcodeSDK::sdkSupportsBuiltinModules function
+  // * cherry-pick to 6.0 branch
+  lang_opts.BuiltinHeadersInSystemModules = target.GetBuiltinHeadersInSystemModules();
 
   // The Darwin libc expects this macro to be set.
   lang_opts.GNUCVersion = 40201;

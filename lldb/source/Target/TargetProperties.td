@@ -4,6 +4,10 @@ let Definition = "target_experimental" in {
   def InjectLocalVars : Property<"inject-local-vars", "Boolean">,
     Global, DefaultTrue,
     Desc<"If true, inject local variables explicitly into the expression text. This will fix symbol resolution when there are name collisions between ivars and local variables. But it can make expressions run much more slowly.">;
+
+  def BuiltinHeadersInSystemModules : Property<"builtin-headers-in-system-modules", "Boolean">,
+    DefaultTrue,
+    Desc<"If true, will pass -fbuiltin-headers-in-system-modules to the compiler invocation when compiling the std module.">;
 }
 
 let Definition = "target" in {

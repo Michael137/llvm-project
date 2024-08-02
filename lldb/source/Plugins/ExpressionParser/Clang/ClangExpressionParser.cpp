@@ -486,7 +486,8 @@ static void SetupLangOpts(CompilerInstance &compiler,
   lang_opts.NoBuiltin = true;
 }
 
-static void SetupImportStdModuleLangOpts(CompilerInstance &compiler) {
+static void SetupImportStdModuleLangOpts(CompilerInstance &compiler,
+                                         lldb_private::Target const &target) {
   LangOptions &lang_opts = compiler.getLangOpts();
   lang_opts.Modules = true;
   // We want to implicitly build modules.
@@ -503,7 +504,8 @@ static void SetupImportStdModuleLangOpts(CompilerInstance &compiler) {
   lang_opts.GNUMode = true;
   lang_opts.GNUKeywords = true;
   lang_opts.CPlusPlus11 = true;
-  lang_opts.BuiltinHeadersInSystemModules = true;
+  lang_opts.BuiltinHeadersInSystemModules =
+      target.GetBuiltinHeadersInSystemModules();
 
   // The Darwin libc expects this macro to be set.
   lang_opts.GNUCVersion = 40201;
@@ -658,7 +660,7 @@ ClangExpressionParser::ClangExpressionParser(
   if (auto *clang_expr = dyn_cast<ClangUserExpression>(&m_expr);
       clang_expr && clang_expr->DidImportCxxModules()) {
     LLDB_LOG(log, "Adding lang options for importing C++ modules");
-    SetupImportStdModuleLangOpts(*m_compiler);
+    SetupImportStdModuleLangOpts(*m_compiler, *target_sp);
     SetupModuleHeaderPaths(m_compiler.get(), m_include_directories, target_sp);
   }
 

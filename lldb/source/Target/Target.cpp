@@ -4238,6 +4238,11 @@ bool TargetProperties::GetInjectLocalVariables(
       .value_or(true);
 }
 
+bool TargetProperties::GetBuiltinHeadersInSystemModules() const {
+  return GetExperimentalPropertyValue(ePropertyBuiltinHeadersInSystemModules)
+      .value_or(true);
+}
+
 ArchSpec TargetProperties::GetDefaultArchitecture() const {
   const uint32_t idx = ePropertyDefaultArch;
   return GetPropertyAtIndexAs<ArchSpec>(idx, {});

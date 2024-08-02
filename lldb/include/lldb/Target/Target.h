@@ -243,6 +243,7 @@ public:
   void SetProcessLaunchInfo(const ProcessLaunchInfo &launch_info);
 
   bool GetInjectLocalVariables(ExecutionContext *exe_ctx) const;
+  bool GetBuiltinHeadersInSystemModules() const;
 
   void SetRequireHardwareBreakpoints(bool b);
 

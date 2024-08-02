@@ -460,7 +460,12 @@ ClangExpressionParser::ClangExpressionParser(
     m_compiler->getTargetOpts().ABI = abi;
 
   // 3. Create and install the target on the compiler.
-  m_compiler->createDiagnostics();
+  auto diag_options_up =
+      clang::CreateAndPopulateDiagOpts({"-fbuiltin-headers-in-system-modules"});
+  llvm::IntrusiveRefCntPtr<clang::DiagnosticsEngine> diagnostics_engine =
+      clang::CompilerInstance::createDiagnostics(diag_options_up.release());
+  m_compiler->setDiagnostics(diagnostics_engine.get());
+
   // Limit the number of error diagnostics we emit.
   // A value of 0 means no limit for both LLDB and Clang.
   m_compiler->getDiagnostics().setErrorLimit(target_sp->GetExprErrorLimit());
@@ -578,7 +583,7 @@ ClangExpressionParser::ClangExpressionParser(
     lang_opts.GNUMode = true;
     lang_opts.GNUKeywords = true;
     lang_opts.CPlusPlus11 = true;
-    lang_opts.BuiltinHeadersInSystemModules = true;
+    //lang_opts.BuiltinHeadersInSystemModules = true;
 
     // The Darwin libc expects this macro to be set.
     lang_opts.GNUCVersion = 40201;

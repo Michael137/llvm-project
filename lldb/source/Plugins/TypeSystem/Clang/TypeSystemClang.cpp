@@ -8425,26 +8425,28 @@ bool TypeSystemClang::SetHasExternalStorage(lldb::opaque_compiler_type_t type,
 
 bool TypeSystemClang::StartTagDeclarationDefinition(const CompilerType &type) {
   clang::QualType qual_type(ClangUtil::GetQualType(type));
-  if (!qual_type.isNull()) {
-    const clang::TagType *tag_type = qual_type->getAs<clang::TagType>();
-    if (tag_type) {
-      clang::TagDecl *tag_decl = tag_type->getDecl();
-      if (tag_decl) {
-        tag_decl->startDefinition();
-        return true;
-      }
-    }
+  if (qual_type.isNull())
+    return false;
 
-    const clang::ObjCObjectType *object_type =
-        qual_type->getAs<clang::ObjCObjectType>();
-    if (object_type) {
-      clang::ObjCInterfaceDecl *interface_decl = object_type->getInterface();
-      if (interface_decl) {
-        interface_decl->startDefinition();
-        return true;
-      }
-    }
+  if (const clang::TagType *tag_type = qual_type->getAs<clang::TagType>()) {
+    clang::TagDecl *tag_decl = tag_type->getDecl();
+    if (!tag_decl)
+      return false;
+
+    tag_decl->startDefinition();
+    return true;
   }
+
+  if (const clang::ObjCObjectType *object_type =
+          qual_type->getAs<clang::ObjCObjectType>()) {
+    clang::ObjCInterfaceDecl *interface_decl = object_type->getInterface();
+    if (!interface_decl)
+      return false;
+
+    interface_decl->startDefinition();
+    return true;
+  }
+
   return false;
 }
 

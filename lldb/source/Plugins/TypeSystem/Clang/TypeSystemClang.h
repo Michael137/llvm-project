@@ -333,6 +333,14 @@ public:
                    std::optional<ClangASTMetadata> metadata = std::nullopt,
                    bool exports_symbols = false);
 
+  clang::NamedDecl *
+  CreateRecordDecl(clang::DeclContext *decl_ctx,
+                   OptionalClangModuleID owning_module,
+                   lldb::AccessType access_type, llvm::StringRef name, int kind,
+                   lldb::LanguageType language,
+                   std::optional<ClangASTMetadata> metadata = std::nullopt,
+                   bool exports_symbols = false);
+
   class TemplateParameterInfos {
   public:
     TemplateParameterInfos() = default;
@@ -459,6 +467,11 @@ public:
   CreateObjCClass(llvm::StringRef name, clang::DeclContext *decl_ctx,
                   OptionalClangModuleID owning_module, bool isInternal,
                   std::optional<ClangASTMetadata> metadata = std::nullopt);
+
+  clang::ObjCInterfaceDecl *
+  CreateObjCDecl(llvm::StringRef name, clang::DeclContext *decl_ctx,
+                 OptionalClangModuleID owning_module, bool isInternal,
+                 std::optional<ClangASTMetadata> metadata = std::nullopt);
 
   // Returns a mask containing bits from the TypeSystemClang::eTypeXXX
   // enumerations

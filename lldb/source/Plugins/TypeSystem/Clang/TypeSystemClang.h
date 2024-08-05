@@ -521,6 +521,13 @@ public:
                                      const CompilerType &integer_qual_type,
                                      bool is_scoped);
 
+  clang::EnumDecl *CreateEnumerationDecl(llvm::StringRef name,
+                                         clang::DeclContext *decl_ctx,
+                                         OptionalClangModuleID owning_module,
+                                         const Declaration &decl,
+                                         const CompilerType &integer_qual_type,
+                                         bool is_scoped);
+
   // Integer type functions
 
   CompilerType GetIntTypeFromBitSize(size_t bit_size, bool is_signed);
@@ -1031,6 +1038,8 @@ public:
                                     bool has_extern);
 
   // Tag Declarations
+
+  // Definition will be on redeclaration last added to the chain.
   static bool StartTagDeclarationDefinition(const CompilerType &type);
 
   static bool CompleteTagDeclarationDefinition(const CompilerType &type);
@@ -1164,6 +1173,59 @@ public:
   /// Return the template parameters (including surrounding <>) in string form.
   std::string
   PrintTemplateParams(const TemplateParameterInfos &template_param_infos);
+
+  /// Creates a redeclaration for the declaration specified by the given type.
+  /// The redeclaration will be at the end of the redeclaration chain. The
+  /// passed declaration has to be created via a TypeSystemClang interface.
+  ///
+  /// The redecl chain created has following properties:
+  /// 1. "canonical"/"first" decl will be the original decl found for \ref ct.
+  ///    For the purposes of TypeSystemClang, the "first" decl will be the
+  ///    forward declaration that the DWARF AST and the ASTImporter operates on.
+  /// 2. "latest"/"most recent" decl will be a new decl created by this function
+  ///    whose "previous" decl will be the one from (1). This decl will be the
+  ///    one holding the definition (this is done in
+  ///    `StartTagDeclarationDefinition`.
+  ///
+  /// For ObjCInterfaceDecl or RecordDecl this function simply creates a new
+  /// decl of said kind and makes it the "most recent" decl in the redeclaration
+  /// chain. Note, for ClassTemplateSpecializationDecl, the redeclared CTSD has
+  /// the *same* specialized template ClassTempalteDecl* (accessible via
+  /// getSpecializedTemplate) as the original CTSD.
+  ///
+  /// \param type The type which declaration should be redeclared. Has to be
+  /// an Objective-C interface type (or Objective-C type), RecordType or
+  /// EnumType.
+  ///
+  ///
+  /// TODO: check ASTDeclReader::attachPreviousDeclImpl
+  ///       and markIncompleteDeclChainImpl
+  ///       and attachLatestDeclImpl
+  ///
+  /// Why do we need redecl chains at all?
+  ///    This is how clang expects things for decls that whose definition
+  ///    gets allocated separately from creation of the decl. I.e.,
+  ///    LLDB will first create a forward decl. This will be the canonical
+  ///    declaration. However, this doesn't have a definition yet. Instead the
+  ///    definition is added to it later in CompleteTypeFromDWARF. Attaching the
+  ///    definition later isn't really something clang does. Instead, in clang,
+  ///    when parsing C++, we create a definition when we encounter a definition
+  ///    for the forward declaration. Hence, LLDB pretends that
+  ///    StartTagDeclarationDefinition is called when we encounter a definition.
+  ///    This definition is a redeclaration, with an attached definition.
+  ///    In summary, LLDB ensures that the forward decl first created when
+  ///    parsing DWARF is the first/canonical declaration, and non-changing. Any
+  ///    lazy completion of this declaration are done on a new redeclared decl
+  ///    which is created by this function.
+  ///
+  ///    One exapmle of when LLDB creates a half-completed decl is in
+  ///    PrepareContextToReceiveMembers and when forcefully completing a type.
+  ///    We want those modifications to happen on the non-canonical decl on the
+  ///    chain. And when ASTImporter (or other parts of clang/lldb) require the
+  ///    full definition, they can do so by calling getDefinition on the
+  ///    canonical decl.
+  ///
+  llvm::Error CreateRedeclaration(CompilerType ct);
 
 private:
   /// Returns the PrintingPolicy used when generating the internal type names.

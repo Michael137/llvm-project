@@ -85,3 +85,7 @@ std::string ClangUtil::ToString(const clang::Type *t) {
 std::string ClangUtil::ToString(const CompilerType &c) {
   return ClangUtil::GetQualType(c).getAsString();
 }
+
+// clang::Decl * GetFirstDecl(clang::Decl * decl) {
+//
+// }

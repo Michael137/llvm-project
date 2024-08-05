@@ -9,8 +9,12 @@
 #include "TypeSystemClang.h"
 
 #include "clang/AST/DeclBase.h"
+#include "clang/AST/DeclCXX.h"
 #include "clang/AST/ExprCXX.h"
+#include "llvm/ADT/STLForwardCompat.h"
 #include "llvm/Support/Casting.h"
+#include "llvm/Support/Error.h"
+#include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/FormatAdapters.h"
 #include "llvm/Support/FormatVariadic.h"
 
@@ -1163,11 +1167,13 @@ CompilerType TypeSystemClang::GetTypeForDecl(clang::NamedDecl *decl) {
 }
 
 CompilerType TypeSystemClang::GetTypeForDecl(TagDecl *decl) {
-  return GetType(getASTContext().getTagDeclType(decl));
+  return GetType(
+      getASTContext().getTypeDeclType(decl, decl->getPreviousDecl()));
 }
 
 CompilerType TypeSystemClang::GetTypeForDecl(ObjCInterfaceDecl *decl) {
-  return GetType(getASTContext().getObjCInterfaceType(decl));
+  return GetType(
+      getASTContext().getObjCInterfaceType(decl, decl->getPreviousDecl()));
 }
 
 CompilerType TypeSystemClang::GetTypeForDecl(clang::ValueDecl *value_decl) {
@@ -1245,6 +1251,10 @@ clang::NamedDecl *TypeSystemClang::CreateRecordDecl(
 
   if (decl_ctx == nullptr)
     decl_ctx = ast.getTranslationUnitDecl();
+
+  // Makes sure we add the new decl to the decl context of the definition
+  // in the redecl chain.
+  decl_ctx = decl_ctx->getPrimaryContext();
 
   if (language == eLanguageTypeObjC ||
       language == eLanguageTypeObjC_plus_plus) {
@@ -1568,6 +1578,10 @@ ClassTemplateDecl *TypeSystemClang::CreateClassTemplateDecl(
   if (decl_ctx == nullptr)
     decl_ctx = ast.getTranslationUnitDecl();
 
+  // Makes sure we add the new decl to the decl context of the definition
+  // in the redecl chain.
+  decl_ctx = decl_ctx->getPrimaryContext();
+
   IdentifierInfo &identifier_info = ast.Idents.get(class_name);
   DeclarationName decl_name(&identifier_info);
 
@@ -1662,6 +1676,12 @@ TypeSystemClang::CreateClassTemplateSpecializationDecl(
     DeclContext *decl_ctx, OptionalClangModuleID owning_module,
     ClassTemplateDecl *class_template_decl, int kind,
     const TemplateParameterInfos &template_param_infos) {
+
+  assert(decl_ctx);
+  // Makes sure we add the new decl to the decl context of the definition
+  // in the redecl chain.
+  decl_ctx = decl_ctx->getPrimaryContext();
+
   ASTContext &ast = getASTContext();
   llvm::SmallVector<clang::TemplateArgument, 2> args(
       template_param_infos.Size() +
@@ -1681,7 +1701,10 @@ TypeSystemClang::CreateClassTemplateSpecializationDecl(
   class_template_specialization_decl->setInstantiationOf(class_template_decl);
   class_template_specialization_decl->setTemplateArgs(
       TemplateArgumentList::CreateCopy(ast, args));
-  ast.getTypeDeclType(class_template_specialization_decl, nullptr);
+  // ast.getTypeDeclType(class_template_specialization_decl, nullptr); //
+  // commented because we want to re-use the TypeForDecl from the forward
+  // declaration created in CreateRedeclaration. GetTypeForDecl won't propagate
+  // the PrevDecl->TypeForDecl if Decl->TypeForDecl is already set.
   class_template_specialization_decl->setDeclName(
       class_template_decl->getDeclName());
   SetOwningModule(class_template_specialization_decl, owning_module);
@@ -2334,6 +2357,16 @@ CompilerType TypeSystemClang::CreateEnumerationType(
     llvm::StringRef name, clang::DeclContext *decl_ctx,
     OptionalClangModuleID owning_module, const Declaration &decl,
     const CompilerType &integer_clang_type, bool is_scoped) {
+  auto *ED = CreateEnumerationDecl(name, decl_ctx, owning_module, decl,
+                                   integer_clang_type, is_scoped);
+
+  return GetTypeForDecl(ED);
+}
+
+clang::EnumDecl *TypeSystemClang::CreateEnumerationDecl(
+    llvm::StringRef name, clang::DeclContext *decl_ctx,
+    OptionalClangModuleID owning_module, const Declaration &decl,
+    const CompilerType &integer_clang_type, bool is_scoped) {
   // TODO: Do something intelligent with the Declaration object passed in
   // like maybe filling in the SourceLocation with it...
   ASTContext &ast = getASTContext();
@@ -2356,7 +2389,7 @@ CompilerType TypeSystemClang::CreateEnumerationType(
 
   enum_decl->setAccess(AS_public); // TODO respect what's in the debug info
 
-  return GetType(ast.getTagDeclType(enum_decl));
+  return enum_decl;
 }
 
 CompilerType TypeSystemClang::GetIntTypeFromBitSize(size_t bit_size,
@@ -2496,6 +2529,7 @@ void TypeSystemClang::SetMetadataAsUserID(const clang::Type *type,
 
 void TypeSystemClang::SetMetadata(const clang::Decl *object,
                                   ClangASTMetadata metadata) {
+  // TODO: need to use canonical decl?
   m_decl_metadata[object] = metadata;
 }
 
@@ -4683,6 +4717,10 @@ CompilerType TypeSystemClang::CreateTypedef(
         TypeSystemClang::DeclContextGetAsDeclContext(compiler_decl_ctx);
     if (!decl_ctx)
       decl_ctx = getASTContext().getTranslationUnitDecl();
+
+    // Makes sure we add the new decl to the decl context of the definition
+    // in the redecl chain.
+    decl_ctx = decl_ctx->getPrimaryContext();
 
     clang::TypedefDecl *decl =
         clang::TypedefDecl::CreateDeserialized(clang_ast, GlobalDeclID());
@@ -8433,7 +8471,10 @@ bool TypeSystemClang::StartTagDeclarationDefinition(const CompilerType &type) {
     if (!tag_decl)
       return false;
 
-    tag_decl->startDefinition();
+    clang::TagDecl *last_decl = tag_decl->getMostRecentDecl();
+    assert(last_decl);
+
+    last_decl->startDefinition();
     return true;
   }
 
@@ -8443,7 +8484,10 @@ bool TypeSystemClang::StartTagDeclarationDefinition(const CompilerType &type) {
     if (!interface_decl)
       return false;
 
-    interface_decl->startDefinition();
+    ObjCInterfaceDecl *last_decl = interface_decl->getMostRecentDecl();
+    assert(last_decl);
+
+    last_decl->startDefinition();
     return true;
   }
 
@@ -9894,4 +9938,96 @@ void TypeSystemClang::LogCreation() const {
   if (auto *log = GetLog(LLDBLog::Expressions))
     LLDB_LOG(log, "Created new TypeSystem for (ASTContext*){0:x} '{1}'",
              &getASTContext(), getDisplayName());
+}
+
+/// Appends an existing declaration to the redeclaration chain.
+/// \param ts The TypeSystemClang that contains the two declarations.
+/// \param prev The most recent existing declaration.
+/// \param redecl The new declaration which should be appended to the end of
+/// redeclaration chain.
+template <typename T>
+static void ConnectRedeclToPrev(TypeSystemClang &ts, T *prev, T *redecl) {
+  assert(&ts.getASTContext() == &prev->getASTContext() &&
+         "Trying to redeclare decls from different ASTContexts!");
+  redecl->setPreviousDecl(prev);
+  // Now that the redecl chain is done, create the type explicitly via
+  // the TypeSystemClang interface that will reuse the type of the previous
+  // decl.
+  ts.GetTypeForDecl(redecl);
+  // The previous decl and the redeclaration both declare the same type.
+  assert(prev->getTypeForDecl() == redecl->getTypeForDecl());
+}
+
+llvm::Error TypeSystemClang::CreateRedeclaration(CompilerType ct) {
+  // All the cases below just check for a specific declaration kind, create
+  // a new declaration with matching data. We don't care about metadata which
+  // should only be tracked in the first redeclaration and should be identical
+  // for all redeclarations.
+  if (!ct)
+    return llvm::createStringError(
+        "Failed to create redeclaration: invalid CompilerType");
+
+  if (clang::ObjCInterfaceDecl *interface = GetAsObjCInterfaceDecl(ct)) {
+    auto *redecl = CreateObjCDecl(
+        interface->getName(), interface->getDeclContext()->getRedeclContext(),
+        OptionalClangModuleID(interface->getOwningModuleID()),
+        interface->isImplicit());
+    ConnectRedeclToPrev(*this, interface, redecl);
+    return llvm::Error::success();
+  }
+
+  // TODO: switch on decl kind and only call ConnectRedeclToPrev once
+
+  clang::TagDecl *tag_decl = ClangUtil::GetAsTagDecl(ct);
+  if (!tag_decl)
+    return llvm::createStringError(
+        "Failed to create redeclaration: unexpected decl kind");
+
+  if (auto *ED = dyn_cast<EnumDecl>(tag_decl)) {
+    // TODO: add tests that the attributes like isScoped are properly
+    // propagated.
+    // TODO: add tests for existence/non-existence of OptionalClangModuleID
+    // TODO: add tests for redecl context usage here
+    // TODO: currently Declaration paramter isn't used. Could we still copy it
+    // over?
+    auto *redecl = CreateEnumerationDecl(
+        ED->getName(), ED->getDeclContext()->getRedeclContext(),
+        OptionalClangModuleID(ED->getOwningModuleID()), Declaration{},
+        GetType(ED->getIntegerType()), ED->isScoped());
+    ConnectRedeclToPrev(*this, ED, redecl);
+    return llvm::Error::success();
+  }
+
+  if (auto *CTSD = dyn_cast<ClassTemplateSpecializationDecl>(tag_decl)) {
+    TemplateParameterInfos
+        template_param_infos; // TODO: need test that verifies that these are
+                              // copied correctly to the redeclaration
+    auto *redecl = CreateClassTemplateSpecializationDecl(
+        CTSD->getDeclContext()->getRedeclContext(),
+        OptionalClangModuleID(CTSD->getOwningModuleID()),
+        CTSD->getSpecializedTemplate(), llvm::to_underlying(CTSD->getTagKind()),
+        template_param_infos);
+    ConnectRedeclToPrev(*this, CTSD, redecl);
+    return llvm::Error::success();
+  }
+
+  assert(llvm::isa<RecordDecl>(tag_decl));
+
+  clang::NamedDecl *redecl_record = CreateRecordDecl(
+      tag_decl->getDeclContext()->getRedeclContext(),
+      OptionalClangModuleID(tag_decl->getOwningModuleID())
+      /*TODO: GetModuleForDecl(tag_decl)?*/,
+      lldb::eAccessPublic, tag_decl->getName(),
+      llvm::to_underlying(tag_decl->getTagKind()), eLanguageTypeC_plus_plus,
+      /* TODO: instead of passing metadata we could always use the canonical
+         decl for storing/retrieving metadata (in GetMetadata/SetMetadata) */
+      GetMetadata(tag_decl),
+      /* TODO: what do we do about the exports_symbols parameter? should it be
+         passed to CreateRedeclaration? Should it be copied over by checking
+         emptiness of name AND isAnonymousStructOrUnion? */
+      cast<RecordDecl>(tag_decl)->isAnonymousStructOrUnion());
+  clang::TagDecl *redecl = llvm::cast<TagDecl>(redecl_record);
+  ConnectRedeclToPrev(*this, tag_decl, redecl);
+
+  return llvm::Error::success();
 }

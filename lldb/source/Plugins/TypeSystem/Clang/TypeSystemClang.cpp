@@ -1226,6 +1226,21 @@ CompilerType TypeSystemClang::CreateRecordType(
     AccessType access_type, llvm::StringRef name, int kind,
     LanguageType language, std::optional<ClangASTMetadata> metadata,
     bool exports_symbols) {
+
+  auto *decl =
+      CreateRecordDecl(decl_ctx, owning_module, access_type, name, kind,
+                       language, std::move(metadata), exports_symbols);
+  if (!decl)
+    return {};
+
+  return GetTypeForDecl(decl);
+}
+
+clang::NamedDecl *TypeSystemClang::CreateRecordDecl(
+    clang::DeclContext *decl_ctx, OptionalClangModuleID owning_module,
+    AccessType access_type, llvm::StringRef name, int kind,
+    LanguageType language, std::optional<ClangASTMetadata> metadata,
+    bool exports_symbols) {
   ASTContext &ast = getASTContext();
 
   if (decl_ctx == nullptr)
@@ -1234,7 +1249,8 @@ CompilerType TypeSystemClang::CreateRecordType(
   if (language == eLanguageTypeObjC ||
       language == eLanguageTypeObjC_plus_plus) {
     bool isInternal = false;
-    return CreateObjCClass(name, decl_ctx, owning_module, isInternal, metadata);
+    return CreateObjCDecl(name, decl_ctx, owning_module, isInternal,
+                          std::move(metadata));
   }
 
   // NOTE: Eventually CXXRecordDecl will be merged back into RecordDecl and
@@ -1289,7 +1305,7 @@ CompilerType TypeSystemClang::CreateRecordType(
   if (decl_ctx)
     decl_ctx->addDecl(decl);
 
-  return GetType(ast.getTagDeclType(decl));
+  return decl;
 }
 
 namespace {
@@ -1803,6 +1819,18 @@ CompilerType TypeSystemClang::CreateObjCClass(
     llvm::StringRef name, clang::DeclContext *decl_ctx,
     OptionalClangModuleID owning_module, bool isInternal,
     std::optional<ClangASTMetadata> metadata) {
+  auto *decl = CreateObjCDecl(name, decl_ctx, owning_module, isInternal,
+                              std::move(metadata));
+  if (!decl)
+    return {};
+
+  return GetTypeForDecl(decl);
+}
+
+clang::ObjCInterfaceDecl *TypeSystemClang::CreateObjCDecl(
+    llvm::StringRef name, clang::DeclContext *decl_ctx,
+    OptionalClangModuleID owning_module, bool isInternal,
+    std::optional<ClangASTMetadata> metadata) {
   ASTContext &ast = getASTContext();
   assert(!name.empty());
   if (!decl_ctx)
@@ -1818,7 +1846,7 @@ CompilerType TypeSystemClang::CreateObjCClass(
   if (metadata)
     SetMetadata(decl, *metadata);
 
-  return GetType(ast.getObjCInterfaceType(decl));
+  return decl;
 }
 
 bool TypeSystemClang::BaseSpecifierIsEmpty(const CXXBaseSpecifier *b) {

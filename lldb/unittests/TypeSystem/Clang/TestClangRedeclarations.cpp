@@ -14,10 +14,12 @@
 #include "lldb/Core/Declaration.h"
 #include "lldb/Host/FileSystem.h"
 #include "lldb/Host/HostInfo.h"
+#include "clang/AST/DeclBase.h"
 #include "clang/AST/DeclCXX.h"
 #include "clang/AST/DeclObjC.h"
 #include "clang/AST/DeclTemplate.h"
 #include "clang/AST/Type.h"
+#include "llvm/Support/Error.h"
 #include "gtest/gtest.h"
 
 using namespace clang;
@@ -42,6 +44,33 @@ struct TestClangRedeclarations : public testing::Test {
   std::unique_ptr<clang_utils::TypeSystemClangHolder> m_holder;
 };
 
+template <typename DeclTy>
+void CheckRedeclarationChain(DeclTy * record) {
+  ASSERT_TRUE(record);
+
+  auto *def = record->getDefinition();
+  ASSERT_TRUE(def);
+
+  // Ensure that we created two distinct declarations that declare the same type.
+  ASSERT_NE(def, record);
+  EXPECT_EQ(def->getTypeForDecl(), record->getTypeForDecl());
+
+  EXPECT_EQ(def->getPreviousDecl(), record);
+  EXPECT_EQ(record->getPreviousDecl(), nullptr);
+
+  EXPECT_EQ(def->getMostRecentDecl(), def);
+  EXPECT_EQ(record->getMostRecentDecl(), def);
+
+  EXPECT_EQ(def->getCanonicalDecl(), record);
+  EXPECT_EQ(record->getCanonicalDecl(), record);
+
+  EXPECT_EQ(def->getFirstDecl(), record);
+  EXPECT_EQ(record->getFirstDecl(), record);
+
+  EXPECT_TRUE(record->isFirstDecl());
+  EXPECT_TRUE(!def->isFirstDecl());
+}
+
 TEST_F(TestClangRedeclarations, RedeclareCppClass) {
   // Test redeclaring C++ classes.
 
@@ -49,17 +78,16 @@ TEST_F(TestClangRedeclarations, RedeclareCppClass) {
   CompilerType class_type = m_ast->CreateRecordType(
       m_ast->GetTranslationUnitDecl(), module_id, lldb::eAccessNone, "A",
       llvm::to_underlying(TagTypeKind::Class), lldb::eLanguageTypeC_plus_plus);
-  auto *record = llvm::cast<CXXRecordDecl>(ClangUtil::GetAsTagDecl(class_type));
+  auto *record = llvm::cast_or_null<CXXRecordDecl>(ClangUtil::GetAsTagDecl(class_type));
+  ASSERT_TRUE(record);
 
-  m_ast->CreateRedeclaration(class_type);
+  if (auto err = m_ast->CreateRedeclaration(class_type))
+    llvm::handleAllErrors(std::move(err));
   m_ast->StartTagDeclarationDefinition(class_type);
-  // For C++ classes, the definition is already available (but it is currently
-  // being defined). Make sure the definition is last in the redecl chain.
   CXXRecordDecl *def = record->getDefinition();
   ASSERT_TRUE(def);
   ASSERT_TRUE(def->isBeingDefined());
-  ASSERT_NE(def, record);
-  EXPECT_EQ(def->getPreviousDecl(), record);
+  CheckRedeclarationChain(record);
 
   // Add a method.
   std::vector<CompilerType> args;
@@ -121,15 +149,16 @@ TEST_F(TestClangRedeclarations, RedeclareCppTemplateClass) {
   // rely on the caller to keep them around.
   args.reset();
 
-  m_ast->CreateRedeclaration(spec_type);
+  if (auto err = m_ast->CreateRedeclaration(spec_type))
+    llvm::handleAllErrors(std::move(err));
+
   m_ast->StartTagDeclarationDefinition(spec_type);
   // For C++ classes, the definition is already available (but it is currently
   // being defined). Make sure the definition is last in the redecl chain.
   CXXRecordDecl *def = fwd_decl->getDefinition();
   ASSERT_TRUE(def);
   ASSERT_TRUE(def->isBeingDefined());
-  ASSERT_NE(def, fwd_decl);
-  EXPECT_EQ(def->getPreviousDecl(), fwd_decl);
+  CheckRedeclarationChain(fwd_decl);
 
   // Add an ivar and check that it was added to the definition.
   FieldDecl *member_var = m_ast->AddFieldToRecordType(
@@ -157,15 +186,15 @@ TEST_F(TestClangRedeclarations, RedeclareObjCClass) {
   OptionalClangModuleID module_id(1);
   CompilerType objc_class =
       m_ast->CreateObjCClass("A", m_ast->GetTranslationUnitDecl(), module_id,
-                             /*isForwardDecl=*/false,
                              /*isInternal=*/false);
   ObjCInterfaceDecl *interface = m_ast->GetAsObjCInterfaceDecl(objc_class);
-  m_ast->CreateRedeclaration(objc_class);
+  if (auto err = m_ast->CreateRedeclaration(objc_class))
+    llvm::handleAllErrors(std::move(err));
+
   m_ast->StartTagDeclarationDefinition(objc_class);
   ObjCInterfaceDecl *def = interface->getDefinition();
   ASSERT_TRUE(def);
-  ASSERT_NE(def, interface);
-  EXPECT_EQ(def->getPreviousDecl(), interface);
+  CheckRedeclarationChain(interface);
 
   // Add a method.
   std::vector<CompilerType> args;
@@ -318,7 +347,8 @@ TEST_F(TestClangRedeclarations, MetadataRedeclaration) {
   ASSERT_EQ(m_ast->GetMetadata(record)->GetUserID(), 1234U);
 
   // Redeclare and define the redeclaration.
-  m_ast->CreateRedeclaration(class_with_metadata);
+  if (auto err = m_ast->CreateRedeclaration(class_with_metadata))
+    llvm::handleAllErrors(std::move(err));
   m_ast->StartTagDeclarationDefinition(class_with_metadata);
   m_ast->CompleteTagDeclarationDefinition(class_with_metadata);
   CXXRecordDecl *def = record->getDefinition();

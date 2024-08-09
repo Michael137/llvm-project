@@ -1031,6 +1031,8 @@ public:
                                     bool has_extern);
 
   // Tag Declarations
+  
+  // Definition will be on redeclaration last added to the chain.
   static bool StartTagDeclarationDefinition(const CompilerType &type);
 
   static bool CompleteTagDeclarationDefinition(const CompilerType &type);
@@ -1164,6 +1166,23 @@ public:
   /// Return the template parameters (including surrounding <>) in string form.
   std::string
   PrintTemplateParams(const TemplateParameterInfos &template_param_infos);
+
+  /// Creates a redeclaration for the declaration specified by the given type.
+  /// The redeclaration will be at the end of the redeclaration chain. The    
+  /// passed declaration has to be created via a TypeSystemClang interface.   
+  ///
+  /// The redecl chain created has following properties:
+  /// 1. "canonical"/"first" decl will be the original decl found for \ref ct.
+  ///    For the purposes of TypeSystemClang, the "first" decl will be the forward
+  ///    declaration that the DWARF AST and the ASTImporter operates on.
+  /// 2. "latest"/"most recent" decl will be a new decl created by this function
+  ///    whose "previous" decl will be the one from (1). This decl will be the
+  ///    one holding the definition (this is done in `StartTagDeclarationDefinition`.
+  ///                                                                         
+  /// \param type The type which declaration should be redeclared. Has to be  
+  /// an Objective-C interface type (or Objective-C type), RecordType or      
+  /// EnumType.                                                               
+  llvm::Error CreateRedeclaration(CompilerType ct);
 
 private:
   /// Returns the PrintingPolicy used when generating the internal type names.

@@ -9,8 +9,11 @@
 #include "TypeSystemClang.h"
 
 #include "clang/AST/DeclBase.h"
+#include "clang/AST/DeclCXX.h"
 #include "clang/AST/ExprCXX.h"
 #include "llvm/Support/Casting.h"
+#include "llvm/Support/Error.h"
+#include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/FormatAdapters.h"
 #include "llvm/Support/FormatVariadic.h"
 
@@ -1147,6 +1150,7 @@ CompilerDeclContext TypeSystemClang::CreateDeclContext(DeclContext *ctx) {
   return CompilerDeclContext(this, ctx);
 }
 
+// TODO: GetTypeForDecl APIs should account for the redecl chain
 CompilerType TypeSystemClang::GetTypeForDecl(clang::NamedDecl *decl) {
   if (clang::ObjCInterfaceDecl *interface_decl =
       llvm::dyn_cast<clang::ObjCInterfaceDecl>(decl))
@@ -1159,11 +1163,11 @@ CompilerType TypeSystemClang::GetTypeForDecl(clang::NamedDecl *decl) {
 }
 
 CompilerType TypeSystemClang::GetTypeForDecl(TagDecl *decl) {
-  return GetType(getASTContext().getTagDeclType(decl));
+  return GetType(getASTContext().getTypeDeclType(decl, decl->getPreviousDecl()));
 }
 
 CompilerType TypeSystemClang::GetTypeForDecl(ObjCInterfaceDecl *decl) {
-  return GetType(getASTContext().getObjCInterfaceType(decl));
+  return GetType(getASTContext().getObjCInterfaceType(decl, decl->getPreviousDecl()));
 }
 
 CompilerType TypeSystemClang::GetTypeForDecl(clang::ValueDecl *value_decl) {
@@ -2492,6 +2496,7 @@ void TypeSystemClang::SetMetadataAsUserID(const clang::Type *type,
 
 void TypeSystemClang::SetMetadata(const clang::Decl *object,
                                   ClangASTMetadata metadata) {
+    //TODO: need to use canonical decl?
   m_decl_metadata[object] = metadata;
 }
 
@@ -8420,7 +8425,10 @@ bool TypeSystemClang::StartTagDeclarationDefinition(const CompilerType &type) {
     if (!tag_decl)
       return false;
 
-    tag_decl->startDefinition();
+    clang::TagDecl * last_decl = tag_decl->getMostRecentDecl();
+    assert(last_decl);
+
+    last_decl->startDefinition();
     return true;
   }
 
@@ -8430,7 +8438,10 @@ bool TypeSystemClang::StartTagDeclarationDefinition(const CompilerType &type) {
     if (!interface_decl)
       return false;
 
-    interface_decl->startDefinition();
+    ObjCInterfaceDecl * last_decl = interface_decl->getMostRecentDecl();
+    assert(last_decl);
+
+    last_decl->startDefinition();
     return true;
   }
 
@@ -9881,4 +9892,58 @@ void TypeSystemClang::LogCreation() const {
   if (auto *log = GetLog(LLDBLog::Expressions))
     LLDB_LOG(log, "Created new TypeSystem for (ASTContext*){0:x} '{1}'",
              &getASTContext(), getDisplayName());
+}
+
+/// Appends an existing declaration to the redeclaration chain.
+/// \param ts The TypeSystemClang that contains the two declarations.
+/// \param prev The most recent existing declaration.
+/// \param redecl The new declaration which should be appended to the end of
+/// redeclaration chain.
+template <typename T>
+static void ConnectRedeclToPrev(TypeSystemClang &ts, T *prev, T *redecl) {
+  assert(&ts.getASTContext() == &prev->getASTContext() && "Not ");
+  redecl->setPreviousDecl(prev);
+  // Now that the redecl chain is done, create the type explicitly via
+  // the TypeSystemClang interface that will reuse the type of the previous
+  // decl.
+  ts.GetTypeForDecl(redecl);
+  // The previous decl and the redeclaration both declare the same type.
+  assert(prev->getTypeForDecl() == redecl->getTypeForDecl());
+}
+
+llvm::Error TypeSystemClang::CreateRedeclaration(CompilerType ct) {
+  // All the cases below just check for a specific declaration kind, create
+  // a new declaration with matching data. We don't care about metadata which
+  // should only be tracked in the first redeclaration and should be identical
+  // for all redeclarations.
+  if (!ct)
+    return llvm::createStringError("Failed to create redeclaration: invalid CompilerType");
+
+  if (clang::ObjCInterfaceDecl *interface = GetAsObjCInterfaceDecl(ct)) {
+      auto * redecl_interface = CreateObjCDecl(interface->getName(), interface->getDeclContext()->getRedeclContext(), OptionalClangModuleID(interface->getOwningModuleID()), interface->isImplicit());
+      // TODO: why is the assert in ConnectRedeclToPrev passing but the types aren't equal in the unit-test?
+      ConnectRedeclToPrev(*this, interface, redecl_interface);
+      return llvm::Error::success();
+  }
+
+  // TODO: need to connect CTSD with CTSD (and not a recorddecl)...otherwise getMostRecentDecl asserts in unit-tests
+
+  clang::TagDecl *tag_decl = ClangUtil::GetAsTagDecl(ct);
+  if (!tag_decl)
+    return llvm::createStringError("Failed to create redeclaration: unexpected decl kind");
+
+  assert(llvm::isa<RecordDecl>(tag_decl));
+  clang::NamedDecl *redecl_record = CreateRecordDecl(
+      tag_decl->getDeclContext()->getRedeclContext(),
+      OptionalClangModuleID(tag_decl->getOwningModuleID())
+      /*TODO: GetModuleForDecl(tag_decl)?*/, lldb::eAccessPublic, tag_decl->getName(),
+      llvm::to_underlying(tag_decl->getTagKind()), eLanguageTypeC_plus_plus,
+      /* TODO: instead of passing metadata we could always use the canonical decl for storing/retrieving metadata (in GetMetadata/SetMetadata) */
+      GetMetadata(tag_decl),
+      /* TODO: what do we do about the exports_symbols parameter? should it be passed to CreateRedeclaration? Should it be copied over by checking emptiness of name AND isAnonymousStructOrUnion? */
+      cast<RecordDecl>(tag_decl)->isAnonymousStructOrUnion());
+  clang::TagDecl *redecl = llvm::cast<TagDecl>(redecl_record);
+  ConnectRedeclToPrev(*this, tag_decl, redecl);
+
+  return llvm::Error::success();
 }

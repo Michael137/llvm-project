@@ -2326,6 +2326,9 @@ CompilerType TypeSystemClang::CreateStructForIdentifier(
     return type;
   }
 
+  // No need to create redeclaration here since we start and complete
+  // the definition in one go. And never expect clang to ask us about
+  // this type.
   type = CreateRecordType(
       nullptr, OptionalClangModuleID(), lldb::eAccessPublic, type_name,
       llvm::to_underlying(clang::TagTypeKind::Struct), lldb::eLanguageTypeC);

@@ -1,0 +1,196 @@
+# Hand-written yaml corresponding to following program:
+#
+#   struct Foo {
+#       int mem = 0;
+#       void func();
+#   
+#       static int s_func();
+#   };
+#   
+#   int Foo::s_func() {
+#       return 0;
+#   }
+#   
+#   void Foo::func() {}
+#   
+#   Foo global;
+#
+--- !ELF
+FileHeader:
+  Class:   ELFCLASS64
+  Data:    ELFDATA2LSB
+  Type:    ET_EXEC
+  Machine: EM_AARCH64
+DWARF:
+  debug_str:
+    - global
+    - Foo
+    - int
+  debug_abbrev:
+    - ID:              0
+      Table:
+        - Code:            0x01
+          Tag:             DW_TAG_compile_unit
+          Children:        DW_CHILDREN_yes
+          Attributes:
+            - Attribute:       DW_AT_language
+              Form:            DW_FORM_data2
+        - Code:            0x02
+          Tag:             DW_TAG_variable
+          Children:        DW_CHILDREN_no
+          Attributes:
+            - Attribute:       DW_AT_name
+              Form:            DW_FORM_strp
+            - Attribute:       DW_AT_type
+              Form:            DW_FORM_ref4
+            - Attribute:       DW_AT_external
+              Form:            DW_FORM_flag_present
+        - Code:            0x03
+          Tag:             DW_TAG_structure_type
+          Children:        DW_CHILDREN_yes
+          Attributes:
+            - Attribute:       DW_AT_name
+              Form:            DW_FORM_strp
+            - Attribute:       DW_AT_calling_convention
+              Form:            DW_FORM_data1
+            - Attribute:       DW_AT_byte_size
+              Form:            DW_FORM_data1
+        - Code:            0x04
+          Tag:             DW_TAG_member
+          Children:        DW_CHILDREN_no
+          Attributes:
+            - Attribute:       DW_AT_type
+              Form:            DW_FORM_ref4
+            - Attribute:       DW_AT_name
+              Form:            DW_FORM_strp
+            - Attribute:       DW_AT_data_member_location
+              Form:            DW_FORM_data1
+        - Code:            0x05
+          Tag:             DW_TAG_subprogram
+          Children:        DW_CHILDREN_yes
+          Attributes:
+            - Attribute:       DW_AT_linkage_name
+              Form:            DW_FORM_strp
+            - Attribute:       DW_AT_name
+              Form:            DW_FORM_strp
+            - Attribute:       DW_AT_declaration
+              Form:            DW_FORM_flag_present
+            - Attribute:       DW_AT_external
+              Form:            DW_FORM_flag_present
+        - Code:            0x06
+          Tag:             DW_TAG_formal_parameter
+          Children:        DW_CHILDREN_no
+          Attributes:
+            - Attribute:       DW_AT_type
+              Form:            DW_FORM_ref4
+            - Attribute:       DW_AT_artificial
+              Form:            DW_FORM_flag_present
+        - Code:            0x07
+          Tag:             DW_TAG_subprogram
+          Children:        DW_CHILDREN_no
+          Attributes:
+            - Attribute:       DW_AT_linkage_name
+              Form:            DW_FORM_strp
+            - Attribute:       DW_AT_type
+              Form:            DW_FORM_data4
+            - Attribute:       DW_AT_name
+              Form:            DW_FORM_strp
+            - Attribute:       DW_AT_declaration
+              Form:            DW_FORM_flag_present
+            - Attribute:       DW_AT_external
+              Form:            DW_FORM_flag_present
+        - Code:            0x08
+          Tag:             DW_TAG_base_type
+          Children:        DW_CHILDREN_no
+          Attributes:
+            - Attribute:       DW_AT_name
+              Form:            DW_FORM_strp
+            - Attribute:       DW_AT_encoding
+              Form:            DW_FORM_data1
+            - Attribute:       DW_AT_byte_size
+              Form:            DW_FORM_data1
+        - Code:            0x09
+          Tag:             DW_TAG_pointer_type
+          Children:        DW_CHILDREN_no
+          Attributes:
+            - Attribute:       DW_AT_type
+              Form:            DW_FORM_ref4
+        - Code:            0xA
+          Tag:             DW_TAG_subprogram
+          Children:        DW_CHILDREN_no
+          Attributes:
+            - Attribute:       DW_AT_specification
+              Form:            DW_FORM_ref4
+        - Code:            0xB
+          Tag:             DW_TAG_subprogram
+          Children:        DW_CHILDREN_yes
+          Attributes:
+            - Attribute:       DW_AT_specification
+              Form:            DW_FORM_ref4
+            - Attribute:       DW_AT_object_pointer
+              Form:            DW_FORM_ref4
+        - Code:            0xB
+          Tag:             DW_TAG_formal_parameter
+          Children:        DW_CHILDREN_no
+          Attributes:
+            - Attribute:       DW_AT_name
+              Form:            DW_FORM_strp
+            - Attribute:       DW_AT_type
+              Form:            DW_FORM_ref4
+            - Attribute:       DW_AT_artificial
+              Form:            DW_FORM_flag_present
+
+  debug_info:
+    - Version:         5
+      UnitType:        DW_UT_compile
+      AddrSize:        8
+      Entries:
+# 0x0c: DW_TAG_compile_unit
+#         DW_AT_language [DW_FORM_data2]    (DW_LANG_C_plus_plus_14)
+        - AbbrCode:        0x01
+          Values:
+            - Value:           0x0021
+
+# 0x0f:   DW_TAG_variable
+#           DW_AT_name [DW_FORM_strp]       ("global")
+#           DW_AT_type [DW_FORM_ref4]       (0x00000018 "Foo")
+#           DW_AT_external [DW_FORM_flag_present]   (true)
+        - AbbrCode:        0x02
+          Values:
+            - Value:           0x0
+            - Value:           0x18
+
+# 0x18:   DW_TAG_structure_type
+#           DW_AT_name               [DW_FORM_strp] ("Foo")
+#           DW_AT_calling_convention [DW_FORM_data1] (DW_CC_pass_by_value)
+#           DW_AT_byte_size          [DW_FORM_data1] (0x04)
+        - AbbrCode:        0x03
+          Values:
+            - Value:           0x07
+            - Value:           0x05
+            - Value:           0x04
+
+# 0x1e:   DW_TAG_tag_member
+#           DW_AT_type [DW_FORM_ref4]  (0x..TODO "int")
+#           DW_AT_name [DW_FORM_strp]  ("mem")
+#           DW_AT_data_member_location [DW_FORM_data1] (0x00)
+        - AbbrCode:        0x04
+          Values:
+            - Value:           0x25
+            - Value:           0xA
+            - Value:           0x00
+
+        - AbbrCode:        0x00 # end of child tags of 0x18
+
+# 0x..TODO:   DW_TAG_base_type
+#           DW_AT_name      [DW_FORM_strp]  ("int")
+#           DW_AT_encoding  [DW_FORM_data1] (DW_ATE_signed)
+#           DW_AT_byte_size [DW_FORM_data1] (0x04)
+        - AbbrCode:        0x08
+          Values:
+            - Value: 0xE
+            - Value: 0x05
+            - Value: 0x04
+
+        - AbbrCode:        0x00 # end of child tags of 0x0c
+...

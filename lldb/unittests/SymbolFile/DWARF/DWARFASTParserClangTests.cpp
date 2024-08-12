@@ -12,6 +12,7 @@
 #include "TestingSupport/Symbol/ClangTestUtils.h"
 #include "TestingSupport/Symbol/YAMLModuleTester.h"
 #include "lldb/Core/Debugger.h"
+#include "llvm/BinaryFormat/Dwarf.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 
@@ -596,5 +597,87 @@ TEST_F(DWARFASTParserClangTests, TestDefaultTemplateParamParsing) {
     if (decl->getName() == "bar" || decl->getName() == "baz") {
       check_decl(decl);
     }
+  }
+}
+
+TEST_F(DWARFASTParserClangTests, TestClangRedeclarations_simple_struct) {
+  // Tests that we create redeclarations for tag types.
+  auto BufferOrError = llvm::MemoryBuffer::getFile(
+      GetInputFilePath("test-redeclarations-simple-struct.yaml"), /*IsText=*/true);
+  ASSERT_TRUE(BufferOrError);
+  YAMLModuleTester t(BufferOrError.get()->getBuffer());
+
+  DWARFUnit *unit = t.GetDwarfUnit();
+  ASSERT_NE(unit, nullptr);
+  const DWARFDebugInfoEntry *cu_entry = unit->DIE().GetDIE();
+  ASSERT_EQ(cu_entry->Tag(), DW_TAG_compile_unit);
+  DWARFDIE cu_die(unit, cu_entry);
+
+  auto holder = std::make_unique<clang_utils::TypeSystemClangHolder>("ast");
+  auto &ast_ctx = *holder->GetAST();
+  DWARFASTParserClangStub ast_parser(ast_ctx);
+
+  DWARFDIE global_var = cu_die.GetFirstChild();
+  ASSERT_TRUE(global_var.IsValid());
+  ASSERT_EQ(global_var.Tag(), DW_TAG_variable);
+  ASSERT_EQ(::strcmp(global_var.GetName(), "global"), 0);
+
+  DWARFDIE simple_struct =
+      global_var.GetAttributeValueAsReferenceDIE(DW_AT_type);
+  ASSERT_TRUE(simple_struct.IsValid());
+  ASSERT_EQ(simple_struct.Tag(), DW_TAG_structure_type);
+
+  SymbolContext sc;
+  bool new_type = false;
+  lldb::TypeSP type_sp =
+      ast_parser.ParseTypeFromDWARF(sc, simple_struct, &new_type);
+  ASSERT_TRUE(type_sp);
+  ASSERT_TRUE(new_type);
+
+  ASSERT_EQ(::strcmp(simple_struct.GetName(), "Foo"), 0);
+
+  {
+      // Verify that createing a new type creates a new redeclaration chain.
+      CompilerType ct = type_sp->GetForwardCompilerType();
+      auto const * fwd = ClangUtil::GetAsTagDecl(ct);
+      EXPECT_TRUE(fwd->isFirstDecl());
+
+      auto const * def = fwd->getMostRecentDecl();
+      EXPECT_NE(def, fwd);
+      EXPECT_EQ(def->getTypeForDecl(), fwd->getTypeForDecl());
+
+      // Make sure the definition hasn't been started/completed yet.
+      EXPECT_FALSE(fwd->isCompleteDefinition());
+      EXPECT_FALSE(fwd->isBeingDefined());
+      EXPECT_FALSE(fwd->isThisDeclarationADefinition());
+      EXPECT_EQ(
+          fwd->getDefinition(),
+          nullptr); // TODO: technically ExternalSource should complete it here
+
+      EXPECT_FALSE(def->isCompleteDefinition());
+      EXPECT_FALSE(def->isBeingDefined());
+      EXPECT_FALSE(def->isThisDeclarationADefinition());
+      EXPECT_EQ(def->getDefinition(), nullptr);
+
+      // TODO: check ExternalSource generation count here
+
+      const bool completed =
+          ast_parser.CompleteTypeFromDWARF(simple_struct, type_sp.get(), ct);
+      ASSERT_TRUE(completed);
+
+      // Verify that after completion, the canonical decl still remains
+      // a forward declaration, and the most recent decl (aka the definition)
+      // now has DefinitionData and is complete.
+      EXPECT_FALSE(fwd->isCompleteDefinition());
+      EXPECT_FALSE(fwd->isBeingDefined());
+      EXPECT_FALSE(fwd->isThisDeclarationADefinition());
+
+      // Verify the definition is now retrievable through the canonical decl.
+      EXPECT_EQ(fwd->getDefinition(), def);
+
+      EXPECT_TRUE(def->isCompleteDefinition());
+      EXPECT_FALSE(def->isBeingDefined());
+      EXPECT_TRUE(def->isThisDeclarationADefinition());
+      EXPECT_EQ(def->getDefinition(), def);
   }
 }

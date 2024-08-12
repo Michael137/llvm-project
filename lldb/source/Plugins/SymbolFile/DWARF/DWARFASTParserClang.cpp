@@ -45,6 +45,7 @@
 #include "clang/AST/Type.h"
 #include "llvm/ADT/StringExtras.h"
 #include "llvm/Demangle/Demangle.h"
+#include "llvm/Support/Error.h"
 
 #include <map>
 #include <memory>
@@ -1812,6 +1813,10 @@ DWARFASTParserClang::ParseStructureLikeDIE(const SymbolContext &sc,
         containing_decl_ctx, GetOwningClangModule(die), attrs.accessibility,
         attrs.name.GetCString(), tag_decl_kind, attrs.class_language, metadata,
         attrs.exports_symbols);
+
+    // TODO: handle case where CreateRedeclaration doesn't return ErrorSuccess. In that
+    // case we should log and early return nullptr.
+    llvm::handleAllErrors(m_ast.CreateRedeclaration(clang_type));
   }
 
   TypeSP type_sp = dwarf->MakeType(

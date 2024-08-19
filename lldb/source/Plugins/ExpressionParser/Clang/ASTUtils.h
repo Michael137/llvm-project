@@ -14,6 +14,7 @@
 #include "clang/Sema/MultiplexExternalSemaSource.h"
 #include "clang/Sema/Sema.h"
 #include "clang/Sema/SemaConsumer.h"
+#include "llvm/ADT/IntrusiveRefCntPtr.h"
 #include <optional>
 
 namespace clang {
@@ -42,6 +43,11 @@ public:
 
   clang::Selector GetExternalSelector(uint32_t ID) override {
     return m_Source->GetExternalSelector(ID);
+  }
+
+  void ReadUndefinedButUsed(
+      llvm::MapVector<clang::NamedDecl *, clang::SourceLocation> &Undefined) override {
+      Undefined.clear();
   }
 
   uint32_t GetNumExternalSelectors() override {
@@ -250,16 +256,19 @@ class SemaSourceWithPriorities : public clang::ExternalSemaSource {
 
 private:
   /// The sources ordered in decreasing priority.
-  llvm::SmallVector<clang::ExternalSemaSource *, 2> Sources;
+  llvm::SmallVector<llvm::IntrusiveRefCntPtr<clang::ExternalSemaSource>, 2> Sources;
 
 public:
   /// Construct a SemaSourceWithPriorities with a 'high quality' source that
   /// has the higher priority and a 'low quality' source that will be used
   /// as a fallback.
-  SemaSourceWithPriorities(clang::ExternalSemaSource &high_quality_source,
-                           clang::ExternalSemaSource &low_quality_source) {
-    Sources.push_back(&high_quality_source);
-    Sources.push_back(&low_quality_source);
+  SemaSourceWithPriorities(clang::ExternalSemaSource * high_quality_source,
+                           clang::ExternalSemaSource * low_quality_source) {
+    assert (high_quality_source);
+    assert (low_quality_source);
+
+    Sources.emplace_back(high_quality_source);
+    Sources.emplace_back(low_quality_source);
   }
 
   ~SemaSourceWithPriorities() override;

@@ -1221,21 +1221,20 @@ ClangExpressionParser::ParseInternal(DiagnosticManager &diagnostic_manager,
     decl_map->InstallCodeGenerator(&m_compiler->getASTConsumer());
     decl_map->InstallDiagnosticManager(diagnostic_manager);
 
-    clang::ExternalASTSource *ast_source = decl_map->CreateProxy();
+    clang::ExternalASTSource *ast_source = decl_map->CreateProxy(); // TODO: gets leaked if multiplexed
+    auto * ast_source_wrapper = new ExternalASTSourceWrapper(ast_source); // TODO: gets leaked
 
     if (ast_context.getExternalSource()) {
-      auto module_wrapper =
-          new ExternalASTSourceWrapper(ast_context.getExternalSource());
+      auto * module_wrapper =
+          new ExternalASTSourceWrapper(ast_context.getExternalSource()); // TODO: gets leaked
 
-      auto ast_source_wrapper = new ExternalASTSourceWrapper(ast_source);
-
-      auto multiplexer =
-          new SemaSourceWithPriorities(*module_wrapper, *ast_source_wrapper);
-      IntrusiveRefCntPtr<ExternalASTSource> Source(multiplexer);
-      ast_context.setExternalSource(Source);
+      auto * multiplexer =
+          new SemaSourceWithPriorities(module_wrapper, ast_source_wrapper);
+      ast_context.setExternalSource(multiplexer);
     } else {
       ast_context.setExternalSource(ast_source);
     }
+    m_compiler->getSema().addExternalSource(ast_source_wrapper);
     decl_map->InstallASTContext(*m_ast_context);
   }
 

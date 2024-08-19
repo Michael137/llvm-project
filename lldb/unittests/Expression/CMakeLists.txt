@@ -1,5 +1,6 @@
 add_lldb_unittest(ExpressionTests
   ClangParserTest.cpp
+  ClangExpressionParserTests.cpp
   ClangExpressionDeclMapTest.cpp
   DiagnosticManagerTest.cpp
   DWARFExpressionTest.cpp

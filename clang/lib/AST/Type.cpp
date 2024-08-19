@@ -4077,6 +4077,12 @@ TagDecl *TagType::getDecl() const {
   return getInterestingTagDecl(decl);
 }
 
+TagDecl *TagType::getCanonicalDecl() const {
+  // Don't go through getDecl() because we don't want redecl completion
+  // to trigger.
+  return decl->getCanonicalDecl();
+}
+
 bool TagType::isBeingDefined() const {
   return getDecl()->isBeingDefined();
 }

@@ -5959,6 +5959,8 @@ protected:
 public:
   TagDecl *getDecl() const;
 
+  TagDecl *getCanonicalDecl() const;
+
   /// Determines whether this type is in the process of being defined.
   bool isBeingDefined() const;
 

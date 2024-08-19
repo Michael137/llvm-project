@@ -216,6 +216,7 @@ public:
 
   CompilerType GetCStringType(bool is_const);
 
+  /// Returns some decl corresponding to \ref type as a clang:DeclContext.
   static clang::DeclContext *GetDeclContextForType(clang::QualType type);
 
   static clang::DeclContext *GetDeclContextForType(const CompilerType &type);
@@ -242,9 +243,13 @@ public:
   CompilerType GetType(clang::QualType qt) {
     if (qt.getTypePtrOrNull() == nullptr)
       return CompilerType();
-    // Check that the type actually belongs to this TypeSystemClang.
-    assert(qt->getAsTagDecl() == nullptr ||
-           &qt->getAsTagDecl()->getASTContext() == &getASTContext());
+
+    // We want to use getCanonicalDecl here because we don't want to to trigger
+    // redecl completion.
+    if (auto * TT = llvm::dyn_cast<clang::TagType>(qt.getTypePtr()))
+      // Check that the type actually belongs to this TypeSystemClang.
+      assert(&TT->getCanonicalDecl()->getASTContext() == &getASTContext());
+
     return CompilerType(weak_from_this(), qt.getAsOpaquePtr());
   }
 

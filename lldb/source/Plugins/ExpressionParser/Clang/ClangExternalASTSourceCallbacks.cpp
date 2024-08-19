@@ -22,6 +22,10 @@ void ClangExternalASTSourceCallbacks::CompleteType(clang::TagDecl *tag_decl) {
   m_ast.CompleteTagDecl(tag_decl);
 }
 
+void ClangExternalASTSourceCallbacks::CompleteRedeclChain(const clang::Decl *decl) {
+  __builtin_debugtrap();
+}
+
 void ClangExternalASTSourceCallbacks::CompleteType(
     clang::ObjCInterfaceDecl *objc_decl) {
   m_ast.CompleteObjCInterfaceDecl(objc_decl);

@@ -21,6 +21,7 @@
 #include "Plugins/ExpressionParser/Clang/ClangASTImporter.h"
 #include "Plugins/ExpressionParser/Clang/ClangASTMetadata.h"
 #include "Plugins/ExpressionParser/Clang/ClangUtil.h"
+#include "Plugins/TypeSystem/Clang/ImporterBackedASTSource.h"
 #include "Plugins/Language/ObjC/ObjCLanguage.h"
 #include "lldb/Core/Module.h"
 #include "lldb/Core/Value.h"
@@ -1817,6 +1818,10 @@ DWARFASTParserClang::ParseStructureLikeDIE(const SymbolContext &sc,
     // TODO: handle case where CreateRedeclaration doesn't return ErrorSuccess. In that
     // case we should log and early return nullptr.
     llvm::handleAllErrors(m_ast.CreateRedeclaration(clang_type));
+    auto & ast_ctx = m_ast.getASTContext();
+    if (auto * source = llvm::dyn_cast_or_null<ImporterBackedASTSource>(ast_ctx.getExternalSource())) {
+      source->MarkRedeclChainsAsOutOfDate(ast_ctx);
+    }
   }
 
   TypeSP type_sp = dwarf->MakeType(
@@ -1828,8 +1833,12 @@ DWARFASTParserClang::ParseStructureLikeDIE(const SymbolContext &sc,
   // Store a forward declaration to this class type in case any
   // parameters in any class methods need it for the clang types for
   // function prototypes.
+  //
+  // Use GetClangDeclContextContainingDIE because GetDeclContextForType would
+  // call into CompleteRedeclChain via getDecl~>getInterestingTagDecl.
   clang::DeclContext *type_decl_ctx =
-      TypeSystemClang::GetDeclContextForType(clang_type);
+      //TypeSystemClang::GetDeclContextForType(clang_type);
+      GetClangDeclContextContainingDIE(die, nullptr);
   LinkDeclContextToDIE(type_decl_ctx, die);
 
   // UniqueDWARFASTType is large, so don't create a local variables on the
@@ -1861,7 +1870,7 @@ DWARFASTParserClang::ParseStructureLikeDIE(const SymbolContext &sc,
           .second;
   assert(inserted && "Type already in the forward declaration map!");
   (void)inserted;
-  m_ast.SetHasExternalStorage(clang_type.GetOpaqueQualType(), true);
+  //m_ast.SetHasExternalStorage(clang_type.GetOpaqueQualType(), true);
 
   // If we made a clang type, set the trivial abi if applicable: We only
   // do this for pass by value - which implies the Trivial ABI. There

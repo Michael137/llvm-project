@@ -3512,6 +3512,7 @@ bool TypeSystemClang::IsFloatingPointType(lldb::opaque_compiler_type_t type,
   return false;
 }
 
+// TODO: this would trigger a call to CompleteRedeclChain via getDecl~>getInterestingTagDecl
 bool TypeSystemClang::IsDefined(lldb::opaque_compiler_type_t type) {
   if (!type)
     return false;

@@ -45,6 +45,10 @@ public:
 
   void CompleteType(clang::TagDecl *tag_decl) override;
 
+  // For completion of the redecl chain when called from within
+  // the DWARF AST parser.
+  void CompleteRedeclChain(const clang::Decl *decl) override;
+
   void CompleteType(clang::ObjCInterfaceDecl *objc_decl) override;
 
   bool layoutRecordType(

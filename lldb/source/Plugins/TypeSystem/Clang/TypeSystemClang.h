@@ -9,6 +9,7 @@
 #ifndef LLDB_SOURCE_PLUGINS_TYPESYSTEM_CLANG_TYPESYSTEMCLANG_H
 #define LLDB_SOURCE_PLUGINS_TYPESYSTEM_CLANG_TYPESYSTEMCLANG_H
 
+#include <atomic>
 #include <cstdint>
 
 #include <functional>
@@ -28,6 +29,7 @@
 #include "clang/Basic/TargetInfo.h"
 #include "llvm/ADT/APSInt.h"
 #include "llvm/ADT/SmallVector.h"
+#include "llvm/Support/ErrorHandling.h"
 
 #include "Plugins/ExpressionParser/Clang/ClangASTMetadata.h"
 #include "Plugins/ExpressionParser/Clang/ClangPersistentVariables.h"
@@ -37,6 +39,7 @@
 #include "lldb/Target/Target.h"
 #include "lldb/Utility/ConstString.h"
 #include "lldb/Utility/Flags.h"
+#include "lldb/Utility/LLDBAssert.h"
 #include "lldb/Utility/Log.h"
 #include "lldb/lldb-enumerations.h"
 
@@ -1152,6 +1155,11 @@ public:
   std::string
   PrintTemplateParams(const TemplateParameterInfos &template_param_infos);
 
+  std::optional<llvm::json::Value> ReportStatistics() override;
+
+  TypeSystemStats * GetStatistics() override { return &m_stats; }
+  TypeSystemStats const * GetStatistics() const override { return &m_stats; }
+
 private:
   /// Returns the PrintingPolicy used when generating the internal type names.
   /// These type names are mostly used for the formatter selection.
@@ -1220,6 +1228,8 @@ private:
   /// May be null if we are already done parsing this ASTContext or the
   /// ASTContext wasn't created by parsing source code.
   clang::Sema *m_sema = nullptr;
+
+  TypeSystemStats m_stats;
 
   // For TypeSystemClang only
   TypeSystemClang(const TypeSystemClang &);

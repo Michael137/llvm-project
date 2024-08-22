@@ -9781,6 +9781,10 @@ ScratchTypeSystemClang::GetPersistentExpressionState() {
   return m_persistent_variables.get();
 }
 
+std::optional<llvm::json::Value> TypeSystemClang::ReportStatistics() {
+  return m_stats.ToJSON();
+}
+
 void ScratchTypeSystemClang::ForgetSource(ASTContext *src_ctx,
                                           ClangASTImporter &importer) {
   // Remove it as a source from the main AST.

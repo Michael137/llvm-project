@@ -521,6 +521,7 @@ public:
   bool GetValueAsScalar(const DataExtractor &data, lldb::offset_t data_offset,
                         size_t data_byte_size, Scalar &value,
                         ExecutionContextScope *exe_scope) const;
+
   void Clear() {
     m_type_system = {};
     m_type = nullptr;

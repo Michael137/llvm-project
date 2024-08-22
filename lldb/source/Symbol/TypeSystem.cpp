@@ -13,6 +13,7 @@
 #include "lldb/Target/Language.h"
 
 #include "llvm/ADT/DenseSet.h"
+#include <mutex>
 #include <optional>
 
 using namespace lldb_private;
@@ -345,4 +346,81 @@ bool TypeSystem::SupportsLanguageStatic(lldb::LanguageType language) {
   if (languages.Empty())
     return false;
   return languages[language];
+}
+
+std::optional<llvm::json::Value> TypeSystemStats::ToJSON() const {
+    using namespace llvm;
+
+    json::Object typesystem_stats_json;
+    //json::Array json_module_uuid_array;
+    //json_module_uuid_array.emplace_back(1);
+    //json_module_uuid_array.emplace_back(2);
+    //typesystem_stats.try_emplace("test", std::move(json_module_uuid_array));
+
+    typesystem_stats_json.try_emplace("numForwardCompilerTypes", GetForwardCompilerTypeCount());
+    typesystem_stats_json.try_emplace("numFullCompilerTypes", GetFullCompilerTypeCount());
+    typesystem_stats_json.try_emplace("resolvedCount", GetNumResolvedCount());
+    typesystem_stats_json.try_emplace("layoutResolvedCounts", GetNumLayoutResolvedCount());
+    
+    json::Object transitions;
+    {
+      std::lock_guard lck(m_mutex);
+      for (const auto &kv : m_transition_map)
+        transitions.try_emplace(kv.getKey(), kv.getValue());
+
+    }
+    typesystem_stats_json.try_emplace("transitions", std::move(transitions));
+
+    return typesystem_stats_json;
+}
+
+void TypeSystemStats::UpdateResolveStateCounts(unsigned char old_state, unsigned char new_state) {
+  if (old_state == new_state)
+    return;
+
+  UpdateResolveTransitionCounts(old_state, new_state);
+
+  switch ((Type::ResolveState)old_state) {
+    case Type::ResolveState::Forward:
+      const auto old_fwd = m_num_current_forward_compiler_type.fetch_sub(1, std::memory_order_relaxed);
+      assert(old_fwd > 0);
+      break;
+    case Type::ResolveState::Layout:
+      llvm_unreachable("Can't create 'Layout' CompilerTypes.");
+    case Type::ResolveState::Full:
+      llvm_unreachable("Can't downgrade from a 'Full' CompilerType to something less resolved.");
+    case Type::ResolveState::Unresolved:
+      break;
+  }
+
+  switch ((Type::ResolveState)new_state) {
+    case Type::ResolveState::Forward:
+      AddForwardCompilerTypeCount();
+      break;
+    case Type::ResolveState::Layout:
+      llvm_unreachable("Can't create 'Layout' CompilerTypes.");
+    case Type::ResolveState::Full:
+      AddFullCompilerTypeCount();
+      break;
+    case Type::ResolveState::Unresolved:
+      llvm_unreachable("Setting a resolved CompilerType to 'Unresolved' state shouldn't happen.");
+  }
+}
+
+void TypeSystemStats::UpdateResolveTransitionCounts(unsigned char old_state, unsigned char new_state) {
+  // TODO: this doesn't capture the transitions/completions that occur when calling ResolveCompilerType(Layout)
+  // on a forward CompilerType
+  std::lock_guard lck(m_mutex);
+
+  switch ((Type::ResolveState)old_state) {
+    case Type::ResolveState::Forward:
+      if ((Type::ResolveState)new_state == Type::ResolveState::Full)
+        m_transition_map["forward_to_full"]++;
+      break;
+    case Type::ResolveState::Layout:
+      llvm_unreachable("Can't create 'Layout' CompilerTypes.");
+    case Type::ResolveState::Full:
+    case Type::ResolveState::Unresolved:
+      break;
+  }
 }

@@ -9,6 +9,8 @@
 #ifndef LLDB_SYMBOL_TYPESYSTEM_H
 #define LLDB_SYMBOL_TYPESYSTEM_H
 
+#include <atomic>
+#include <cstdint>
 #include <functional>
 #include <mutex>
 #include <optional>
@@ -17,6 +19,7 @@
 #include "llvm/ADT/APFloat.h"
 #include "llvm/ADT/APSInt.h"
 #include "llvm/ADT/DenseMap.h"
+#include "llvm/ADT/StringMap.h"
 #include "llvm/ADT/SmallBitVector.h"
 #include "llvm/Support/Casting.h"
 #include "llvm/Support/Error.h"
@@ -46,6 +49,61 @@ class DWARFASTParser;
 namespace npdb {
   class PdbAstBuilder;
 } // namespace npdb
+
+class TypeSystem;
+
+/// A class that represents statistics for a single TypeSytemClang
+/// TODO: thread-safety
+///
+/// TODO: collect stats for
+/// 1. expression evaluation time
+/// 2. ParseAST time
+/// 3. ClangASTImporter
+/// 4. DONE: CompilerType
+/// 5. DWARFASTParserClang
+class TypeSystemStats {
+public:
+  std::optional<llvm::json::Value> ToJSON() const;
+
+  void UpdateResolveStateCounts(unsigned char old_state, unsigned char new_state);
+  void UpdateResolveTransitionCounts(unsigned char old_state, unsigned char new_state);
+
+  void AddFullyResolvedCount() {
+    m_num_compiler_type_resolved.fetch_add(1, std::memory_order_relaxed);
+  }
+
+  void AddForwardCompilerTypeCount() {
+    m_num_current_forward_compiler_type.fetch_add(1, std::memory_order_relaxed);
+  }
+
+  void AddFullCompilerTypeCount() {
+    m_num_current_full_compiler_type.fetch_add(1, std::memory_order_relaxed);
+  }
+
+  void AddLayoutResolvedCount() {
+    m_num_layout_resolved.fetch_add(1, std::memory_order_relaxed);
+  }
+
+  void UpdateFwdToLayoutTransition() {
+    std::lock_guard lck(m_mutex);
+    m_transition_map["forward_to_layout"]++;
+  }
+
+  uint64_t GetForwardCompilerTypeCount() const { return m_num_current_forward_compiler_type.load(std::memory_order_relaxed); }
+  uint64_t GetFullCompilerTypeCount() const { return m_num_current_full_compiler_type.load(std::memory_order_relaxed); }
+  uint64_t GetNumResolvedCount() const { return m_num_compiler_type_resolved.load(std::memory_order_relaxed); }
+  uint64_t GetNumLayoutResolvedCount() const { return m_num_layout_resolved.load(std::memory_order_relaxed); }
+
+private:
+  mutable std::mutex m_mutex;
+
+  std::atomic<uint64_t> m_num_current_forward_compiler_type;
+  std::atomic<uint64_t> m_num_current_full_compiler_type;
+  std::atomic<uint64_t> m_num_compiler_type_resolved; // How many types we completed the type
+  std::atomic<uint64_t> m_num_layout_resolved; // How many types we called ResolveCompilerType(ResolveState::Layout)
+
+  llvm::StringMap<uint64_t> m_transition_map;
+};
 
 /// Interface for representing a type system.
 ///
@@ -536,6 +594,9 @@ public:
 
   virtual std::optional<llvm::json::Value> ReportStatistics();
 
+  virtual TypeSystemStats * GetStatistics() { return nullptr; }
+  virtual TypeSystemStats const * GetStatistics() const { return nullptr; }
+
   bool GetHasForcefullyCompletedTypes() const {
     return m_has_forcefully_completed_types;
   }
@@ -593,8 +654,8 @@ private:
   llvm::Expected<lldb::TypeSystemSP> GetTypeSystemForLanguage(
       lldb::LanguageType language,
       std::optional<CreateCallback> create_callback = std::nullopt);
-  };
+};
 
-  } // namespace lldb_private
+} // namespace lldb_private
 
 #endif // LLDB_SYMBOL_TYPESYSTEM_H

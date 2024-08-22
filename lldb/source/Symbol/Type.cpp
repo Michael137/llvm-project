@@ -34,6 +34,7 @@
 #include "lldb/lldb-enumerations.h"
 #include "lldb/lldb-private-enumerations.h"
 
+#include "llvm/ADT/STLForwardCompat.h"
 #include "llvm/ADT/StringRef.h"
 
 using namespace lldb;
@@ -262,9 +263,11 @@ Type::Type(lldb::user_id_t uid, SymbolFile *symbol_file, ConstString name,
       m_symbol_file(symbol_file), m_context(context),
       m_encoding_uid(encoding_uid), m_encoding_uid_type(encoding_uid_type),
       m_decl(decl), m_compiler_type(compiler_type),
-      m_compiler_type_resolve_state(compiler_type ? compiler_type_resolve_state
-                                                  : ResolveState::Unresolved),
+      m_compiler_type_resolve_state(ResolveState::Unresolved),
       m_payload(opaque_payload) {
+
+  SetCompilerResolveState(compiler_type ? compiler_type_resolve_state : ResolveState::Unresolved);
+
   if (byte_size) {
     m_byte_size = *byte_size;
     m_byte_size_has_value = true;
@@ -555,6 +558,14 @@ bool Type::WriteToMemory(ExecutionContext *exe_ctx, lldb::addr_t addr,
 
 const Declaration &Type::GetDeclaration() const { return m_decl; }
 
+void Type::SetCompilerResolveState(ResolveState state) {
+  if (auto ts = m_compiler_type.GetTypeSystem())
+    if (auto * stats = ts->GetStatistics())
+      stats->UpdateResolveStateCounts(llvm::to_underlying(m_compiler_type_resolve_state), llvm::to_underlying(state));
+
+  m_compiler_type_resolve_state = state;
+}
+
 bool Type::ResolveCompilerType(ResolveState compiler_type_resolve_state) {
   // TODO: This needs to consider the correct type system to use.
   Type *encoding_type = nullptr;
@@ -567,8 +578,7 @@ bool Type::ResolveCompilerType(ResolveState compiler_type_resolve_state) {
             encoding_type->GetForwardCompilerType();
         if (encoding_compiler_type.IsValid()) {
           m_compiler_type = encoding_compiler_type;
-          m_compiler_type_resolve_state =
-              encoding_type->m_compiler_type_resolve_state;
+          SetCompilerResolveState(encoding_type->m_compiler_type_resolve_state);
         }
       } break;
 
@@ -689,7 +699,13 @@ bool Type::ResolveCompilerType(ResolveState compiler_type_resolve_state) {
     // set to eResolveStateUnresolved so we need to update it to say that we
     // now have a forward declaration since that is what we created above.
     if (m_compiler_type.IsValid())
-      m_compiler_type_resolve_state = ResolveState::Forward;
+      SetCompilerResolveState(ResolveState::Forward);
+  }
+
+  if (compiler_type_resolve_state == ResolveState::Layout) {
+    if (auto ts = m_compiler_type.GetTypeSystem())
+      if (auto * stats = ts->GetStatistics())
+        stats->AddLayoutResolvedCount();
   }
 
   // Check if we have a forward reference to a class/struct/union/enum?
@@ -698,11 +714,22 @@ bool Type::ResolveCompilerType(ResolveState compiler_type_resolve_state) {
     // Check if we have a forward reference to a class/struct/union/enum?
     if (m_compiler_type.IsValid() &&
         m_compiler_type_resolve_state < compiler_type_resolve_state) {
-      m_compiler_type_resolve_state = ResolveState::Full;
+
+      if (compiler_type_resolve_state == ResolveState::Layout
+          && m_compiler_type_resolve_state == ResolveState::Forward
+          && !m_compiler_type.IsDefined())
+        if (auto ts = m_compiler_type.GetTypeSystem())
+          if (auto * stats = ts->GetStatistics())
+            stats->UpdateFwdToLayoutTransition();
+
+      SetCompilerResolveState(ResolveState::Full);
       if (!m_compiler_type.IsDefined()) {
         // We have a forward declaration, we need to resolve it to a complete
         // definition.
         m_symbol_file->CompleteType(m_compiler_type);
+        if (auto ts = m_compiler_type.GetTypeSystem())
+          if (auto * stats = ts->GetStatistics())
+            stats->AddFullyResolvedCount();
       }
     }
   }

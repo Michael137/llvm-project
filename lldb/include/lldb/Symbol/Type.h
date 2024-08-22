@@ -557,6 +557,7 @@ protected:
 
   Type *GetEncodingType();
 
+  void SetCompilerResolveState(ResolveState state);
   bool ResolveCompilerType(ResolveState compiler_type_resolve_state);
 private:
   /// Only allow Symbol File to create types, as they should own them by keeping

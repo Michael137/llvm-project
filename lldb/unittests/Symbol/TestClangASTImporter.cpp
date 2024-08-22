@@ -8,6 +8,7 @@
 
 #include "gtest/gtest.h"
 
+#include "Plugins/SymbolFile/DWARF/DWARFASTParserClang.h"
 #include "Plugins/ExpressionParser/Clang/ClangASTImporter.h"
 #include "Plugins/ExpressionParser/Clang/ClangASTMetadata.h"
 #include "Plugins/ExpressionParser/Clang/ClangUtil.h"

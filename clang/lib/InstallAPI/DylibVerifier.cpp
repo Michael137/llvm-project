@@ -55,12 +55,12 @@ static std::string demangle(StringRef Name) {
   // InstallAPI currently only supports itanium manglings.
   if (!isCppMangled(Name))
     return Name.str();
-  char *Result = llvm::itaniumDemangle(Name);
+  llvm::DemanglerReturnInfo Result = llvm::itaniumDemangle(Name);
   if (!Result)
     return Name.str();
 
-  std::string Demangled(Result);
-  free(Result);
+  std::string Demangled(Result.Demangled);
+  free(Result.Demangled);
   return Demangled;
 }
 

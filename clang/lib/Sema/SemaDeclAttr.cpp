@@ -1632,8 +1632,10 @@ static void handleWeakRefAttr(Sema &S, Decl *D, const ParsedAttr &AL) {
 static void markUsedForAliasOrIfunc(Sema &S, Decl *D, const ParsedAttr &AL,
                                     StringRef Str) {
   std::unique_ptr<char, llvm::FreeDeleter> Demangled;
-  if (S.getASTContext().getCXXABIKind() != TargetCXXABI::Microsoft)
-    Demangled.reset(llvm::itaniumDemangle(Str, /*ParseParams=*/false));
+  if (S.getASTContext().getCXXABIKind() != TargetCXXABI::Microsoft) {
+    auto Info = llvm::itaniumDemangle(Str, /*ParseParams=*/false);
+    Demangled.reset(Info.Demangled);
+  }
   std::unique_ptr<MangleContext> MC(S.Context.createMangleContext());
   SmallString<256> Name;
 

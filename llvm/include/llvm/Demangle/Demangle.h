@@ -29,10 +29,23 @@ enum : int {
   demangle_success = 0,
 };
 
+struct [[nodiscard]] DemanglerReturnInfo {
+  /// Owned, needs to be freed by caller
+  /// On success, is a non-NULL pointer to a
+  /// NUL-terminated C style string
+  char * Demangled = nullptr;
+
+  ssize_t FailedAt = -1;
+
+  explicit operator bool() {
+    return Demangled;
+  }
+};
+
 /// Returns a non-NULL pointer to a NUL-terminated C style string
 /// that should be explicitly freed, if successful. Otherwise, may return
 /// nullptr if mangled_name is not a valid mangling or is nullptr.
-char *itaniumDemangle(std::string_view mangled_name, bool ParseParams = true);
+DemanglerReturnInfo itaniumDemangle(std::string_view mangled_name, bool ParseParams = true);
 
 enum MSDemangleFlags {
   MSDF_None = 0,
@@ -69,7 +82,8 @@ std::string demangle(std::string_view MangledName);
 
 bool nonMicrosoftDemangle(std::string_view MangledName, std::string &Result,
                           bool CanHaveLeadingDot = true,
-                          bool ParseParams = true);
+                          bool ParseParams = true,
+                          ssize_t *FailedAt = nullptr);
 
 /// "Partial" demangler. This supports demangling a string into an AST
 /// (typically an intermediate stage in itaniumDemangle) and querying certain

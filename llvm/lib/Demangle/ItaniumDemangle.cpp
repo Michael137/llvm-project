@@ -366,21 +366,24 @@ public:
 
 using Demangler = itanium_demangle::ManglingParser<DefaultAllocator>;
 
-char *llvm::itaniumDemangle(std::string_view MangledName, bool ParseParams) {
+DemanglerReturnInfo llvm::itaniumDemangle(std::string_view MangledName, bool ParseParams) {
   if (MangledName.empty())
-    return nullptr;
+    return {};
+
+  OutputBuffer OB;
 
   Demangler Parser(MangledName.data(),
                    MangledName.data() + MangledName.length());
   Node *AST = Parser.parse(ParseParams);
-  if (!AST)
-    return nullptr;
+  if (!AST) {
+    return { .FailedAt = std::distance(MangledName.data(), Parser.First) + 1 };
+  }
 
-  OutputBuffer OB;
   assert(Parser.ForwardTemplateRefs.empty());
   AST->print(OB);
   OB += '\0';
-  return OB.getBuffer();
+
+  return {.Demangled = OB.getBuffer()};
 }
 
 ItaniumPartialDemangler::ItaniumPartialDemangler()

@@ -64,7 +64,7 @@ static void error(const Twine &Message) {
   exit(1);
 }
 
-static std::string demangle(const std::string &Mangled) {
+static std::string demangle(const std::string &Mangled, ssize_t * FailedAt = nullptr) {
   using llvm::itanium_demangle::starts_with;
   std::string_view DecoratedStr = Mangled;
   bool CanHaveLeadingDot = true;
@@ -75,18 +75,21 @@ static std::string demangle(const std::string &Mangled) {
 
   std::string Result;
   if (nonMicrosoftDemangle(DecoratedStr, Result, CanHaveLeadingDot,
-                           ParseParams))
+                           ParseParams, FailedAt))
     return Result;
 
   std::string Prefix;
   char *Undecorated = nullptr;
 
-  if (Types)
-    Undecorated = itaniumDemangle(DecoratedStr, ParseParams);
+  if (Types) {
+    auto Info = itaniumDemangle(DecoratedStr, ParseParams);
+    Undecorated = Info.Demangled;
+  }
 
   if (!Undecorated && starts_with(DecoratedStr, "__imp_")) {
     Prefix = "import thunk for ";
-    Undecorated = itaniumDemangle(DecoratedStr.substr(6), ParseParams);
+    auto Info = itaniumDemangle(DecoratedStr.substr(6), ParseParams);
+    Undecorated = Info.Demangled;
   }
 
   Result = Undecorated ? Prefix + Undecorated : Mangled;
@@ -133,14 +136,24 @@ static bool IsLegalItaniumChar(char C) {
 // mangled item.  The result is output to 'OS'.
 static void demangleLine(llvm::raw_ostream &OS, StringRef Mangled, bool Split) {
   std::string Result;
+  ssize_t FailedAt = -1;
   if (Split) {
     SmallVector<std::pair<StringRef, StringRef>, 16> Words;
     SplitStringDelims(Mangled, Words, IsLegalItaniumChar);
     for (const auto &Word : Words)
       Result += ::demangle(std::string(Word.first)) + Word.second.str();
   } else
-    Result = ::demangle(std::string(Mangled));
+    Result = ::demangle(std::string(Mangled), &FailedAt);
+
   OS << Result << '\n';
+
+  if (FailedAt >= 0) {
+    for (ssize_t i = 0; i < FailedAt - 1; ++i)
+      OS << "~";
+
+    OS << "^\n";
+  }
+  
   OS.flush();
 }
 

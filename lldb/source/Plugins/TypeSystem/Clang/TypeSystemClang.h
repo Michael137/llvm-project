@@ -482,11 +482,12 @@ public:
 
   bool BaseSpecifierIsEmpty(const clang::CXXBaseSpecifier *b);
 
+  CompilerType
   CreateObjCClass(llvm::StringRef name, clang::DeclContext *decl_ctx,
                   OptionalClangModuleID owning_module, bool isInternal,
                   std::optional<ClangASTMetadata> metadata = std::nullopt) {
     clang::ObjCInterfaceDecl *d = CreateObjCDecl(
-        name, decl_ctx, owning_module, isForwardDecl, isInternal, metadata);
+        name, decl_ctx, owning_module, isInternal, metadata);
     return GetTypeForDecl(d);
   }
 

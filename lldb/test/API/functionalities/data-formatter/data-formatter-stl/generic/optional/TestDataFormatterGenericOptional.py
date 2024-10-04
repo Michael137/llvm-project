@@ -59,7 +59,7 @@ class GenericOptionalDataFormatterTestCase(TestBase):
         self.expect(
             "frame var numbers",
             substrs=[
-                "(optional_int_vect) numbers =  Has Value=true  {",
+                "(optional_int_vect) numbers = Has Value=true {",
                 "Value = size=4 {",
                 "[0] = 1",
                 "[1] = 2",
@@ -73,7 +73,7 @@ class GenericOptionalDataFormatterTestCase(TestBase):
         self.expect(
             "frame var ostring",
             substrs=[
-                "(optional_string) ostring =  Has Value=true  {",
+                "(optional_string) ostring = Has Value=true {",
                 'Value = "hello"',
                 "}",
             ],

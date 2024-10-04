@@ -18,7 +18,7 @@ using namespace lldb_private;
 
 bool lldb_private::formatters::GenericOptionalSummaryProvider(
     ValueObject &valobj, Stream &stream, const TypeSummaryOptions &options) {
-  stream.Printf(" Has Value=%s ",
+  stream.Printf("Has Value=%s",
                 valobj.GetNumChildrenIgnoringErrors() == 0 ? "false" : "true");
 
   return true;

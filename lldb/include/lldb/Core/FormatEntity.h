@@ -83,6 +83,8 @@ struct Entry {
     FunctionID,
     FunctionDidChange,
     FunctionInitialFunction,
+    FunctionBaseName,
+    FunctionScopeName,
     FunctionName,
     FunctionNameWithArgs,
     FunctionNameNoArgs,

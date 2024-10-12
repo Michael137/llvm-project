@@ -112,6 +112,8 @@ constexpr Definition g_frame_child_entries[] = {
 constexpr Definition g_function_child_entries[] = {
     Definition("id", EntryType::FunctionID),
     Definition("name", EntryType::FunctionName),
+    Definition("basename", EntryType::FunctionBaseName),
+    Definition("scope", EntryType::FunctionScopeName),
     Definition("name-without-args", EntryType::FunctionNameNoArgs),
     Definition("name-with-args", EntryType::FunctionNameWithArgs),
     Definition("mangled-name", EntryType::FunctionMangledName),
@@ -338,6 +340,8 @@ const char *FormatEntity::Entry::TypeToCString(Type t) {
     ENUM_TO_CSTR(FunctionID);
     ENUM_TO_CSTR(FunctionDidChange);
     ENUM_TO_CSTR(FunctionInitialFunction);
+    ENUM_TO_CSTR(FunctionBaseName);
+    ENUM_TO_CSTR(FunctionScopeName);
     ENUM_TO_CSTR(FunctionName);
     ENUM_TO_CSTR(FunctionNameWithArgs);
     ENUM_TO_CSTR(FunctionNameNoArgs);
@@ -1624,6 +1628,59 @@ bool FormatEntity::Format(const Entry &entry, Stream &s,
 
   case Entry::Type::FunctionInitialFunction:
     return initial_function;
+
+  // TODO: need to also handle function template arguments and function arguments
+  //
+  // Alternative is to introduce something like
+  // FunctionNameNoArgsColored/FunctionNameWithArgsColored
+  // which would highlight the function name inside GetScopeQualifiedName
+  // using ASCII escape codes (like we do on the WoC branch).
+  case Entry::Type::FunctionBaseName: {
+    if (!sc)
+      return false;
+
+    Language *language_plugin = nullptr;
+
+    if (sc->function)
+      language_plugin = Language::FindPlugin(sc->function->GetLanguage());
+    else if (sc->symbol)
+      language_plugin = Language::FindPlugin(sc->symbol->GetLanguage());
+
+    if (!language_plugin)
+      return false;
+
+    StreamString ss;
+    if (!language_plugin->GetFunctionBaseName(
+        sc, exe_ctx, Language::FunctionNameRepresentation::eName, ss))
+      return false;
+
+    s.PutCString(ss.GetString());
+    FormatInlinedBlock(s, sc->block);
+    return true;
+  }
+  case Entry::Type::FunctionScopeName: {
+    if (!sc)
+      return false;
+
+    Language *language_plugin = nullptr;
+
+    if (sc->function)
+      language_plugin = Language::FindPlugin(sc->function->GetLanguage());
+    else if (sc->symbol)
+      language_plugin = Language::FindPlugin(sc->symbol->GetLanguage());
+
+    if (!language_plugin)
+      return false;
+
+    StreamString ss;
+    if (!language_plugin->GetFunctionScopeName(
+        sc, exe_ctx, Language::FunctionNameRepresentation::eName, ss))
+      return false;
+
+    s.PutCString(ss.GetString());
+    FormatInlinedBlock(s, sc->block);
+    return true;
+  }
 
   case Entry::Type::FunctionName: {
     if (!sc)

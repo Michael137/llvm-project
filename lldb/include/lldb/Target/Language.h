@@ -273,6 +273,16 @@ public:
                                       FunctionNameRepresentation representation,
                                       Stream &s);
 
+  virtual bool GetFunctionScopeName(const SymbolContext *sc,
+                                    const ExecutionContext *exe_ctx,
+                                    FunctionNameRepresentation representation,
+                                    Stream &s) { return false; }
+
+  virtual bool GetFunctionBaseName(const SymbolContext *sc,
+                                   const ExecutionContext *exe_ctx,
+                                   FunctionNameRepresentation representation,
+                                   Stream &s) { return false; }
+
   virtual ConstString
   GetDemangledFunctionNameWithoutArguments(Mangled mangled) const {
     if (ConstString demangled = mangled.GetDemangledName())

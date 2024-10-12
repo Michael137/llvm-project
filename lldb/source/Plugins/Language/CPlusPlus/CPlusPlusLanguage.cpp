@@ -1759,3 +1759,62 @@ bool CPlusPlusLanguage::GetFunctionDisplayName(
 
   return false;
 }
+
+bool CPlusPlusLanguage::GetFunctionScopeName(const SymbolContext *sc,
+                          const ExecutionContext *exe_ctx,
+                          FunctionNameRepresentation representation,
+                          Stream &s) {
+  ConstString name;
+  if (sc->function) {
+    name = sc->function->GetName();
+  } else if (sc->symbol) {
+    name = sc->symbol->GetName();
+  }
+
+  if (!name)
+    return false;
+
+  CPlusPlusLanguage::MethodName cpp_method{name};
+
+  if (!cpp_method.IsValid())
+    return false;
+
+  if (llvm::StringRef return_type = cpp_method.GetReturnType();
+      !return_type.empty()) {
+    s.PutCString(return_type);
+    s.PutChar(' ');
+  }
+
+  
+  if (llvm::StringRef context = cpp_method.GetContext();
+      !context.empty()) {
+    s.PutCString(context);
+    s.PutCString("::");
+  }
+
+  return true;
+}
+
+bool CPlusPlusLanguage::GetFunctionBaseName(const SymbolContext *sc,
+                         const ExecutionContext *exe_ctx,
+                         FunctionNameRepresentation representation,
+                         Stream &s) {
+  ConstString name;
+  if (sc->function) {
+    name = sc->function->GetName();
+  } else if (sc->symbol) {
+    name = sc->symbol->GetName();
+  }
+
+  if (!name)
+    return false;
+
+  CPlusPlusLanguage::MethodName cpp_method{name};
+
+  if (!cpp_method.IsValid())
+    return false;
+
+  s.PutCString(cpp_method.GetBasename());
+
+  return true;
+}

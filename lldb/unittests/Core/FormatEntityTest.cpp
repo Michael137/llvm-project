@@ -103,6 +103,8 @@ constexpr llvm::StringRef lookupStrings[] = {
     "${frame.reg.*}",
     "${frame.is-artificial}",
     "${function.id}",
+    "${function.basename}",
+    "${function.scope}",
     "${function.name}",
     "${function.name-without-args}",
     "${function.name-with-args}",

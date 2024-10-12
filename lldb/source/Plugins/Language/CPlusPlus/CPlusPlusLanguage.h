@@ -143,6 +143,16 @@ public:
                               FunctionNameRepresentation representation,
                               Stream &s) override;
 
+  bool GetFunctionScopeName(const SymbolContext *sc,
+                            const ExecutionContext *exe_ctx,
+                            FunctionNameRepresentation representation,
+                            Stream &s) override;
+
+  bool GetFunctionBaseName(const SymbolContext *sc,
+                           const ExecutionContext *exe_ctx,
+                           FunctionNameRepresentation representation,
+                           Stream &s) override;
+
   static bool IsCPPMangledName(llvm::StringRef name);
 
   // Extract C++ context and identifier from a string using heuristic matching

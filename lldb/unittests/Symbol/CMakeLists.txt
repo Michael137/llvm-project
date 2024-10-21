@@ -19,6 +19,7 @@ add_lldb_unittest(SymbolTests
     lldbUtilityHelpers
     lldbPluginObjectFileELF
     lldbPluginObjectFileMachO
+    lldbPluginPlatformMacOSX
     lldbPluginSymbolFileDWARF
     lldbPluginSymbolFileSymtab
     lldbPluginTypeSystemClang

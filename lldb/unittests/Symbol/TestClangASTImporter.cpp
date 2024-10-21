@@ -10,11 +10,15 @@
 
 #include "Plugins/ExpressionParser/Clang/ClangASTImporter.h"
 #include "Plugins/ExpressionParser/Clang/ClangASTMetadata.h"
+#include "Plugins/ExpressionParser/Clang/ClangASTSource.h"
 #include "Plugins/ExpressionParser/Clang/ClangUtil.h"
+#include "Plugins/Platform/MacOSX/PlatformMacOSX.h"
+#include "Plugins/Platform/MacOSX/PlatformRemoteMacOSX.h"
 #include "Plugins/SymbolFile/DWARF/DWARFASTParserClang.h"
 #include "Plugins/TypeSystem/Clang/TypeSystemClang.h"
 #include "TestingSupport/SubsystemRAII.h"
 #include "TestingSupport/Symbol/ClangTestUtils.h"
+#include "lldb/Core/Debugger.h"
 #include "lldb/Core/Declaration.h"
 #include "lldb/Host/FileSystem.h"
 #include "lldb/Host/HostInfo.h"
@@ -26,7 +30,7 @@ using namespace lldb_private;
 
 class TestClangASTImporter : public testing::Test {
 public:
-  SubsystemRAII<FileSystem, HostInfo> subsystems;
+  SubsystemRAII<FileSystem, HostInfo, PlatformMacOSX> subsystems;
 };
 
 TEST_F(TestClangASTImporter, CanImportInvalidType) {
@@ -44,7 +48,7 @@ TEST_F(TestClangASTImporter, CopyDeclTagDecl) {
   clang_utils::SourceASTWithRecord source;
 
   auto holder =
-      std::make_unique<clang_utils::TypeSystemClangHolder>("target ast");
+      std::make_unique<clang_utils::TypeSystemHolder<TypeSystemClang>>("target ast");
   auto *target_ast = holder->GetAST();
 
   ClangASTImporter importer;
@@ -71,7 +75,7 @@ TEST_F(TestClangASTImporter, CopyTypeTagDecl) {
   clang_utils::SourceASTWithRecord source;
 
   auto holder =
-      std::make_unique<clang_utils::TypeSystemClangHolder>("target ast");
+      std::make_unique<clang_utils::TypeSystemHolder<TypeSystemClang>>("target ast");
   auto *target_ast = holder->GetAST();
 
   ClangASTImporter importer;
@@ -100,14 +104,14 @@ TEST_F(TestClangASTImporter, CompleteFwdDeclWithOtherOrigin) {
   // Create an AST with a type thst is only a forward declaration with the
   // same name as the one in the other source.
   auto holder =
-      std::make_unique<clang_utils::TypeSystemClangHolder>("ast");
+      std::make_unique<clang_utils::TypeSystemHolder<TypeSystemClang>>("ast");
   auto *fwd_decl_source = holder->GetAST();
   CompilerType fwd_decl_type = clang_utils::createRecord(
       *fwd_decl_source, source_with_definition.record_decl->getName());
 
   // Create a target and import the forward decl.
   auto target_holder =
-      std::make_unique<clang_utils::TypeSystemClangHolder>("target ast");
+      std::make_unique<clang_utils::TypeSystemHolder<TypeSystemClang>>("target ast");
   auto *target = target_holder->GetAST();
   ClangASTImporter importer;
   CompilerType imported = importer.CopyType(*target, fwd_decl_type);
@@ -129,7 +133,7 @@ TEST_F(TestClangASTImporter, DeportDeclTagDecl) {
   clang_utils::SourceASTWithRecord source;
 
   auto holder =
-      std::make_unique<clang_utils::TypeSystemClangHolder>("target ast");
+      std::make_unique<clang_utils::TypeSystemHolder<TypeSystemClang>>("target ast");
   auto *target_ast = holder->GetAST();
 
   ClangASTImporter importer;
@@ -153,7 +157,7 @@ TEST_F(TestClangASTImporter, DeportTypeTagDecl) {
   clang_utils::SourceASTWithRecord source;
 
   auto holder =
-      std::make_unique<clang_utils::TypeSystemClangHolder>("target ast");
+      std::make_unique<clang_utils::TypeSystemHolder<TypeSystemClang>>("target ast");
   auto *target_ast = holder->GetAST();
 
   ClangASTImporter importer;
@@ -180,7 +184,7 @@ TEST_F(TestClangASTImporter, MetadataPropagation) {
   source.ast->SetMetadataAsUserID(source.record_decl, metadata);
 
   auto holder =
-      std::make_unique<clang_utils::TypeSystemClangHolder>("target ast");
+      std::make_unique<clang_utils::TypeSystemHolder<TypeSystemClang>>("target ast");
   auto *target_ast = holder->GetAST();
 
   ClangASTImporter importer;
@@ -191,6 +195,9 @@ TEST_F(TestClangASTImporter, MetadataPropagation) {
   // Check that we got the same Metadata.
   ASSERT_NE(std::nullopt, importer.GetDeclMetadata(imported));
   EXPECT_EQ(metadata, importer.GetDeclMetadata(imported)->GetUserID());
+
+  ASSERT_NE(std::nullopt, source.ast->GetMetadata(source.record_decl));
+  ASSERT_NE(std::nullopt, target_ast->GetMetadata(imported));
 }
 
 TEST_F(TestClangASTImporter, MetadataPropagationIndirectImport) {
@@ -204,7 +211,7 @@ TEST_F(TestClangASTImporter, MetadataPropagationIndirectImport) {
   source.ast->SetMetadataAsUserID(source.record_decl, metadata);
 
   auto tmp_holder =
-      std::make_unique<clang_utils::TypeSystemClangHolder>("tmp ast");
+      std::make_unique<clang_utils::TypeSystemHolder<TypeSystemClang>>("tmp ast");
   auto *temporary_ast = tmp_holder->GetAST();
 
   ClangASTImporter importer;
@@ -213,7 +220,7 @@ TEST_F(TestClangASTImporter, MetadataPropagationIndirectImport) {
   ASSERT_NE(nullptr, temporary_imported);
 
   auto holder =
-      std::make_unique<clang_utils::TypeSystemClangHolder>("target ast");
+      std::make_unique<clang_utils::TypeSystemHolder<TypeSystemClang>>("target ast");
   auto *target_ast = holder->GetAST();
   clang::Decl *imported =
       importer.CopyDecl(&target_ast->getASTContext(), temporary_imported);
@@ -224,25 +231,41 @@ TEST_F(TestClangASTImporter, MetadataPropagationIndirectImport) {
   EXPECT_EQ(metadata, importer.GetDeclMetadata(imported)->GetUserID());
 }
 
-TEST_F(TestClangASTImporter, MetadataPropagationAfterCopying) {
-  // Tests that AST metadata is propagated when copying declarations even
-  // when the metadata was set after the declaration has already been copied.
+TEST_F(TestClangASTImporter, MetadataPropagation_ScratchTypeSystem) {
+  // Tests that AST metadata is propagated to the ScratchTypeSystemClang.
 
-  clang_utils::SourceASTWithRecord source;
+  TargetSP target_sp;
+  PlatformSP platform_sp;
+  ArchSpec arch("x86_64-apple-macosx-");
+  Platform::SetHostPlatform(PlatformRemoteMacOSX::CreateInstance(true, &arch));
+
+  auto debugger_sp = Debugger::CreateInstance();
+  ASSERT_NE(debugger_sp, nullptr);
+
+  // Create target
+  debugger_sp->GetTargetList().CreateTarget(*debugger_sp, "", arch,
+                                              lldb_private::eLoadDependentsNo,
+                                              platform_sp, target_sp);
+  ASSERT_NE(target_sp, nullptr);
+
+  auto source_holder = 
+      std::make_unique<clang_utils::TypeSystemHolder<TypeSystemClang>>("target ast");
+  auto * ast = source_holder->GetAST();
+  ASSERT_NE(ast, nullptr);
+
+  CompilerType source_record_type = clang_utils::createRecord(*ast, "Source");
+  auto * source_record_decl = llvm::cast<clang::RecordDecl>(ClangUtil::GetAsTagDecl(source_record_type));
+
   const lldb::user_id_t metadata = 123456;
+  ast->SetMetadataAsUserID(source_record_decl, metadata);
 
-  auto holder =
-      std::make_unique<clang_utils::TypeSystemClangHolder>("target ast");
+  auto holder =std::make_unique<clang_utils::TypeSystemHolder<ScratchTypeSystemClang>>(*target_sp);
   auto *target_ast = holder->GetAST();
 
   ClangASTImporter importer;
   clang::Decl *imported =
-      importer.CopyDecl(&target_ast->getASTContext(), source.record_decl);
+      importer.CopyDecl(&target_ast->getASTContext(), source_record_decl);
   ASSERT_NE(nullptr, imported);
-
-  // The TagDecl has been imported. Now set the metadata of the source and
-  // make sure the imported one will directly see it.
-  source.ast->SetMetadataAsUserID(source.record_decl, metadata);
 
   // Check that we got the same Metadata.
   ASSERT_NE(std::nullopt, importer.GetDeclMetadata(imported));
@@ -298,7 +321,7 @@ TEST_F(TestClangASTImporter, RecordLayoutFromOrigin) {
   importer.SetRecordLayout(source.record_decl, layout_info);
 
   auto holder =
-      std::make_unique<clang_utils::TypeSystemClangHolder>("target ast");
+      std::make_unique<clang_utils::TypeSystemHolder<TypeSystemClang>>("target ast");
   auto *target_ast = holder->GetAST();
 
   // Import the decl into a new TypeSystemClang.

@@ -103,7 +103,7 @@ DWARF:
   YAMLModuleTester t(yamldata);
   ASSERT_TRUE((bool)t.GetDwarfUnit());
 
-  auto holder = std::make_unique<clang_utils::TypeSystemClangHolder>("ast");
+  auto holder = std::make_unique<clang_utils::TypeSystemHolder<TypeSystemClang>>("ast");
   auto &ast_ctx = *holder->GetAST();
 
   DWARFASTParserClangStub ast_parser(ast_ctx);
@@ -256,7 +256,7 @@ DWARF:
   ASSERT_EQ(cu_entry->Tag(), DW_TAG_compile_unit);
   DWARFDIE cu_die(unit, cu_entry);
 
-  auto holder = std::make_unique<clang_utils::TypeSystemClangHolder>("ast");
+  auto holder = std::make_unique<clang_utils::TypeSystemHolder<TypeSystemClang>>("ast");
   auto &ast_ctx = *holder->GetAST();
   DWARFASTParserClangStub ast_parser(ast_ctx);
 
@@ -402,7 +402,7 @@ DWARF:
   ASSERT_EQ(cu_entry->Tag(), DW_TAG_compile_unit);
   DWARFDIE cu_die(unit, cu_entry);
 
-  auto holder = std::make_unique<clang_utils::TypeSystemClangHolder>("ast");
+  auto holder = std::make_unique<clang_utils::TypeSystemHolder<TypeSystemClang>>("ast");
   auto &ast_ctx = *holder->GetAST();
   DWARFASTParserClangStub ast_parser(ast_ctx);
 
@@ -424,7 +424,7 @@ DWARF:
 
 struct ExtractIntFromFormValueTest : public testing::Test {
   SubsystemRAII<FileSystem, HostInfo> subsystems;
-  clang_utils::TypeSystemClangHolder holder;
+  clang_utils::TypeSystemHolder<TypeSystemClang> holder;
   TypeSystemClang &ts;
 
   DWARFASTParserClang parser;
@@ -562,7 +562,7 @@ TEST_F(DWARFASTParserClangTests, TestDefaultTemplateParamParsing) {
   ASSERT_EQ(cu_entry->Tag(), DW_TAG_compile_unit);
   DWARFDIE cu_die(unit, cu_entry);
 
-  auto holder = std::make_unique<clang_utils::TypeSystemClangHolder>("ast");
+  auto holder = std::make_unique<clang_utils::TypeSystemHolder<TypeSystemClang>>("ast");
   auto &ast_ctx = *holder->GetAST();
   DWARFASTParserClangStub ast_parser(ast_ctx);
 

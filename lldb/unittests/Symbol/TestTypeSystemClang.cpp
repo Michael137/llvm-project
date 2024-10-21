@@ -29,7 +29,7 @@ public:
 
   void SetUp() override {
     m_holder =
-        std::make_unique<clang_utils::TypeSystemClangHolder>("test ASTContext");
+        std::make_unique<clang_utils::TypeSystemHolder<TypeSystemClang>>("test ASTContext");
     m_ast = m_holder->GetAST();
   }
 
@@ -41,7 +41,7 @@ public:
 protected:
   
   TypeSystemClang *m_ast = nullptr;
-  std::unique_ptr<clang_utils::TypeSystemClangHolder> m_holder;
+  std::unique_ptr<clang_utils::TypeSystemHolder<TypeSystemClang>> m_holder;
 
   QualType GetBasicQualType(BasicType type) const {
     return ClangUtil::GetQualType(m_ast->GetBasicTypeFromAST(type));
@@ -296,7 +296,7 @@ TEST_F(TestTypeSystemClang, TestGetEnumIntegerTypeBasicTypes) {
       SCOPED_TRACE(std::to_string(basic_type));
 
       auto holder =
-          std::make_unique<clang_utils::TypeSystemClangHolder>("enum_ast");
+          std::make_unique<clang_utils::TypeSystemHolder<TypeSystemClang>>("enum_ast");
       auto &ast = *holder->GetAST();
 
       CompilerType basic_compiler_type = ast.GetBasicType(basic_type);
@@ -315,7 +315,7 @@ TEST_F(TestTypeSystemClang, TestGetEnumIntegerTypeBasicTypes) {
 
 TEST_F(TestTypeSystemClang, TestOwningModule) {
   auto holder =
-      std::make_unique<clang_utils::TypeSystemClangHolder>("module_ast");
+      std::make_unique<clang_utils::TypeSystemHolder<TypeSystemClang>>("module_ast");
   auto &ast = *holder->GetAST();
   CompilerType basic_compiler_type = ast.GetBasicType(BasicType::eBasicTypeInt);
   CompilerType enum_type = ast.CreateEnumerationType(

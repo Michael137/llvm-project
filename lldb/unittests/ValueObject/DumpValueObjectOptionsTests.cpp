@@ -68,7 +68,7 @@ public:
     ASSERT_TRUE(m_process_sp);
     m_exe_ctx = ExecutionContext(m_process_sp);
 
-    m_holder = std::make_unique<clang_utils::TypeSystemClangHolder>("test");
+    m_holder = std::make_unique<clang_utils::TypeSystemHolder<TypeSystemClang>>("test");
     m_type_system = m_holder->GetAST();
   }
 
@@ -122,7 +122,7 @@ private:
                 ScriptInterpreterNone>
       m_subsystems;
 
-  std::unique_ptr<clang_utils::TypeSystemClangHolder> m_holder;
+  std::unique_ptr<clang_utils::TypeSystemHolder<TypeSystemClang>> m_holder;
   lldb::DebuggerSP m_debugger_sp;
   lldb::TargetSP m_target_sp;
   lldb::PlatformSP m_platform_sp;

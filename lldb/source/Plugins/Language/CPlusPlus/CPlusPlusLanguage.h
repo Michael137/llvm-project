@@ -46,9 +46,11 @@ public:
 
     ConstString GetFullName() const { return m_full; }
 
+    std::string GetScopeQualifiedNameColored();
     std::string GetScopeQualifiedName();
 
     llvm::StringRef GetBasename();
+    std::pair<llvm::StringRef, llvm::StringRef> GetDecomposedBasename();
 
     llvm::StringRef GetContext();
 

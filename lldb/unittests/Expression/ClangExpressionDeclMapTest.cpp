@@ -24,10 +24,10 @@ struct FakeClangExpressionDeclMap : public ClangExpressionDeclMap {
   FakeClangExpressionDeclMap(const std::shared_ptr<ClangASTImporter> &importer)
       : ClangExpressionDeclMap(false, nullptr, lldb::TargetSP(), importer,
                                nullptr) {
-    m_holder = std::make_unique<clang_utils::TypeSystemClangHolder>("ast");
+    m_holder = std::make_unique<clang_utils::TypeSystemHolder<TypeSystemClang>>("ast");
     m_scratch_context = m_holder->GetAST();
   }
-  std::unique_ptr<clang_utils::TypeSystemClangHolder> m_holder;
+  std::unique_ptr<clang_utils::TypeSystemHolder<TypeSystemClang>> m_holder;
   TypeSystemClang *m_scratch_context;
   /// Adds a persistent decl that can be found by the ClangExpressionDeclMap
   /// via GetPersistentDecl.
@@ -64,7 +64,7 @@ struct ClangExpressionDeclMapTest : public testing::Test {
   /// The ExpressionDeclMap for the current test case.
   std::unique_ptr<FakeClangExpressionDeclMap> decl_map;
 
-  std::unique_ptr<clang_utils::TypeSystemClangHolder> holder;
+  std::unique_ptr<clang_utils::TypeSystemHolder<TypeSystemClang>> holder;
   
   /// The target AST that lookup results should be imported to.
   TypeSystemClang *target_ast;
@@ -72,7 +72,7 @@ struct ClangExpressionDeclMapTest : public testing::Test {
   void SetUp() override {
     importer = std::make_shared<ClangASTImporter>();
     decl_map = std::make_unique<FakeClangExpressionDeclMap>(importer);
-    holder = std::make_unique<clang_utils::TypeSystemClangHolder>("target ast");
+    holder = std::make_unique<clang_utils::TypeSystemHolder<TypeSystemClang>>("target ast");
     target_ast = holder->GetAST();
     decl_map->InstallASTContext(*target_ast);
   }

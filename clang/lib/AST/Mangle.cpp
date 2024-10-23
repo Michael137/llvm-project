@@ -22,6 +22,7 @@
 #include "clang/Basic/SourceManager.h"
 #include "clang/Basic/TargetInfo.h"
 #include "llvm/ADT/StringExtras.h"
+#include "llvm/ADT/StringSwitch.h"
 #include "llvm/IR/DataLayout.h"
 #include "llvm/IR/Mangler.h"
 #include "llvm/Support/ErrorHandling.h"
@@ -126,7 +127,7 @@ bool MangleContext::shouldMangleDeclName(const NamedDecl *D) {
 
   // Any decl can be declared with __asm("foo") on it, and this takes precedence
   // over all other naming in the .o file.
-  if (D->hasAttr<AsmLabelAttr>())
+  if (D->hasAttr<AsmLabelAttr>() || D->hasAttr<StructorMangledNamesAttr>())
     return true;
 
   // Declarations that don't have identifier names always need to be mangled.
@@ -139,6 +140,56 @@ bool MangleContext::shouldMangleDeclName(const NamedDecl *D) {
 void MangleContext::mangleName(GlobalDecl GD, raw_ostream &Out) {
   const ASTContext &ASTContext = getASTContext();
   const NamedDecl *D = cast<NamedDecl>(GD.getDecl());
+
+  if (const StructorMangledNamesAttr *SMA = D->getAttr<StructorMangledNamesAttr>()) {
+    CXXConstructorDecl const * Ctor = dyn_cast<CXXConstructorDecl>(D);
+    CXXDestructorDecl const * Dtor = dyn_cast<CXXDestructorDecl>(D);
+    assert (Ctor || Dtor);
+    enum CtorDtor { None, Completing, Deleting, Base } CtorDtorVariant = None;
+
+    if (Dtor) {
+      switch (GD.getDtorType()) {
+          case Dtor_Complete:
+            CtorDtorVariant = Completing;
+            break;
+          case Dtor_Base:
+            CtorDtorVariant = Base;
+            break;
+          case Dtor_Deleting:
+          case Dtor_Comdat:
+            llvm_unreachable("");
+      }
+    } else if (Ctor) {
+      switch (GD.getCtorType()) {
+          case Ctor_Complete:
+            CtorDtorVariant = Completing;
+            break;
+          case Ctor_Base:
+            CtorDtorVariant = Base;
+            break;
+          case Ctor_DefaultClosure:
+          case Ctor_CopyingClosure:
+          case Ctor_Comdat:
+            llvm_unreachable("");
+      }
+    }
+
+    llvm::DenseMap<CtorDtor, llvm::StringRef> names;
+    for (auto name : SMA->mangledNames()) {
+      auto [structor_variant, mangled_name] = name.split(':');
+      auto variant = llvm::StringSwitch<CtorDtor>(structor_variant)
+          .Case("base", CtorDtor::Base)
+          .Case("complete", CtorDtor::Completing)
+          .Case("deleting", CtorDtor::Deleting)
+          .Default(CtorDtor::None);
+      names[variant] = mangled_name;
+    }
+
+    assert (CtorDtorVariant != CtorDtor::None);
+
+    Out << names[CtorDtorVariant];
+    return;
+  }
 
   // Any decl can be declared with __asm("foo") on it, and this takes precedence
   // over all other naming in the .o file.

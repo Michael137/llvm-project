@@ -28,5 +28,18 @@ another example of production-grade expression evaluation.
 
 * Template representations
 * AST fidelity (layout altering attributes)
+* ASTImporter
+  * MinimalImport
+  * C++ latest standards
+
+## Debugging
+
+expr -g
+expr -i0
+logs:
+    dwarf: lookups comp
+    lldb: expr types
+FindExternalVisibleDeclsByName
+generated IR
 
 ## Links

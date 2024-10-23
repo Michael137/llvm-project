@@ -65,7 +65,7 @@ to find the methods to implement.
 
 # Type Completion
 
-see expression_evaluation.md
+see [expression evaluation docs](../expression_evaluation.html)
 
 There are three levels of type completion, each requiring more type information:
 1. Pointer size: When you have a forward decl or a reference, and that's all you

@@ -140,15 +140,34 @@ This RFC proposes solutions to exactly this problem.
 TODO
 
 # Potential Solutions
+
+TODO: https://discord.com/channels/@me/1007084556702199938/1297856232325124158
+
+## Encode ABI tags in DWARF
+
+Attempted in: https://reviews.llvm.org/D144181
+
+Pros:
+* Simple on the Clang side
+
+Cons:
+* A LOT of types have abi-tags in STL, so need to be careful to mitigate size impact
+* For a complete solution, we can't *only* emit ABI tag constructors, we need to do it for any entity that might end up in a mangled name (due to templated constructors)
+* Deviates from how we handle this for other types of function calls. Philosophical question: do we want to rely on the mangled name roundtripping (given LLDB's reconstructed AST isn't/can't be fully accurate). Using the linkage name seems more robust
+* Only useful in this very narrow use-case. Don't see other consumers having a need for this attribute
+
+## Attach *all* manlged names to structor AST node
+
 Pavel suggestions in https://reviews.llvm.org/D143652 and https://reviews.llvm.org/D144181
-Attempt to add abi-tag DWARF: https://reviews.llvm.org/D144181
+Clang Attribute+ctor kind DWARF attribute
 
+Pros:
+* Now aligns with how we hanlde this for non-structor function calls
+* Doesn't rely on manlged name round-tripping (i.e., future-proof)
+* Likely more space efficient
 
-https://discord.com/channels/@me/1007084556702199938/1297856232325124158
-
-4 solutions:
-1. emit abi-tags
-2. clang attribute+ctor kind DWARF attribute
-3. clang attribute+remangling in LLDB
-4. emit multiple DW_TAG_subprogram children declarations (one for each variant)
-   with a DW_AT_linkage_name each (which is how methods are represented)
+Cons:
+* Requires Clang attribute (though not terribly controversial as this would only be
+  used programmatically; when I brought this up with Aaron he wasn't terribly opposed,
+  though that was only a very brief mention)
+* Requires DWARF attribute to differentiate structor types. Alternatively could try determing structor type from mangled name

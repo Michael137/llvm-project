@@ -17,7 +17,7 @@ int main() {
 	__builtin_debugtrap();
 }
 ```
-Calling the `Tagged()` constructor following will fail in LLDB:
+Calling the `Tagged()` constructor will fail in LLDB with following error:
 ```
 (lldb) target create "a.out"                                                                       
 (lldb) r                                                                                           
@@ -137,7 +137,11 @@ This RFC proposes solutions to exactly this problem.
 
 ## Using the `std` module
 
-TODO
+We have a `target.import-std-module` setting that would work around this problem
+because we can load an accurate AST into LLDB without going via DWARF. Unfortunately
+it has its own issues at the moment (doesn't support all STL types and is not stable
+enough to be enabled by default). Also, it wouldn't help with users debugging with
+`libstdc++`.
 
 # Potential Solutions
 
@@ -156,7 +160,7 @@ Cons:
 * Deviates from how we handle this for other types of function calls. Philosophical question: do we want to rely on the mangled name roundtripping (given LLDB's reconstructed AST isn't/can't be fully accurate). Using the linkage name seems more robust
 * Only useful in this very narrow use-case. Don't see other consumers having a need for this attribute
 
-## Attach *all* manlged names to structor AST node
+## Attach *all* mangled names to structor AST node
 
 Pavel suggestions in https://reviews.llvm.org/D143652 and https://reviews.llvm.org/D144181
 Clang Attribute+ctor kind DWARF attribute

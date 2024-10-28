@@ -149,16 +149,30 @@ TODO: https://discord.com/channels/@me/1007084556702199938/1297856232325124158
 
 ## Encode ABI tags in DWARF
 
-Attempted in: https://reviews.llvm.org/D144181
+The idea here would be to introduce a new attribute `DW_AT_abi_tag` whose value would be a
+string (presumably a `DW_FORM_strp`) to the `abi_tag`s (there can be multiple tags on a declaration)
+of a structure/function/namespace declaration. We can't get away with only attaching them to
+constructors because abi-tags are part of a type's mangling. So they would also appear in
+the constructor mangled names via parameters (or template arguments/return types in the case
+of templated constructors).
 
-Pros:
-* Simple on the Clang side
+This approach was attempted in [D144181](https://reviews.llvm.org/D144181) but stalled because of
+the downsides described below.
 
-Cons:
-* A LOT of types have abi-tags in STL, so need to be careful to mitigate size impact
-* For a complete solution, we can't *only* emit ABI tag constructors, we need to do it for any entity that might end up in a mangled name (due to templated constructors)
-* Deviates from how we handle this for other types of function calls. Philosophical question: do we want to rely on the mangled name roundtripping (given LLDB's reconstructed AST isn't/can't be fully accurate). Using the linkage name seems more robust
-* Only useful in this very narrow use-case. Don't see other consumers having a need for this attribute
+Downsides:
+
+* A lot of functions/types in the STL are abi-tagged. So we would need to be careful to mitigate
+  size impact. The prototype in [D144181](https://reviews.llvm.org/D144181) showed a large increase
+  in the `.debug_info` section (albeit we used `DW_TAG_llvm_annotation`s for this, so it wasn't the
+  most space-efficient representation). I have yet to measure the size impact of encoding it with
+  a dedicated attribute and a `DW_FORM_strp`.
+* This deviates from how we handle this for other types of function calls. Which might be fine, but
+  does raise the question: do we want to rely on the mangled name roundtripping given LLDB's
+  reconstructed AST isn't/can't be fully accurate). Using the linkage name seems more robust
+  (though in an offline discussion @labath didn't point out that even linkage names aren't the most
+  robust here, since they need not uniquely identify a function. A more complete/robust solution would
+  encode, in the mangled name or elsewhere, enough info to point LLDB directly to the function).
+* It's unclear how useful this attribute would be for any other DWARF consumer.
 
 ## Attach *all* mangled names to structor AST node
 

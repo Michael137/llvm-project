@@ -166,6 +166,9 @@ Downsides:
   in the `.debug_info` section (albeit we used `DW_TAG_llvm_annotation`s for this, so it wasn't the
   most space-efficient representation). I have yet to measure the size impact of encoding it with
   a dedicated attribute and a `DW_FORM_strp`.
+* libc++ may in the future decide to abi-tag the namespace (instead of each structure). Which means
+  LLDB needs to be aware of implicitly abi-tagged types/functions. One solution to that would be to
+  check the containing DeclContext chain for an AbiTags for every type/function decl LLDB creates.
 * This deviates from how we handle this for other types of function calls. Which might be fine, but
   does raise the question: do we want to rely on the mangled name roundtripping given LLDB's
   reconstructed AST isn't/can't be fully accurate). Using the linkage name seems more robust
@@ -176,16 +179,41 @@ Downsides:
 
 ## Attach *all* mangled names to structor AST node
 
-Pavel suggestions in https://reviews.llvm.org/D143652 and https://reviews.llvm.org/D144181
-Clang Attribute+ctor kind DWARF attribute
+(this came out of the discussion in https://reviews.llvm.org/D144181)
 
-Pros:
-* Now aligns with how we hanlde this for non-structor function calls
-* Doesn't rely on manlged name round-tripping (i.e., future-proof)
-* Likely more space efficient
+In this approach we would tell Clang about all the mangled names for a given `CXXConstructorDecl`.
+The current proposal would be introducing a new internal-only Clang attribute that LLDB would attach
+to structor decls (attribute name pending). E.g.,:
+```
+|-CXXDestructorDecl 0x3d15efd8 parent 0x3d15e418 prev 0x3d15eb10 <line:19:17, line:21:1> line:19:25 used ~Tagged 'void () noexcept'
+| |-CompoundStmt 0x3d182858 <col:35, line:21:1>
+| |-StructorMangledNamesAttr 0x3d15f108 <line:16:3, line:18:22> deleting:_ZN6TaggedD0Ev complete:_ZN6TaggedD1Ev base:_ZN6TaggedD2Ev
+| |-AbiTagAttr 0x3d15f1e8 <col:28, col:58> DtorTag Test
+| `-AbiTagAttr 0x3d182790 <col:64, line:19:13> v1
+```
 
-Cons:
-* Requires Clang attribute (though not terribly controversial as this would only be
-  used programmatically; when I brought this up with Aaron he wasn't terribly opposed,
-  though that was only a very brief mention)
-* Requires DWARF attribute to differentiate structor types. Alternatively could try determing structor type from mangled name
+This is only something LLDB would ever set by collecting the mangled names for a given constructor
+declaration. Then the Clang mangler would pick the correct mangled name to use for a given structor
+kind. All the infrastructure to do this in the mangler is already available (and there's precendence
+for setting the mangled name via attributes using the `AsmLabelAttr`).
+
+LLDB will also need a way to tell which `DW_TAG_subprogram` definition corresponds to what structor
+kind so we can provide that information to Clang. There's a couple of ways we could do this:
+1. A DWARF attribute on the `DW_TAG_subprogram` (e.g., `DW_AT_structor_kind`) whose value
+   would be a constant describing such as `DW_STRUCTOR_cxx_complete_ctor` (name pending).
+2. Use the `ItaniumPartialDemangler` to walk the demangle tree of the `DW_AT_linkage_name`
+   until we find the structor kind.
+
+Upsides:
+* Now aligns with how we hanlde this for other kinds of function calls
+* Doesn't rely on manlged name round-tripping (which other C++ constructs
+  other than abi-tags might inhibit, e.g., I suspect we don't represent
+  templated constructors accurately in all cases for the roundtripping to
+  work in the general case, though haven't investigated this)
+
+Downsides:
+* Requires Clang attribute that only LLDB would use (though from a brief discussion with @aaron
+  it sounded like there's already precedent for internal-only attributes like this).
+* Need extra work to determine which structor kind a `DW_AT_linkage_name` corresponds to.
+  If we require a DWARF attribute, it's unclear whether other consumers (or non-Itanium platforms)
+  would benefit from encoding a structor-kind

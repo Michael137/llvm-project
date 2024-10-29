@@ -27,52 +27,72 @@ Related discussion: https://discourse.llvm.org/t/llvm-cxxfilt-alternate-renderin
 
 # Prior Art
 
-On Windows the demangler is configurable.
+The Swift demangler is configurable via a [`swift::Demangle::DemangleOptions`](https://github.com/swiftlang/swift/blob/b4b99e9d28232b7ae2d37534b9fa2bf91162e490/include/swift/Demangling/Demangle.h#L44-L67) structure.
 
-`swift::Demangle::DemangleOptions`.
+I was told the MSVC demangler can be configured to display fewer things, though haven't been able to find any official documentation on this.
 
 # Implementation Considerations
 
 This section describes some details of a possible implementation of this RFC (based on our experience developing the prototype).
 
+## Should this be part of the demangler?
+
+One alternative is to do the simplification of these names in a pre- or post-processing step. E.g., `llvm-cxxmap` is a tool that allows one to specify equivalences between elements of mangled name. But it doesn't currently do any sort of remangling. It's primary (and only?) use is for a tool to determine whether two mangled names represent the same C++ name. One could try to re-use that infrastructure to write some sort of "mangled name simplification" tool. So we would then feed the simplified mangled name into the demangler. This seems difficult to get this right for more complex option such as "hide all template parameters after certain depth".
+
+Post-processing seems undesirable, since at that point we're implementing a C++ parser.
+
 ## How to pass options to ItaniumDemangle
 
-* Main entry point to printing
-* printing<-> AST coupling
+The main entry point to printing a demangled name lives on the demangle tree itself (on [`Node::print`](https://github.com/llvm/llvm-project/blob/4b44639a4320f980b3c9fa3b96e911e0741f179c/llvm/include/llvm/Demangle/ItaniumDemangle.h#L283-L296)). This makes it tricky to pass any sort of state that needs to be tracked throughout the whole printing process because there's simply no way to store it apart from passing it as a function parameter. The `Node` class doesn't link back to the `Demangler` (despite its lifetime being tied to it), so storing the options on the `Demangler` is currently not possible.
 
-Solution:
-* Separate the `print` out of `itanium_demangle::Node` into a new `itanium_demangle::PrintVisitor` class which walks over the demangle tree. This visitor can now hold any printing-related state.
-Instantiate PrintOptions at arg-parsing time; refactor
-printLeft/printRight/etc methods on Node classes into operator()
-overloads (one for each Node subclass) on PrintOptions PrintVisitor,
-which traverses the AST with Node->visit. This lets us have the
-PrintOptions (stored in the PrintVisitor) in scope while printing each
-Node without storing it in the Node itself or the OutputBuffer.
+This has been previously worked around by [storing printing related state inside the `OutputBuffer` class](https://github.com/llvm/llvm-project/blob/4b44639a4320f980b3c9fa3b96e911e0741f179c/llvm/include/llvm/Demangle/Utility.h#L86-L95). That's because it is the only structure we do pass around while printing.
 
-demangler already has a visitor, but it's only used for dumping debug representation
-  * This has the benefit of being able to move the printing state out of `OutputBuffer`
-* New `itanium_demangle::PrintingPolicy` structure passed as an argument to new `PrintVisitor`
+To avoid polluting the `OutputBuffer` with something like a `PrintingPolicy` member there are two alternatives:
+1. Pass `PrintingPolicy` to all the `Node::printLeft`/`Node::printRight` overrides
+2. Add a link from `Node` to the owning `Demangler` and store options on the `Demangler`
+3. Add `PrintingPolicy` as a member to `OutputBuffer`
+4. Decouple printing from the `Node` class using a new `PrintVisitor` that holds state used during printing
 
-One thing I find nasty is that in order to print, you need to have the
-Demangler object around, because all the node’s lifetimes are tied to
-the Demangler. So PrintVisitor::print (and Node::print previously) are
-kind of easy to mis-use by accident, because they seem to be
-completely decoupled from the Demangler, which in reality they’re not.
-I wonder if Demangler::print is the better place for the print entry
-point. But haven’t thought much about the architecture implications of
-this. This can actually be done in a completely separate commit prior
-to our refactors:
+We ended up implementing option (4) because it seemd like the most architecurally sane approach. Though it does introduce the most churn here (since we need to move all the `printLeft`/`printRight` overrides into a new class. So we'd be happy to consider the other options.
 
-Add a AbstractManglingParser::print(Node const*) method
-Ensure nothing apart from AbstractManglingParser and Node calls the
-print methods
+### PrintVisitor (option 4)
 
-ItaniumPartialDemangler makes this annoying....
+The idea here is to rip out the `Node::printLeft`/`Node::printRight` APIs into a new `itanium_demangle::PrintVisitor` class. This class would look something like:
+```
+struct PrintVisitor {
+  OutputBuffer &OB;
+  PrintingPolicy PP;
+  // ... other printing related state
 
-Then our changes just add a PrintVisitor which only change the
-implementation of AbstractManglingParser::print , but don’t need to
-add a new entry point. So our final diff might be smaller since we
-don’t need to patch all the Node->print callers.
+  void printLeft(const Node *Node) {
+    Node->visit([this](auto *N) {
+        this->operator()(N, PrintKind::Left);
+    });
+  }
+
+  void printRight(const Node *Node) {
+    Node->visit([this](auto *N) {
+        this->operator()(N, PrintKind::Right);
+    });
+  }
+
+  // Example operator() overload
+  void operator()(const NameType *Node, PrintKind::Side S) {
+    switch (S) {
+    case PrintKind::Left
+      OB += Node->Name;
+    case PrintKind::Right:
+      return;
+    }
+  }
+};
+```
+
+This re-uses the `Node::visit` API to walk over the demangle tree and print as we did before. Only now we the `printLeft`/`printRight` are part of the same `operator()` overload for each `Node` type and we have access to printing state without passing it around.
+
+This has the added benefit of being able to move the printing state out of `OutputBuffer`.
+
+Users that previously called `Node::print` would now call something like `Node->visit(PrintVisitor(Buffer, Policy)` (which could further be encapsulated).
 
 ## How to expose options beyond demangler library
 

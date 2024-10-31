@@ -12,6 +12,7 @@
 #include <cstddef>
 #include <string>
 #include <string_view>
+#include <optional>
 
 namespace llvm {
 /// This is a llvm local version of __cxa_demangle. Other than the name and
@@ -107,6 +108,8 @@ struct ItaniumPartialDemangler {
   /// If this function has any cv or reference qualifiers. These imply that
   /// the function is a non-static member function.
   bool hasFunctionQualifiers() const;
+
+  std::optional<int> getCtorDtorVariant() const;
 
   /// If this symbol describes a constructor or destructor.
   bool isCtorOrDtor() const;

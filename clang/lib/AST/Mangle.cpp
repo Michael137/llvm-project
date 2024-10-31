@@ -145,12 +145,12 @@ void MangleContext::mangleName(GlobalDecl GD, raw_ostream &Out) {
     CXXConstructorDecl const * Ctor = dyn_cast<CXXConstructorDecl>(D);
     CXXDestructorDecl const * Dtor = dyn_cast<CXXDestructorDecl>(D);
     assert (Ctor || Dtor);
-    enum CtorDtor { None, Completing, Deleting, Base } CtorDtorVariant = None;
+    enum CtorDtor { None = -1, Deleting = 0, Base, Complete, Allocating} CtorDtorVariant = None;
 
     if (Dtor) {
       switch (GD.getDtorType()) {
           case Dtor_Complete:
-            CtorDtorVariant = Completing;
+            CtorDtorVariant = Complete;
             break;
           case Dtor_Base:
             CtorDtorVariant = Base;
@@ -162,7 +162,7 @@ void MangleContext::mangleName(GlobalDecl GD, raw_ostream &Out) {
     } else if (Ctor) {
       switch (GD.getCtorType()) {
           case Ctor_Complete:
-            CtorDtorVariant = Completing;
+            CtorDtorVariant = Complete;
             break;
           case Ctor_Base:
             CtorDtorVariant = Base;
@@ -178,9 +178,10 @@ void MangleContext::mangleName(GlobalDecl GD, raw_ostream &Out) {
     for (auto name : SMA->mangledNames()) {
       auto [structor_variant, mangled_name] = name.split(':');
       auto variant = llvm::StringSwitch<CtorDtor>(structor_variant)
-          .Case("base", CtorDtor::Base)
-          .Case("complete", CtorDtor::Completing)
-          .Case("deleting", CtorDtor::Deleting)
+          .Case("0", CtorDtor::Deleting)
+          .Case("1", CtorDtor::Base)
+          .Case("2", CtorDtor::Complete)
+          .Case("3", CtorDtor::Complete)
           .Default(CtorDtor::None);
       names[variant] = mangled_name;
     }

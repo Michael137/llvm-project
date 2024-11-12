@@ -42,6 +42,7 @@
 #include "llvm/ADT/iterator_range.h"
 #include "llvm/Support/Casting.h"
 #include "llvm/Support/Compiler.h"
+#include "llvm/Support/FormatVariadic.h"
 #include "llvm/Support/TrailingObjects.h"
 #include <cassert>
 #include <cstddef>
@@ -263,7 +264,14 @@ private:
 
 protected:
   NamedDecl(Kind DK, DeclContext *DC, SourceLocation L, DeclarationName N)
-      : Decl(DK, DC, L), Name(N) {}
+      : Decl(DK, DC, L), Name(N) {
+    auto name = N.getAsString();
+    if (name == "DPSParkOuter") {
+      llvm::errs() << "Created " << name << ": " << this << " (ctx: " << DC << ")\n";
+    } else if (name == "Unit") {
+      llvm::errs() << "Created " << name << ": " << this << " (ctx: " << DC << ")\n";
+    }
+  }
 
 public:
   /// Get the identifier that names this declaration, if there is one.
@@ -3670,6 +3678,9 @@ public:
 
   /// True if this decl has its body fully specified.
   void setCompleteDefinition(bool V = true) {
+    if (getNameAsString() == "Unit")
+      llvm::errs() << llvm::formatv("{0}('{1}' {2:x}) -> {3}\n", __func__, getNameAsString(), this, V);
+
     TagDeclBits.IsCompleteDefinition = V;
   }
 

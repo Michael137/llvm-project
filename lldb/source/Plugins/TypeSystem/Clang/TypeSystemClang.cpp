@@ -346,6 +346,13 @@ static void SetMemberOwningModule(clang::Decl *member,
     return;
 
   OptionalClangModuleID id(parent->getOwningModuleID());
+
+  if (auto * ND = dyn_cast<NamedDecl>(parent);
+      ND && (ND->getNameAsString() == "DataParkRWParkInfo")) {
+    if (auto * child = dyn_cast<NamedDecl>(member))
+      llvm::errs() << llvm::formatv("::SetMemberOwningModule(member={1} {0:x}, id={2})\n", child, child->getNameAsString(), id.HasValue());
+  }
+
   if (!id.HasValue())
     return;
 
@@ -1196,6 +1203,12 @@ CompilerType TypeSystemClang::GetTypeForDecl(clang::ValueDecl *value_decl) {
 
 void TypeSystemClang::SetOwningModule(clang::Decl *decl,
                                       OptionalClangModuleID owning_module) {
+  if (auto * ND = dyn_cast_or_null<NamedDecl>(decl->getDeclContext());
+      ND && (ND->getNameAsString() == "DataParkRWParkInfo")) {
+    if (auto * child = dyn_cast<NamedDecl>(decl))
+      llvm::errs() << llvm::formatv("TypeSystemClang::SetMemberOwningModule(member={1} {0:x}, id={2})\n", child, child->getNameAsString(), owning_module.HasValue());
+  }
+
   if (!decl || !owning_module.HasValue())
     return;
 
@@ -1265,8 +1278,13 @@ CompilerType TypeSystemClang::CreateRecordType(
   CXXRecordDecl *decl = CXXRecordDecl::CreateDeserialized(ast, GlobalDeclID());
   decl->setTagKind(static_cast<TagDecl::TagKind>(kind));
   decl->setDeclContext(decl_ctx);
-  if (has_name)
+  if (has_name) {
     decl->setDeclName(&ast.Idents.get(name));
+    if (name == "IOExclaveProxyState") {
+      llvm::errs() << "LLDB created IOEPS: " << decl << " (ctx: " << decl_ctx << ")" << '\n';
+      LLDB_LOG(GetLog(LLDBLog::Expressions), ">>CRASH<< LLDB created IOEPS: {0:x}", decl);
+    }
+  }
   SetOwningModule(decl, owning_module);
 
   if (!has_name) {
@@ -1623,6 +1641,9 @@ ClassTemplateDecl *TypeSystemClang::CreateClassTemplateDecl(
   class_template_decl->init(template_cxx_decl);
   template_cxx_decl->setDescribedClassTemplate(class_template_decl);
   SetOwningModule(class_template_decl, owning_module);
+  ast.getInjectedClassNameType(
+    template_cxx_decl,
+    class_template_decl->getInjectedClassNameSpecialization());
 
   if (access_type != eAccessNone)
     class_template_decl->setAccess(
@@ -9677,6 +9698,20 @@ ScratchTypeSystemClang::ScratchTypeSystemClang(Target &target,
 void ScratchTypeSystemClang::Finalize() {
   TypeSystemClang::Finalize();
   m_scratch_ast_source_up.reset();
+}
+
+std::optional<ClangASTMetadata>
+ScratchTypeSystemClang::GetMetadata(const clang::Decl *object) {
+  // TODO: upstream propagation of metadata. We should probably
+  // just copy it.
+
+  if (auto md = TypeSystemClang::GetMetadata(object))
+    return md;
+
+  //if (auto importer = m_scratch_ast_source_up->GetClangASTImporter())
+  //  return importer->GetDeclMetadata(object);
+
+  return {};
 }
 
 TypeSystemClangSP

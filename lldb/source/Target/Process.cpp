@@ -1564,6 +1564,8 @@ bool Process::IsPossibleDynamicValue(ValueObject &in_value) {
   LanguageType known_type = in_value.GetObjectRuntimeLanguage();
 
   if (known_type != eLanguageTypeUnknown && known_type != eLanguageTypeC) {
+    if (in_value.GetName() == "pwrMgt")
+      assert(!in_value.GetName().IsEmpty());
     LanguageRuntime *runtime = GetLanguageRuntime(known_type);
     return runtime ? runtime->CouldHaveDynamicValue(in_value) : false;
   }

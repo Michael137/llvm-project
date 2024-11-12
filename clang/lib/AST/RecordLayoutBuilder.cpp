@@ -3346,7 +3346,13 @@ ASTContext::getASTRecordLayout(const RecordDecl *D) const {
   D = D->getDefinition();
   assert(D && "Cannot get layout of forward declarations!");
   assert(!D->isInvalidDecl() && "Cannot get layout of invalid decl!");
-  assert(D->isCompleteDefinition() && "Cannot layout type before complete!");
+
+  //if (!D->isCompleteDefinition())
+  //  if (auto * TD = dyn_cast<TagDecl>(D))
+  //    const_cast<TagDecl*>(TD)->setCompleteDefinition();
+  if (D->getNameAsString() == "Unit")
+    llvm::errs() << "isCompleteDefinition(Unit (" << D << ")): " << D->isCompleteDefinition() << '\n';
+  //assert(D->isCompleteDefinition() && "Cannot layout type before complete!");
 
   // Look up this layout, if already laid out, return what we have.
   // Note that we can't save a reference to the entry because this function

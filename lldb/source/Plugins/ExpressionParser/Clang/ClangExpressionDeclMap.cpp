@@ -1414,9 +1414,12 @@ void ClangExpressionDeclMap::FindExternalVisibleDecls(
 
   bool local_var_lookup = !namespace_decl || (namespace_decl.GetName() ==
                                               g_lldb_local_vars_namespace_cstr);
-  if (frame && local_var_lookup)
-    if (LookupLocalVariable(context, name, sym_ctx, namespace_decl))
+  if (frame && local_var_lookup) {
+    if (LookupLocalVariable(context, name, sym_ctx, namespace_decl)) {
+      //__builtin_debugtrap();
       return;
+    }
+  }
 
   if (target) {
     ValueObjectSP valobj;

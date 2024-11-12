@@ -493,6 +493,12 @@ bool FormatManager::ShouldPrintAsOneLiner(ValueObject &valobj) {
     if (!child_sp)
       return false;
 
+    //if (child_sp->GetName() == "pwrMgt"
+    //    || child_sp->GetName() == "IOService")
+    //  assert(child_sp);
+
+    //llvm::errs() << __func__ << ": " << child_sp->GetName().AsCString("<<UNNAMED>>") << '\n';
+
     // also ask the child's type if it has any opinion
     CompilerType child_compiler_type(child_sp->GetCompilerType());
     if (child_compiler_type.IsValid()) {

@@ -40,6 +40,7 @@
 #include "llvm/ADT/StringRef.h"
 #include "llvm/Support/Casting.h"
 #include "llvm/Support/ErrorHandling.h"
+#include "llvm/Support/FormatVariadic.h"
 #include "llvm/Support/MathExtras.h"
 #include "llvm/Support/VersionTuple.h"
 #include "llvm/Support/raw_ostream.h"
@@ -1730,6 +1731,10 @@ void DeclContext::removeDecl(Decl *D) {
       StoredDeclsMap *Map = DC->getPrimaryContext()->LookupPtr;
       if (Map) {
         StoredDeclsMap::iterator Pos = Map->find(ND->getDeclName());
+        if (ND->getDeclName().getAsString() == "magic"
+            || ND->getDeclName().getAsString() == "DataParkRWParkInfo")
+          llvm::errs() << llvm::formatv("Map->find(map={0:x}, name={1}, DC={2:x}, thisDC={3:x})\n", Map, ND->getDeclName().getAsString(), DC, this);
+
         assert(Pos != Map->end() && "no lookup entry for decl");
         StoredDeclsList &List = Pos->second;
         List.remove(ND);
@@ -1828,6 +1833,12 @@ StoredDeclsMap *DeclContext::buildLookup() {
 /// nested within it.
 void DeclContext::buildLookupImpl(DeclContext *DCtx, bool Internal) {
   for (auto *D : DCtx->noload_decls()) {
+    if (auto * ND_parent = dyn_cast<NamedDecl>(DCtx))
+      if (auto * ND_child = dyn_cast<NamedDecl>(D))
+        if (ND_parent->getNameAsString() == "DataParkRWParkInfo")
+          llvm::errs() << llvm::formatv("buildLookupImpl(this={0:x}, name={1} {2:x}, DC={3} {4:x})\n", this, ND_child->getNameAsString(), D, ND_parent->getNameAsString(), DCtx);
+
+
     // Insert this declaration into the lookup structure, but only if
     // it's semantically within its decl context. Any other decls which
     // should be found in this context are added eagerly.
@@ -1838,6 +1849,7 @@ void DeclContext::buildLookupImpl(DeclContext *DCtx, bool Internal) {
     // that case we need to collect them all here.
     if (auto *ND = dyn_cast<NamedDecl>(D))
       if (ND->getDeclContext() == DCtx && !shouldBeHidden(ND) &&
+          // TODO: commenting the following condition fixes the crash
           (!ND->isFromASTFile() ||
            (isTranslationUnit() &&
             !getParentASTContext().getLangOpts().CPlusPlus)))
@@ -1931,6 +1943,10 @@ DeclContext::noload_lookup(DeclarationName Name) {
   StoredDeclsMap *Map = LookupPtr;
   if (!Map)
     return {};
+
+  if (Name.getAsString() == "magic"
+      || Name.getAsString() == "DataParkRWParkInfo")
+    llvm::errs() << llvm::formatv("MapLookup(map={0:x}, name={1}, DC={2:x})\n", Map, Name.getAsString(), this);
 
   StoredDeclsMap::iterator I = Map->find(Name);
   return I != Map->end() ? I->second.getLookupResult()
@@ -2108,6 +2124,11 @@ void DeclContext::makeDeclVisibleInContextImpl(NamedDecl *D, bool Internal) {
     ASTContext *C = &getParentASTContext();
     Map = CreateStoredDeclsMap(*C);
   }
+
+  if (D->getNameAsString() == "magic"
+      || D->getNameAsString() == "DataParkRWInfo"
+      || (isa<NamedDecl>(this) && cast<NamedDecl>(this)->getNameAsString() == "DataParkRWParkInfo"))
+    llvm::errs() << llvm::formatv("MapInsert(map={0:x}, name={1}, decl={2:x}, DC={3:x}, DCName={4}, internal={5})\n", Map, D->getNameAsString(), D, this, cast<NamedDecl>(this)->getNameAsString(), Internal);
 
   // If there is an external AST source, load any declarations it knows about
   // with this declaration's name.

@@ -62,6 +62,7 @@
 #include "llvm/Support/Casting.h"
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/MemoryBuffer.h"
+#include "llvm/Support/FormatVariadic.h"
 #include <algorithm>
 #include <cassert>
 #include <cstddef>
@@ -2100,6 +2101,9 @@ ASTNodeImporter::ImportDeclContext(DeclContext *FromDC, bool ForceImport) {
     if (!MightNeedReordering(From))
       continue;
 
+    if (auto * ND = dyn_cast<NamedDecl>(From))
+      if (ND->getNameAsString() == "Owner")
+        assert (ND);
     ExpectedDecl ImportedOrErr = import(From);
 
     // If we are in the process of ImportDefinition(...) for a RecordDecl we
@@ -2143,6 +2147,13 @@ ASTNodeImporter::ImportDeclContext(DeclContext *FromDC, bool ForceImport) {
   // interface in LLDB is implemented by the means of the ASTImporter. However,
   // calling an import at this point would result in an uncontrolled import, we
   // must avoid that.
+
+  if (const auto *FromRD = dyn_cast<RecordDecl>(FromDC);
+      FromRD && FromRD->getNameAsString() == "DataParkRWParkInfo") {
+    llvm::errs() << llvm::formatv("ImportContext({0}, FromDC: {1:x}, FromAST: {2})\n",
+                                  FromRD->getNameAsString(),
+                                  FromDC, &FromDC->getParentASTContext());
+  }
 
   auto ToDCOrErr = Importer.ImportContext(FromDC);
   if (!ToDCOrErr) {
@@ -2221,10 +2232,21 @@ Error ASTNodeImporter::ImportFieldDeclDefinition(const FieldDecl *From,
 
 Error ASTNodeImporter::ImportDeclContext(
     Decl *FromD, DeclContext *&ToDC, DeclContext *&ToLexicalDC) {
+  if (auto * ND = dyn_cast<NamedDecl>(FromD->getDeclContext()))
+    if (ND->getNameAsString() == "IOService" /*&& isa<NamedDecl>(FromD) && dyn_cast<NamedDecl>(FromD)->getNameAsString() == "IOExclaveProxyState"*/)
+      llvm::errs() << llvm::formatv("Importing IOService as DeclContext: (fromDecl: ???) (fromDC: {0}, '{1}')\n", FromD->getDeclContext(), Importer.getTypeSystemName(&FromD->getDeclContext()->getParentASTContext()));
+
   auto ToDCOrErr = Importer.ImportContext(FromD->getDeclContext());
   if (!ToDCOrErr)
     return ToDCOrErr.takeError();
   ToDC = *ToDCOrErr;
+  if (auto * ND = dyn_cast<NamedDecl>(FromD))
+    if (ND->getNameAsString() == "IOExclaveProxyState")
+      llvm::errs() << llvm::formatv("Imported DeclContext of IOEPS: (fromDecl: {0}) (fromDC: {1}) (toDC: {2})\n", FromD, FromD->getDeclContext(), ToDC);
+
+  if (auto * ND = dyn_cast<NamedDecl>(FromD->getDeclContext()))
+    if (ND->getNameAsString() == "IOService")
+      llvm::errs() << llvm::formatv("Imported IOService as DeclContext: (toDC: {0}, '{1}')\n", ToDC, Importer.getTypeSystemName(&ToDC->getParentASTContext()));
 
   if (FromD->getDeclContext() != FromD->getLexicalDeclContext()) {
     auto ToLexicalDCOrErr = Importer.ImportContext(
@@ -3099,6 +3121,9 @@ ExpectedDecl ASTNodeImporter::VisitRecordDecl(RecordDecl *D) {
   // Figure out what structure name we're looking for.
   unsigned IDNS = Decl::IDNS_Tag;
   DeclarationName SearchName = Name;
+  if (SearchName.getAsString() == "IOExclaveProxyState")
+    assert(true);
+
   if (!SearchName && D->getTypedefNameForAnonDecl()) {
     if (Error Err = importInto(
         SearchName, D->getTypedefNameForAnonDecl()->getDeclName()))
@@ -3117,12 +3142,21 @@ ExpectedDecl ASTNodeImporter::VisitRecordDecl(RecordDecl *D) {
     SmallVector<NamedDecl *, 4> ConflictingDecls;
     auto FoundDecls =
         Importer.findDeclsInToCtx(DC, SearchName);
+    bool print_msg = (SearchName.getAsString() == "IOExclaveProxyState" || SearchName.getAsString() == "IOService");
+    Decl * decl_to_print = nullptr;
+
     if (!FoundDecls.empty()) {
+      if(print_msg)
+        decl_to_print = FoundDecls[0];
+
       // We're going to have to compare D against potentially conflicting Decls,
       // so complete it.
       if (D->hasExternalLexicalStorage() && !D->isCompleteDefinition())
         D->getASTContext().getExternalSource()->CompleteType(D);
     }
+
+    if (print_msg)
+      llvm::errs() << llvm::formatv("Importer.findDeclsInToCtx(name={0}, DC={1}) -> {2}\n", SearchName.getAsString(), DC, decl_to_print);
 
     for (auto *FoundDecl : FoundDecls) {
       if (!FoundDecl->isInIdentifierNamespace(IDNS))
@@ -3151,7 +3185,8 @@ ExpectedDecl ASTNodeImporter::VisitRecordDecl(RecordDecl *D) {
         if (!hasSameVisibilityContextAndLinkage(FoundRecord, D))
           continue;
 
-        if (IsStructuralMatch(D, FoundRecord)) {
+        if (IsStructuralMatch(D, FoundRecord)
+            /*|| Importer.ODRHandling == ASTImporter::ODRHandlingType::Liberal*/) {
           RecordDecl *FoundDef = FoundRecord->getDefinition();
           if (D->isThisDeclarationADefinition() && FoundDef) {
             // FIXME: Structural equivalence check should check for same
@@ -9435,7 +9470,15 @@ Expected<Attr *> ASTImporter::Import(const Attr *FromAttr) {
 }
 
 Decl *ASTImporter::GetAlreadyImportedOrNull(const Decl *FromD) const {
-  return ImportedDecls.lookup(FromD);
+  auto * Decl = ImportedDecls.lookup(FromD);
+
+  if (auto * Ctx = FromD->getDeclContext())
+    if (auto * ND = dyn_cast<NamedDecl>(Ctx);
+      ND && ND->getNameAsString() == "DataParkRWParkInfo")
+      if (auto * ND_Child = dyn_cast_or_null<NamedDecl>(FromD))
+        llvm::errs() << llvm::formatv("Looking for '{0}' ('{1}') in [ASTImporter: {2}] -> [Found: {3}]\n", ND_Child->getNameAsString(), FromD, this, Decl);
+
+  return Decl;
 }
 
 TranslationUnitDecl *ASTImporter::GetFromTU(Decl *ToD) {
@@ -9484,6 +9527,7 @@ Expected<Decl *> ASTImporter::Import(Decl *FromD) {
 
     auto Pos = ImportedDecls.find(FromD);
     if (Pos != ImportedDecls.end()) {
+      llvm::errs() << "Erasing from ImportedDecls " << FromD << '\n';
       // Import failed after the object was created.
       // Remove all references to it.
       auto *ToD = Pos->second;
@@ -10490,6 +10534,17 @@ void ASTImporter::CompleteDecl (Decl *D) {
 }
 
 Decl *ASTImporter::MapImported(Decl *From, Decl *To) {
+  if (auto * Ctx = To->getDeclContext()) {
+    if (auto * ND = dyn_cast<NamedDecl>(Ctx);
+        ND && ND->getNameAsString() == "DataParkRWParkInfo") {
+      if (auto * ND_Child = dyn_cast<NamedDecl>(To)) {
+        llvm::errs() << llvm::formatv("Mapping({0}, From: {1}, To: {2})\n",
+                                      ND_Child->getNameAsString(),
+                                      From, To);
+      }
+    }
+  }
+
   llvm::DenseMap<Decl *, Decl *>::iterator Pos = ImportedDecls.find(From);
   assert((Pos == ImportedDecls.end() || Pos->second == To) &&
       "Try to import an already imported Decl");

@@ -60,6 +60,7 @@
 #include "llvm/ADT/StringSwitch.h"
 #include "llvm/Support/Casting.h"
 #include "llvm/Support/ErrorHandling.h"
+#include "llvm/Support/FormatVariadic.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/TargetParser/Triple.h"
 #include <algorithm>
@@ -4760,6 +4761,9 @@ void TagDecl::setTypedefNameForAnonDecl(TypedefNameDecl *TDD) {
 
 void TagDecl::startDefinition() {
   setBeingDefined(true);
+
+  if (getNameAsString() == "Unit")
+    llvm::errs() << llvm::formatv("{0}('{1}' {2:x})\n", __func__, getNameAsString(), this);
 
   if (auto *D = dyn_cast<CXXRecordDecl>(this)) {
     struct CXXRecordDecl::DefinitionData *Data =

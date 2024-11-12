@@ -222,6 +222,11 @@ TEST_F(TestClangASTImporter, MetadataPropagationIndirectImport) {
   // Check that we got the same Metadata.
   ASSERT_NE(std::nullopt, importer.GetDeclMetadata(imported));
   EXPECT_EQ(metadata, importer.GetDeclMetadata(imported)->GetUserID());
+  ASSERT_NE(source.ast->NumMetadata(), 0);
+
+  // FIXME: these two shouldn't be 0
+  ASSERT_NE(target_ast->NumMetadata(), 0);
+  ASSERT_NE(temporary_ast->NumMetadata(), 0);
 }
 
 TEST_F(TestClangASTImporter, MetadataPropagationAfterCopying) {

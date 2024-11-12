@@ -278,6 +278,10 @@ void ClangASTSource::CompleteType(TagDecl *tag_decl) {
   m_active_lexical_decls.insert(tag_decl);
   ScopedLexicalDeclEraser eraser(m_active_lexical_decls, tag_decl);
 
+  if (auto name = tag_decl->getNameAsString();
+      name == "IOServicePM")
+    assert (!name.empty());
+
   if (!m_ast_importer_sp->CompleteTagDecl(tag_decl)) {
     // We couldn't complete the type.  Maybe there's a definition somewhere
     // else that can be completed.

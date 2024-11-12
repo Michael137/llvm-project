@@ -2093,6 +2093,11 @@ bool DWARFASTParserClang::CompleteRecordType(const DWARFDIE &die,
                     contained_type_dies, delayed_properties,
                     default_accessibility, layout_info);
 
+  if (auto * tmp_name = die.GetName();
+      tmp_name)
+    if (::strcmp(tmp_name, "IOServicePM") == 0)
+      assert (tmp_name);
+
   // Now parse any methods if there were any...
   for (const DWARFDIE &die : member_function_dies)
     dwarf->ResolveType(die);

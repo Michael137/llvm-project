@@ -257,6 +257,8 @@ class TypeSourceInfo;
     using FoundDeclsTy = SmallVector<NamedDecl *, 2>;
     FoundDeclsTy findDeclsInToCtx(DeclContext *DC, DeclarationName Name);
 
+    std::function<std::string(clang::ASTContext*)> TypeSystemNameGetter;
+
     void AddToLookupTable(Decl *ToD);
 
   protected:
@@ -297,6 +299,11 @@ class TypeSourceInfo;
     bool isMinimalImport() const { return Minimal; }
 
     void setODRHandling(ODRHandlingType T) { ODRHandling = T; }
+
+    template<typename FUNC>
+    void setTypeSystemNameGetter(FUNC&& func) {
+      TypeSystemNameGetter = std::forward<FUNC>(func);
+    }
 
     /// \brief Import the given object, returns the result.
     ///
@@ -519,6 +526,13 @@ class TypeSourceInfo;
     virtual Expected<DeclarationName>
     HandleNameConflict(DeclarationName Name, DeclContext *DC, unsigned IDNS,
                        NamedDecl **Decls, unsigned NumDecls);
+
+    std::string getTypeSystemName(clang::ASTContext * DC) const {
+      if (TypeSystemNameGetter)
+        return TypeSystemNameGetter(DC);
+    
+      return "<unknown>";
+    }
 
     /// Retrieve the context that AST nodes are being imported into.
     ASTContext &getToContext() const { return ToContext; }

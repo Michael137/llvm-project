@@ -17,6 +17,7 @@
 #include "clang/AST/RecordLayout.h"
 #include "clang/Sema/Lookup.h"
 #include "clang/Sema/Sema.h"
+#include "llvm/ADT/ScopeExit.h"
 #include "llvm/Support/raw_ostream.h"
 
 #include "Plugins/ExpressionParser/Clang/ClangASTImporter.h"
@@ -874,8 +875,19 @@ bool ClangASTImporter::CompleteAndFetchChildren(clang::QualType type) {
                                                   &tag_decl->getASTContext());
 
     TagDecl *origin_tag_decl = llvm::dyn_cast<TagDecl>(decl_origin.decl);
+    if (origin_tag_decl->getNameAsString() == "DataParkRWParkInfo")
+      llvm::errs() << llvm::formatv("CompleteAndFetchChildren(name={0}, origin_decl={1:x}, origin_ast={2:x})\n", origin_tag_decl->getNameAsString(), origin_tag_decl, &origin_tag_decl->getASTContext());
+
+    auto on_exit = llvm::make_scope_exit([&] {
+                if (origin_tag_decl->getNameAsString() == "DataParkRWParkInfo")
+                  llvm::errs() << llvm::formatv("Finished CompleteAndFetchChildren({0})\n",
+                                                origin_tag_decl);
+            });
 
     for (Decl *origin_child_decl : origin_tag_decl->decls()) {
+      if (origin_tag_decl->getNameAsString() == "DataParkRWParkInfo")
+        if (auto * ND = dyn_cast<NamedDecl>(origin_child_decl))
+          llvm::errs() << llvm::formatv("\tfetching(name={0}, decl={1:x})\n", ND->getNameAsString(), origin_child_decl);
       llvm::Expected<Decl *> imported_or_err =
           delegate_sp->Import(origin_child_decl);
       if (!imported_or_err) {
@@ -1176,6 +1188,12 @@ void ClangASTImporter::ASTImporterDelegate::ImportDefinitionTo(
 
   if (clang::TagDecl *to_tag = dyn_cast<clang::TagDecl>(to)) {
     if (clang::TagDecl *from_tag = dyn_cast<clang::TagDecl>(from)) {
+      if (from_tag->getNameAsString() == "Unit")
+        llvm::errs() << llvm::formatv("setCompleteDefinition({0}, {1} -> {2}, from: {3}, to: {4})\n",
+                                      from_tag->getNameAsString(),
+                                      to_tag->isCompleteDefinition(), from_tag->isCompleteDefinition(),
+                                      from_tag, to_tag);
+
       to_tag->setCompleteDefinition(from_tag->isCompleteDefinition());
 
       if (Log *log_ast = GetLog(LLDBLog::AST)) {
@@ -1425,4 +1443,30 @@ void ClangASTImporter::ASTImporterDelegate::Imported(clang::Decl *from,
 clang::Decl *
 ClangASTImporter::ASTImporterDelegate::GetOriginalDecl(clang::Decl *To) {
   return m_main.GetDeclOrigin(To).decl;
+}
+
+std::string TypeSystemNameGetter(clang::ASTContext * ctx) {
+  if (auto * ts = TypeSystemClang::GetASTContext(ctx))
+    return ts->getDisplayName().str();
+
+  return "<no typesystem>";
+}
+
+ClangASTImporter::ASTImporterDelegate::ASTImporterDelegate(ClangASTImporter &main, clang::ASTContext *target_ctx,
+                        clang::ASTContext *source_ctx)
+        : clang::ASTImporter(*target_ctx, main.m_file_manager, *source_ctx,
+                             main.m_file_manager, true /*minimal*/),
+          m_main(main), m_source_ctx(source_ctx) {
+  // Target and source ASTContext shouldn't be identical. Importing AST
+  // nodes within the same AST doesn't make any sense as the whole idea
+  // is to import them to a different AST.
+  lldbassert(target_ctx != source_ctx && "Can't import into itself");
+  // This is always doing a minimal import of any declarations. This means
+  // that there has to be an ExternalASTSource in the target ASTContext
+  // (that should implement the callbacks that complete any declarations
+  // on demand). Without an ExternalASTSource, this ASTImporter will just
+  // do a minimal import and the imported declarations won't be completed.
+  assert(target_ctx->getExternalSource() && "Missing ExternalSource");
+  setODRHandling(clang::ASTImporter::ODRHandlingType::Liberal);
+  setTypeSystemNameGetter(::TypeSystemNameGetter);
 }

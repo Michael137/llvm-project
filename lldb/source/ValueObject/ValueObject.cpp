@@ -449,6 +449,8 @@ llvm::Expected<uint32_t> ValueObject::GetNumChildren(uint32_t max) {
   }
 
   if (!m_flags.m_children_count_valid) {
+    if (GetName() == "IOService")
+      assert (!GetName().IsEmpty());
     auto num_children_or_err = CalculateNumChildren();
     if (num_children_or_err)
       SetNumChildren(*num_children_or_err);
@@ -1997,6 +1999,9 @@ void ValueObject::CalculateSyntheticValue() {
 void ValueObject::CalculateDynamicValue(DynamicValueType use_dynamic) {
   if (use_dynamic == eNoDynamicValues)
     return;
+
+  if (m_name == "exclaveState")
+    assert(true);
 
   if (!m_dynamic_value && !IsDynamic()) {
     ExecutionContext exe_ctx(GetExecutionContextRef());

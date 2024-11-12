@@ -194,8 +194,9 @@ public:
   void SetMetadata(const clang::Decl *object, ClangASTMetadata meta_data);
 
   void SetMetadata(const clang::Type *object, ClangASTMetadata meta_data);
-  std::optional<ClangASTMetadata> GetMetadata(const clang::Decl *object);
-  std::optional<ClangASTMetadata> GetMetadata(const clang::Type *object);
+  virtual std::optional<ClangASTMetadata> GetMetadata(const clang::Decl *object);
+  virtual std::optional<ClangASTMetadata> GetMetadata(const clang::Type *object);
+  size_t NumMetadata() { return m_decl_metadata.size(); }
 
   void SetCXXRecordDeclAccess(const clang::CXXRecordDecl *object,
                               clang::AccessSpecifier access);
@@ -1241,6 +1242,12 @@ public:
   ~ScratchTypeSystemClang() override = default;
 
   void Finalize() override;
+
+  std::optional<ClangASTMetadata> GetMetadata(const clang::Decl *object) override;
+
+  std::optional<ClangASTMetadata> GetMetadata(const clang::Type *object) override {
+    return TypeSystemClang::GetMetadata(object);
+  }
 
   /// The different kinds of isolated ASTs within the scratch TypeSystem.
   ///

@@ -197,6 +197,10 @@ public:
 
   clang::Sema *getSema();
 
+  std::shared_ptr<ClangASTImporter> GetClangASTImporter() {
+    return m_ast_importer_sp;
+  }
+
   void SetLookupsEnabled(bool lookups_enabled) {
     m_lookups_enabled = lookups_enabled;
   }

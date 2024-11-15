@@ -18,6 +18,7 @@
 #include "lldb/Symbol/CompilerType.h"
 #include "lldb/Symbol/Function.h"
 #include "lldb/Symbol/SourceModule.h"
+#include "lldb/Symbol/SymbolContext.h"
 #include "lldb/Symbol/Type.h"
 #include "lldb/Symbol/TypeList.h"
 #include "lldb/Symbol/TypeSystem.h"
@@ -327,6 +328,19 @@ public:
   virtual void
   GetMangledNamesForFunction(const std::string &scope_qualified_name,
                              std::vector<ConstString> &mangled_names);
+
+  /// Resolves the function DIE uniquely identified by \c uid within
+  /// this SymbolFile.
+  ///
+  /// \param[in,out] sc_list The resolved functions will be appended to this
+  /// list.
+  ///
+  /// \param[in] uid The UID of the function DIE to resolve.
+  ///
+  virtual llvm::Error ResolveFunctionUID(SymbolContextList &sc_list,
+                                         lldb::user_id_t uid) {
+    return llvm::createStringError("Not implemented");
+  }
 
   virtual void GetTypes(lldb_private::SymbolContextScope *sc_scope,
                         lldb::TypeClass type_mask,

@@ -2471,6 +2471,51 @@ bool SymbolFileDWARF::ResolveFunction(const DWARFDIE &orig_die,
   return false;
 }
 
+llvm::Error SymbolFileDWARF::ResolveFunctionUID(SymbolContextList &sc_list,
+                                                lldb::user_id_t uid) {
+  std::lock_guard<std::recursive_mutex> guard(GetModuleMutex());
+  auto die = GetDIE(uid);
+
+  if (!die.IsValid())
+    return llvm::createStringError("invalid input DIE");
+
+  // Look up by DW_AT_linkage_name if we can. Otherwise we can use the
+  // DW_AT_name.
+  char const *name = die.GetPubname();
+  if (!name)
+    return llvm::createStringError("input DIE has no name");
+
+  // If we're trying to resolve a function declaration DIE, find the definition.
+  if (die.GetAttributeValueAsUnsigned(llvm::dwarf::DW_AT_declaration, 0)) {
+    Module::LookupInfo info(ConstString(name), lldb::eFunctionNameTypeMethod,
+                            lldb::eLanguageTypeUnknown);
+
+    m_index->GetFunctions(info, *this, {}, [&](DWARFDIE entry) {
+      if (entry.GetAttributeValueAsUnsigned(llvm::dwarf::DW_AT_declaration, 0))
+        return true;
+
+      if (auto spec = entry.GetAttributeValueAsReferenceDIE(
+              llvm::dwarf::DW_AT_specification);
+          spec == die) {
+        die = entry;
+        return false;
+      }
+
+      return true;
+    });
+  }
+
+  if (!ResolveFunction(die, false, sc_list))
+    return llvm::createStringError("failed to resolve function DIE");
+
+  if (sc_list.IsEmpty())
+    return llvm::createStringError("no definition DIE found");
+
+  assert(sc_list.GetSize() == 1);
+
+  return llvm::Error::success();
+}
+
 bool SymbolFileDWARF::DIEInDeclContext(const CompilerDeclContext &decl_ctx,
                                        const DWARFDIE &die,
                                        bool only_root_namespaces) {

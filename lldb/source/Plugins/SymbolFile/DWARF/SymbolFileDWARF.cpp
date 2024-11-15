@@ -11,6 +11,7 @@
 #include "llvm/DebugInfo/DWARF/DWARFAddressRange.h"
 #include "llvm/DebugInfo/DWARF/DWARFDebugLoc.h"
 #include "llvm/Support/Casting.h"
+#include "llvm/Support/Error.h"
 #include "llvm/Support/FileUtilities.h"
 #include "llvm/Support/FormatAdapters.h"
 #include "llvm/Support/Threading.h"
@@ -22,6 +23,7 @@
 #include "lldb/Core/Progress.h"
 #include "lldb/Core/Section.h"
 #include "lldb/Core/Value.h"
+#include "lldb/Symbol/SymbolContext.h"
 #include "lldb/Utility/ArchSpec.h"
 #include "lldb/Utility/LLDBLog.h"
 #include "lldb/Utility/RegularExpression.h"
@@ -73,6 +75,7 @@
 #include "ManualDWARFIndex.h"
 #include "SymbolFileDWARFDebugMap.h"
 #include "SymbolFileDWARFDwo.h"
+#include "lldb/lldb-enumerations.h"
 
 #include "llvm/DebugInfo/DWARF/DWARFContext.h"
 #include "llvm/DebugInfo/DWARF/DWARFDebugAbbrev.h"
@@ -2471,6 +2474,51 @@ bool SymbolFileDWARF::ResolveFunction(const DWARFDIE &orig_die,
   return false;
 }
 
+llvm::Error SymbolFileDWARF::ResolveFunctionUID(SymbolContextList &sc_list,
+                                                lldb::user_id_t uid) {
+  std::lock_guard<std::recursive_mutex> guard(GetModuleMutex());
+  auto die = GetDIE(uid);
+
+  if (!die.IsValid())
+    return llvm::createStringError(
+        llvm::formatv("{0}: invalid input DIE", __func__));
+
+  // TODO: clang indexes by mangled name too...so could technically look up
+  // by mangled name....but GCC doesn't do that
+  char const *name = die.GetMangledName(/*substitute_name_allowed=*/true);
+  if (!name)
+    return llvm::createStringError(
+        llvm::formatv("{0}: input DIE has no name", __func__));
+
+  Module::LookupInfo info(ConstString(name), lldb::eFunctionNameTypeMethod,
+                          lldb::eLanguageTypeUnknown);
+  m_index->GetFunctions(info, *this, {}, [&](DWARFDIE entry) {
+    if (entry.GetAttributeValueAsUnsigned(llvm::dwarf::DW_AT_declaration, 0))
+      return true;
+
+    if (auto spec = entry.GetAttributeValueAsReferenceDIE(
+            llvm::dwarf::DW_AT_specification);
+        spec == die) {
+      die = entry;
+      return false;
+    }
+
+    return true;
+  });
+
+  if (!ResolveFunction(die, false, sc_list))
+    return llvm::createStringError(
+        llvm::formatv("{0}: failed to resolve function DIE", __func__));
+
+  if (sc_list.IsEmpty())
+    return llvm::createStringError(
+        llvm::formatv("{0}: no definition DIE found", __func__));
+
+  assert(sc_list.GetSize() == 1);
+
+  return llvm::Error::success();
+}
+
 bool SymbolFileDWARF::DIEInDeclContext(const CompilerDeclContext &decl_ctx,
                                        const DWARFDIE &die,
                                        bool only_root_namespaces) {
@@ -2957,6 +3005,10 @@ TypeSP SymbolFileDWARF::FindCompleteObjCDefinitionTypeForDIE(
       });
   return type_sp;
 }
+
+// llvm::Expected<DWARFDIE>
+// SymbolFileDWARF::FindFunctionDefinitionDIE(const DWARFDIE &die) {
+// }
 
 DWARFDIE
 SymbolFileDWARF::FindDefinitionDIE(const DWARFDIE &die) {

@@ -400,6 +400,11 @@ bool CPlusPlusLanguage::CxxMethodName::TrySimplifiedParse() {
   // A::B::C::fun(std::vector<T> &) const
   size_t arg_start, arg_end;
   llvm::StringRef full(m_full.GetCString());
+
+  // TODO: check for "operator" in IsTrivialBasename
+  if (full.starts_with("operator()"))
+    return false;
+
   llvm::StringRef parens("()", 2);
   if (ReverseFindMatchingChars(full, parens, arg_start, arg_end)) {
     m_arguments = full.substr(arg_start, arg_end - arg_start + 1);
@@ -438,7 +443,7 @@ bool CPlusPlusLanguage::CxxMethodName::TrySimplifiedParse() {
 
 void CPlusPlusLanguage::CxxMethodName::Parse() {
   if (!m_parsed && m_full) {
-    if (TrySimplifiedParse()) {
+    if (false /*TrySimplifiedParse()*/) {
       m_parse_error = false;
     } else {
       CPlusPlusNameParser parser(m_full.GetStringRef());

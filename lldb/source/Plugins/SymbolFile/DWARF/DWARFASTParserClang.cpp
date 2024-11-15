@@ -24,6 +24,7 @@
 #include "Plugins/Language/ObjC/ObjCLanguage.h"
 #include "lldb/Core/Module.h"
 #include "lldb/Core/Value.h"
+#include "lldb/Expression/Expression.h"
 #include "lldb/Host/Host.h"
 #include "lldb/Symbol/CompileUnit.h"
 #include "lldb/Symbol/Function.h"
@@ -247,6 +248,41 @@ static unsigned GetCXXMethodCVQuals(const DWARFDIE &subprogram,
     cv_quals |= clang::Qualifiers::Volatile;
 
   return cv_quals;
+}
+
+// TODO:
+// 0. Adjust FindInSymbols
+// 1. log failure paths
+// 2. What happens for functions without a linkage name? Previously we didn't
+// attach a label for those but now we would
+// 3. Unit-test
+// 4. API test (whilch checks expr and AST dump)
+static std::optional<std::string> MakeLLDBFuncAsmLabel(const DWARFDIE &die) {
+  std::optional<std::string> label;
+  char const *mangled = die.GetMangledName(/*substitute_name_allowed=*/false);
+  if (mangled)
+    label.emplace(mangled);
+
+  auto module_sp = die.GetModule();
+  if (!module_sp)
+    return label;
+
+  // Module UID is only a Darwin concept (?)
+  // If UUID is not available encode as pointer.
+  // Maybe add character to signal whether this is a pointer
+  // or UUID. Or maybe if it's not hex that implies a UUID?
+  auto module_id = module_sp->GetUUID();
+  Module * module_ptr = nullptr;
+  if (!module_id.IsValid())
+    module_ptr = module_sp.get();
+
+  const auto die_id = die.GetID();
+  if (die_id == LLDB_INVALID_UID)
+    return label;
+
+  return llvm::formatv("{0}:{1}:{2}:{3:x}", FunctionCallLabelPrefix,
+                       mangled ? mangled : "", module_ptr ? llvm::formatv("{0:x}", module_ptr).str() : module_id.GetAsString(), die_id)
+      .str();
 }
 
 TypeSP DWARFASTParserClang::ParseTypeFromClangModule(const SymbolContext &sc,
@@ -1231,7 +1267,7 @@ std::pair<bool, TypeSP> DWARFASTParserClang::ParseCXXMethod(
 
   clang::CXXMethodDecl *cxx_method_decl = m_ast.AddMethodToCXXRecordType(
       class_opaque_type.GetOpaqueQualType(), attrs.name.GetCString(),
-      attrs.mangled_name, clang_type, accessibility, attrs.is_virtual,
+      MakeLLDBFuncAsmLabel(die), clang_type, accessibility, attrs.is_virtual,
       is_static, attrs.is_inline, attrs.is_explicit, is_attr_used,
       attrs.is_artificial);
 
@@ -1384,7 +1420,7 @@ DWARFASTParserClang::ParseSubroutine(const DWARFDIE &die,
             ignore_containing_context ? m_ast.GetTranslationUnitDecl()
                                       : containing_decl_ctx,
             GetOwningClangModule(die), name, clang_type, attrs.storage,
-            attrs.is_inline);
+            attrs.is_inline, MakeLLDBFuncAsmLabel(die));
         std::free(name_buf);
 
         if (has_template_params) {
@@ -1394,7 +1430,7 @@ DWARFASTParserClang::ParseSubroutine(const DWARFDIE &die,
               ignore_containing_context ? m_ast.GetTranslationUnitDecl()
                                         : containing_decl_ctx,
               GetOwningClangModule(die), attrs.name.GetStringRef(), clang_type,
-              attrs.storage, attrs.is_inline);
+              attrs.storage, attrs.is_inline, /*asm_label=*/std::nullopt);
           clang::FunctionTemplateDecl *func_template_decl =
               m_ast.CreateFunctionTemplateDecl(
                   containing_decl_ctx, GetOwningClangModule(die),
@@ -1406,20 +1442,6 @@ DWARFASTParserClang::ParseSubroutine(const DWARFDIE &die,
         lldbassert(function_decl);
 
         if (function_decl) {
-          // Attach an asm(<mangled_name>) label to the FunctionDecl.
-          // This ensures that clang::CodeGen emits function calls
-          // using symbols that are mangled according to the DW_AT_linkage_name.
-          // If we didn't do this, the external symbols wouldn't exactly
-          // match the mangled name LLDB knows about and the IRExecutionUnit
-          // would have to fall back to searching object files for
-          // approximately matching function names. The motivating
-          // example is generating calls to ABI-tagged template functions.
-          // This is done separately for member functions in
-          // AddMethodToCXXRecordType.
-          if (attrs.mangled_name)
-            function_decl->addAttr(clang::AsmLabelAttr::CreateImplicit(
-                m_ast.getASTContext(), attrs.mangled_name, /*literal=*/false));
-
           LinkDeclContextToDIE(function_decl, die);
 
           const clang::FunctionProtoType *function_prototype(

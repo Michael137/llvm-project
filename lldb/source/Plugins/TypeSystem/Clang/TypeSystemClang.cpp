@@ -2151,7 +2151,8 @@ std::string TypeSystemClang::GetTypeNameForDecl(const NamedDecl *named_decl,
 FunctionDecl *TypeSystemClang::CreateFunctionDeclaration(
     clang::DeclContext *decl_ctx, OptionalClangModuleID owning_module,
     llvm::StringRef name, const CompilerType &function_clang_type,
-    clang::StorageClass storage, bool is_inline) {
+    clang::StorageClass storage, bool is_inline,
+    std::optional<std::string> asm_label) {
   FunctionDecl *func_decl = nullptr;
   ASTContext &ast = getASTContext();
   if (!decl_ctx)
@@ -2172,6 +2173,21 @@ FunctionDecl *TypeSystemClang::CreateFunctionDeclaration(
   func_decl->setConstexprKind(isConstexprSpecified
                                   ? ConstexprSpecKind::Constexpr
                                   : ConstexprSpecKind::Unspecified);
+
+  // Attach an asm(<mangled_name>) label to the FunctionDecl.
+  // This ensures that clang::CodeGen emits function calls
+  // using symbols that are mangled according to the DW_AT_linkage_name.
+  // If we didn't do this, the external symbols wouldn't exactly
+  // match the mangled name LLDB knows about and the IRExecutionUnit
+  // would have to fall back to searching object files for
+  // approximately matching function names. The motivating
+  // example is generating calls to ABI-tagged template functions.
+  // This is done separately for member functions in
+  // AddMethodToCXXRecordType.
+  if (asm_label)
+    func_decl->addAttr(clang::AsmLabelAttr::CreateImplicit(ast, *asm_label,
+                                                           /*literal=*/false));
+
   SetOwningModule(func_decl, owning_module);
   decl_ctx->addDecl(func_decl);
 
@@ -7658,7 +7674,7 @@ TypeSystemClang::CreateParameterDeclarations(
 
 clang::CXXMethodDecl *TypeSystemClang::AddMethodToCXXRecordType(
     lldb::opaque_compiler_type_t type, llvm::StringRef name,
-    const char *mangled_name, const CompilerType &method_clang_type,
+    std::optional<std::string> asm_label, const CompilerType &method_clang_type,
     lldb::AccessType access, bool is_virtual, bool is_static, bool is_inline,
     bool is_explicit, bool is_attr_used, bool is_artificial) {
   if (!type || !method_clang_type.IsValid() || name.empty())
@@ -7791,10 +7807,9 @@ clang::CXXMethodDecl *TypeSystemClang::AddMethodToCXXRecordType(
   if (is_attr_used)
     cxx_method_decl->addAttr(clang::UsedAttr::CreateImplicit(getASTContext()));
 
-  if (mangled_name != nullptr) {
+  if (asm_label)
     cxx_method_decl->addAttr(clang::AsmLabelAttr::CreateImplicit(
-        getASTContext(), mangled_name, /*literal=*/false));
-  }
+        getASTContext(), *asm_label, /*literal=*/false));
 
   // Parameters on member function declarations in DWARF generally don't
   // have names, so we omit them when creating the ParmVarDecls.
@@ -9027,6 +9042,27 @@ bool TypeSystemClang::LayoutRecordType(
 
 // CompilerDecl override functions
 
+// TODO: remove duplication with the ResolveFunctionCallLabel in
+// IRExecutionUnit.cpp
+static std::optional<llvm::StringRef>
+GetMangledNameFromLLDBFuncLabel(llvm::StringRef label) {
+  if (!consumeFunctionCallLabelPrefix(label))
+    return {};
+
+  if (!label.consume_front(":"))
+    return {};
+
+  // Expected format at this point is: <mangled name>:<module
+  // id>:<definition/declaration DIE id>
+  llvm::SmallVector<llvm::StringRef, 3> components;
+  label.split(components, ":");
+
+  if (components.size() != 3)
+    return {};
+
+  return components[0];
+}
+
 ConstString TypeSystemClang::DeclGetName(void *opaque_decl) {
   if (opaque_decl) {
     clang::NamedDecl *nd =
@@ -9047,6 +9083,10 @@ ConstString TypeSystemClang::DeclGetMangledName(void *opaque_decl) {
   clang::MangleContext *mc = getMangleContext();
   if (!mc || !mc->shouldMangleCXXName(nd))
     return {};
+
+  if (const auto *label = nd->getAttr<AsmLabelAttr>())
+    if (auto name = GetMangledNameFromLLDBFuncLabel(label->getLabel()))
+      return ConstString(*name);
 
   llvm::SmallVector<char, 1024> buf;
   llvm::raw_svector_ostream llvm_ostrm(buf);

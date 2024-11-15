@@ -6,6 +6,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "llvm/ADT/StringRef.h"
 #include "llvm/ExecutionEngine/ExecutionEngine.h"
 #include "llvm/ExecutionEngine/ObjectCache.h"
 #include "llvm/IR/Constants.h"
@@ -19,7 +20,9 @@
 #include "lldb/Core/Debugger.h"
 #include "lldb/Core/Disassembler.h"
 #include "lldb/Core/Module.h"
+#include "lldb/Core/ModuleList.h"
 #include "lldb/Core/Section.h"
+#include "lldb/Expression/Expression.h"
 #include "lldb/Expression/IRExecutionUnit.h"
 #include "lldb/Expression/ObjectFileJIT.h"
 #include "lldb/Host/HostInfo.h"
@@ -36,6 +39,7 @@
 #include "lldb/Utility/LLDBAssert.h"
 #include "lldb/Utility/LLDBLog.h"
 #include "lldb/Utility/Log.h"
+#include "lldb/lldb-defines.h"
 
 #include <optional>
 
@@ -771,6 +775,123 @@ private:
   lldb::addr_t m_best_internal_load_address = LLDB_INVALID_ADDRESS;
 };
 
+static llvm::Expected<Module *> GetModulePtr(llvm::StringRef module, Target &target) {
+  uintptr_t module_ptr = 0;
+  if (module.starts_with("0x") && !module.consumeInteger(0, module_ptr)
+      && module_ptr != 0)
+    return reinterpret_cast<Module *>(module_ptr);
+
+  UUID module_uuid;
+  if (!module_uuid.SetFromStringRef(module) || !module_uuid.IsValid())
+    return llvm::createStringError("failed to create Module UUID from '%s'", module.data());
+
+  Module *found_module = target.GetImages().FindModule(module_uuid).get();
+  if (!found_module)
+    return llvm::createStringError("failed to find module with UUID '{0}'", module.data());
+
+  return found_module;
+}
+
+static lldb::addr_t
+ResolveFunctionCallLabel(llvm::StringRef label,
+                         const lldb_private::SymbolContext &sc,
+                         bool &symbol_was_missing_weak) {
+  symbol_was_missing_weak = false;
+
+  Target *target = sc.target_sp.get();
+  if (!target) {
+    LLDB_LOG(GetLog(LLDBLog::Expressions),
+             "Failed to resolve function label '{0}': target not available.",
+             label);
+    return LLDB_INVALID_ADDRESS;
+  }
+
+  if (!consumeFunctionCallLabelPrefix(label))
+    return LLDB_INVALID_ADDRESS;
+
+  if (!label.consume_front(":")) {
+    LLDB_LOG(GetLog(LLDBLog::Expressions),
+             "Failed to resolve function label '{0}': incorrect format.",
+             label);
+    return LLDB_INVALID_ADDRESS;
+  }
+
+  // Expected format at this point is: <mangled name>:<module
+  // id>:<definition/declaration DIE id>
+  // TODO: YES, GetFunction in ResolveFunction requires a definition
+  // DIE...currently regular functions work because we use definition DIEs?
+  // ...so if we have a declaration DIE, we should do a lookup by linkage_name
+  // (or name for constructors) and make sure specification matches. Then we use
+  // that DIE.
+  llvm::SmallVector<llvm::StringRef, 3> components;
+  label.split(components, ":");
+
+  if (components.size() != 3) {
+    LLDB_LOG(GetLog(LLDBLog::Expressions),
+             "Failed to resolve function label '{0}': incorrect format: too "
+             "many label subcomponents.",
+             label);
+    return LLDB_INVALID_ADDRESS;
+  }
+
+  const auto mangled_name = components[0];
+  const auto module = components[1];
+  auto die = components[2];
+
+  // TODO: module UID is only a Darwin concept (?)
+  auto found_module_or_err = GetModulePtr(module, *target);
+  if (!found_module_or_err) {
+    LLDB_LOG_ERROR(GetLog(LLDBLog::Expressions), found_module_or_err.takeError(),
+                   "Failed to resolve function label {1}: {0}",
+                   label);
+    return LLDB_INVALID_ADDRESS;
+  }
+
+  Module * found_module = *found_module_or_err;
+
+  lldb::user_id_t die_id;
+  if (die.consumeInteger(/*Radix=*/0, die_id)) {
+    LLDB_LOG(GetLog(LLDBLog::Expressions),
+             "Failed to resolve function label '{0}': failed to parse DIE ID "
+             "for '{1}'.",
+             label, components[2]);
+    return LLDB_INVALID_ADDRESS;
+  }
+ 
+  auto *symbol_file = found_module->GetSymbolFile();
+  if (!symbol_file) {
+    LLDB_LOG(GetLog(LLDBLog::Expressions),
+             "Failed to resolve function label '{0}': no SymbolFile found on "
+             "module.",
+             label);
+    return LLDB_INVALID_ADDRESS;
+  }
+
+  //// TODO: we probably don't need this
+  // auto mangled = symbol_file->GetMangledNameForUID(die_id);
+  // if (!mangled) {
+  //   LLDB_LOG(GetLog(LLDBLog::Expressions),
+  //            "Failed to resolve function label '{0}': failed to get mangled "
+  //            "name for DIE '{1}'.",
+  //            die_id);
+  //   return LLDB_INVALID_ADDRESS;
+  // }
+
+  // assert(mangled == mangled_name);
+
+  // TODO: API should return SC list item and we should push it back to sc_list
+  // here. In that case we wouldn't need the sc_list size checks below...
+  SymbolContextList sc_list;
+  if (auto err = symbol_file->ResolveFunctionUID(sc_list, die_id)) {
+    LLDB_LOG_ERROR(GetLog(LLDBLog::Expressions), std::move(err),
+                   "Failed to resolve function by UID: {0}");
+    return LLDB_INVALID_ADDRESS;
+  }
+
+  LoadAddressResolver resolver(target, symbol_was_missing_weak);
+  return resolver.Resolve(sc_list).value_or(LLDB_INVALID_ADDRESS);
+}
+
 lldb::addr_t
 IRExecutionUnit::FindInSymbols(const std::vector<ConstString> &names,
                                const lldb_private::SymbolContext &sc,
@@ -796,6 +917,8 @@ IRExecutionUnit::FindInSymbols(const std::vector<ConstString> &names,
   function_options.include_symbols = true;
   function_options.include_inlines = false;
 
+  // TODO: do we need the multiple manglings anymore?
+  // TODO: do we even need this entire loop anymore?
   for (const ConstString &name : names) {
     // The lookup order here is as follows:
     // 1) Functions in `sc.module_sp`
@@ -906,6 +1029,10 @@ lldb::addr_t IRExecutionUnit::FindInUserDefinedSymbols(
 
 lldb::addr_t IRExecutionUnit::FindSymbol(lldb_private::ConstString name,
                                          bool &missing_weak) {
+  // llvm::errs() << __func__ << " " << name.AsCString("<<UNNAMED>>") << '\n';
+  if (hasFunctionCallLabelPrefix(name.GetStringRef()))
+    return ResolveFunctionCallLabel(name, m_sym_ctx, missing_weak);
+
   std::vector<ConstString> candidate_C_names;
   std::vector<ConstString> candidate_CPlusPlus_names;
 

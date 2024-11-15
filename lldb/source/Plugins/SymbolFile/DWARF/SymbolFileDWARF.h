@@ -374,6 +374,8 @@ protected:
   SymbolFileDWARF(const SymbolFileDWARF &) = delete;
   const SymbolFileDWARF &operator=(const SymbolFileDWARF &) = delete;
 
+  // llvm::Expected<DWARFDIE> FindFunctionDefinitionDIE(const DWARFDIE &die);
+
   virtual void LoadSectionData(lldb::SectionType sect_type,
                                DWARFDataExtractor &data);
 
@@ -437,6 +439,9 @@ protected:
   // Given a die_offset, figure out the symbol context representing that die.
   bool ResolveFunction(const DWARFDIE &die, bool include_inlines,
                        SymbolContextList &sc_list);
+
+  llvm::Error ResolveFunctionUID(SymbolContextList &sc_list,
+                                 lldb::user_id_t uid) override;
 
   /// Resolve functions and (possibly) blocks for the given file address and a
   /// compile unit. The compile unit comes from the sc argument and it must be

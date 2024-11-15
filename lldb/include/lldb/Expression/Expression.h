@@ -96,6 +96,8 @@ protected:
                                  ///invalid.
 };
 
+inline constexpr llvm::StringRef FunctionCallLabelPrefix = "$__lldb_func";
+
 } // namespace lldb_private
 
 #endif // LLDB_EXPRESSION_EXPRESSION_H

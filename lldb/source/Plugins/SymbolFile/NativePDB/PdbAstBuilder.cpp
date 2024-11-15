@@ -913,7 +913,7 @@ PdbAstBuilder::CreateFunctionDecl(PdbCompilandSymId func_id,
   } else {
     function_decl = m_clang.CreateFunctionDeclaration(
         parent, OptionalClangModuleID(), func_name, func_ct, func_storage,
-        is_inline);
+        is_inline, /*asm_label=*/std::nullopt);
     CreateFunctionParameters(func_id, *function_decl, param_count);
   }
   return function_decl;

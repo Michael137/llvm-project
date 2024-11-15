@@ -96,6 +96,18 @@ protected:
                                  ///invalid.
 };
 
+inline constexpr llvm::StringRef FunctionCallLabelPrefix = "$__lldb_func";
+
+inline bool hasFunctionCallLabelPrefix(llvm::StringRef name) {
+  name.consume_front("_");
+  return name.starts_with(FunctionCallLabelPrefix);
+}
+
+inline bool consumeFunctionCallLabelPrefix(llvm::StringRef &name) {
+  name.consume_front("_");
+  return name.consume_front(FunctionCallLabelPrefix);
+}
+
 } // namespace lldb_private
 
 #endif // LLDB_EXPRESSION_EXPRESSION_H

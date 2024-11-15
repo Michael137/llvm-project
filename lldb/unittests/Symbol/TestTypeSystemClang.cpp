@@ -870,7 +870,7 @@ TEST_F(TestTypeSystemClang, TestFunctionTemplateConstruction) {
       m_ast->CreateFunctionType(int_type, nullptr, 0U, false, 0U);
   FunctionDecl *func = m_ast->CreateFunctionDeclaration(
       TU, OptionalClangModuleID(), "foo", clang_type, StorageClass::SC_None,
-      false);
+      false, std::nullopt);
   TypeSystemClang::TemplateParameterInfos empty_params;
 
   // Create the actual function template.
@@ -902,7 +902,7 @@ TEST_F(TestTypeSystemClang, TestFunctionTemplateInRecordConstruction) {
   // 2. It is mirroring the behavior of DWARFASTParserClang::ParseSubroutine.
   FunctionDecl *func = m_ast->CreateFunctionDeclaration(
       TU, OptionalClangModuleID(), "foo", clang_type, StorageClass::SC_None,
-      false);
+      false, std::nullopt);
   TypeSystemClang::TemplateParameterInfos empty_params;
 
   // Create the actual function template.
@@ -941,7 +941,7 @@ TEST_F(TestTypeSystemClang, TestDeletingImplicitCopyCstrDueToMoveCStr) {
   bool is_attr_used = false;
   bool is_artificial = false;
   m_ast->AddMethodToCXXRecordType(
-      t.GetOpaqueQualType(), class_name, nullptr, function_type,
+      t.GetOpaqueQualType(), class_name, std::nullopt, function_type,
       lldb::AccessType::eAccessPublic, is_virtual, is_static, is_inline,
       is_explicit, is_attr_used, is_artificial);
 
@@ -979,7 +979,7 @@ TEST_F(TestTypeSystemClang, TestNotDeletingUserCopyCstrDueToMoveCStr) {
         m_ast->CreateFunctionType(return_type, &param_type, /*num_params*/ 1,
                                   /*variadic=*/false, /*quals*/ 0U);
     m_ast->AddMethodToCXXRecordType(
-        t.GetOpaqueQualType(), class_name, nullptr, function_type,
+        t.GetOpaqueQualType(), class_name, std::nullopt, function_type,
         lldb::AccessType::eAccessPublic, is_virtual, is_static, is_inline,
         is_explicit, is_attr_used, is_artificial);
   }
@@ -990,7 +990,7 @@ TEST_F(TestTypeSystemClang, TestNotDeletingUserCopyCstrDueToMoveCStr) {
         m_ast->CreateFunctionType(return_type, &param_type, /*num_params*/ 1,
                                   /*variadic=*/false, /*quals*/ 0U);
     m_ast->AddMethodToCXXRecordType(
-        t.GetOpaqueQualType(), class_name, nullptr, function_type,
+        t.GetOpaqueQualType(), class_name, std::nullopt, function_type,
         lldb::AccessType::eAccessPublic, is_virtual, is_static, is_inline,
         is_explicit, is_attr_used, is_artificial);
   }
@@ -1102,7 +1102,7 @@ TEST_F(TestTypeSystemClang, AddMethodToCXXRecordType_ParmVarDecls) {
       return_type, param_types.data(), /*num_params*/ param_types.size(),
       /*variadic=*/false, /*quals*/ 0U);
   m_ast->AddMethodToCXXRecordType(
-      t.GetOpaqueQualType(), "myFunc", nullptr, function_type,
+      t.GetOpaqueQualType(), "myFunc", std::nullopt, function_type,
       lldb::AccessType::eAccessPublic, is_virtual, is_static, is_inline,
       is_explicit, is_attr_used, is_artificial);
 

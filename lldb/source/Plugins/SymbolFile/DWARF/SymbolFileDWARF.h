@@ -436,7 +436,8 @@ protected:
                        SymbolContextList &sc_list);
 
   llvm::Error ResolveFunctionUID(SymbolContextList &sc_list,
-                                 lldb::user_id_t uid) override;
+                                 lldb::user_id_t uid,
+                                 std::optional<int> structor_variant) override;
 
   /// Resolve functions and (possibly) blocks for the given file address and a
   /// compile unit. The compile unit comes from the sc argument and it must be

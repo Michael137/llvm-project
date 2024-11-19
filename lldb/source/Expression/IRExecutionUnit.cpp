@@ -6,6 +6,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "clang/Basic/ABI.h"
 #include "llvm/ExecutionEngine/ExecutionEngine.h"
 #include "llvm/ExecutionEngine/ObjectCache.h"
 #include "llvm/IR/Constants.h"
@@ -13,6 +14,7 @@
 #include "llvm/IR/DiagnosticInfo.h"
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/Module.h"
+#include "llvm/Support/Error.h"
 #include "llvm/Support/SourceMgr.h"
 #include "llvm/Support/raw_ostream.h"
 
@@ -772,6 +774,53 @@ private:
   lldb::addr_t m_best_internal_load_address = LLDB_INVALID_ADDRESS;
 };
 
+static llvm::Expected<int> DecodeStructorVariant(llvm::StringRef structor) {
+  if (structor.size() != 2)
+
+    return llvm::createStringError(
+        llvm::inconvertibleErrorCode(),
+        llvm::formatv("Failed to decode structor variant '{0}': too long",
+                      structor));
+
+  bool is_ctor = false;
+  if (structor.consume_front("C"))
+    is_ctor = true;
+  else if (!structor.consume_front("D"))
+    return llvm::createStringError(
+        llvm::inconvertibleErrorCode(),
+        llvm::formatv(
+            "Failed to decode structor variant due to invalid prefix '{0}'",
+            structor[0]));
+
+  int code;
+  if (structor.consumeInteger(/*Radix=*/10, code))
+    return llvm::createStringError(
+        llvm::inconvertibleErrorCode(),
+        llvm::formatv("Failed to decode structor variant: failed to parse "
+                      "integer code: {0}",
+                      structor[0]));
+
+  if (is_ctor) {
+    switch (static_cast<clang::CXXCtorType>(code)) {
+    case clang::Ctor_Complete:
+      return 1;
+    case clang::Ctor_Base:
+      return 2;
+    default:
+      llvm_unreachable("Not implemented ctor.");
+    }
+  } else {
+    switch (static_cast<clang::CXXDtorType>(code)) {
+    case clang::Dtor_Complete:
+      return 1;
+    case clang::Dtor_Base:
+      return 2;
+    default:
+      llvm_unreachable("Not implemented dtor.");
+    }
+  }
+}
+
 static lldb::addr_t
 ResolveFunctionCallLabel(llvm::StringRef label,
                          const lldb_private::SymbolContext &sc,
@@ -799,16 +848,16 @@ ResolveFunctionCallLabel(llvm::StringRef label,
   }
 
   // Expected format at this point is: <mangled name>:<module
-  // id>:<definition/declaration DIE id>
+  // id>:<definition/declaration DIE id>[:<structor variant>]
   // TODO: YES, GetFunction in ResolveFunction requires a definition
   // DIE...currently regular functions work because we use definition DIEs?
   // ...so if we have a declaration DIE, we should do a lookup by linkage_name
   // (or name for constructors) and make sure specification matches. Then we use
   // that DIE.
-  llvm::SmallVector<llvm::StringRef, 3> components;
+  llvm::SmallVector<llvm::StringRef, 4> components;
   label.split(components, ":");
 
-  if (components.size() != 3) {
+  if (components.size() != 3 && components.size() != 4) {
     LLDB_LOG(GetLog(LLDBLog::Expressions),
              "Failed to resolve function label '{0}': incorrect format: too "
              "many label subcomponents.",
@@ -819,6 +868,18 @@ ResolveFunctionCallLabel(llvm::StringRef label,
   const auto mangled_name = components[0];
   const auto module = components[1];
   auto die = components[2];
+  int structor_variant = -1;
+  if (components.size() == 4) {
+    auto structor = components[3];
+    auto decoded_or_err = DecodeStructorVariant(structor);
+    if (!decoded_or_err) {
+      LLDB_LOG_ERROR(GetLog(LLDBLog::Expressions), decoded_or_err.takeError(),
+                     "Failed to resolve function label '{1}': {0}", label);
+      return LLDB_INVALID_ADDRESS;
+    }
+
+    structor_variant = *decoded_or_err;
+  }
 
   UUID module_uuid;
   if (!module_uuid.SetFromStringRef(module) || !module_uuid.IsValid()) {
@@ -871,7 +932,8 @@ ResolveFunctionCallLabel(llvm::StringRef label,
   // TODO: API should return SC list item and we should push it back to sc_list
   // here. In that case we wouldn't need the sc_list size checks below...
   SymbolContextList sc_list;
-  if (auto err = symbol_file->ResolveFunctionUID(sc_list, die_id)) {
+  if (auto err =
+          symbol_file->ResolveFunctionUID(sc_list, die_id, structor_variant)) {
     LLDB_LOG_ERROR(GetLog(LLDBLog::Expressions), std::move(err),
                    "Failed to resolve function by UID: {0}");
     return LLDB_INVALID_ADDRESS;

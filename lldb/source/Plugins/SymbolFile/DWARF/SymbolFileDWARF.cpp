@@ -10,6 +10,8 @@
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/DebugInfo/DWARF/DWARFAddressRange.h"
 #include "llvm/DebugInfo/DWARF/DWARFDebugLoc.h"
+#include "llvm/DebugInfo/DWARF/DWARFTypePrinter.h"
+#include "llvm/Demangle/Demangle.h"
 #include "llvm/Support/Casting.h"
 #include "llvm/Support/Error.h"
 #include "llvm/Support/FileUtilities.h"
@@ -2478,8 +2480,10 @@ bool SymbolFileDWARF::ResolveFunction(const DWARFDIE &orig_die,
   return false;
 }
 
-llvm::Error SymbolFileDWARF::ResolveFunctionUID(SymbolContextList &sc_list,
-                                                lldb::user_id_t uid) {
+llvm::Error
+SymbolFileDWARF::ResolveFunctionUID(SymbolContextList &sc_list,
+                                    lldb::user_id_t uid,
+                                    std::optional<int> structor_variant) {
   std::lock_guard<std::recursive_mutex> guard(GetModuleMutex());
   auto die = GetDIE(uid);
 
@@ -2502,12 +2506,29 @@ llvm::Error SymbolFileDWARF::ResolveFunctionUID(SymbolContextList &sc_list,
 
     if (auto spec = entry.GetAttributeValueAsReferenceDIE(
             llvm::dwarf::DW_AT_specification);
-        spec == die) {
-      die = entry;
-      return false;
+        spec != die)
+      return true;
+
+    if (structor_variant) {
+      char const *mangled =
+          entry.GetMangledName(/*substitute_name_allowed=*/false);
+      if (!mangled)
+        return true;
+
+      llvm::ItaniumPartialDemangler ipd;
+      if (ipd.partialDemangle(mangled))
+        return true;
+
+      auto structor_code = ipd.getCtorDtorVariant();
+      if (!structor_code)
+        return true;
+
+      if (*structor_code == *structor_variant)
+        return true;
     }
 
-    return true;
+    die = entry;
+    return false;
   });
 
   if (!ResolveFunction(die, false, sc_list))

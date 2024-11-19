@@ -331,7 +331,8 @@ public:
 
   virtual ConstString GetMangledNameForUID(lldb::user_id_t uid) { return {}; }
   virtual llvm::Error ResolveFunctionUID(SymbolContextList &sc_list,
-                                         lldb::user_id_t uid) {
+                                         lldb::user_id_t uid,
+                                         std::optional<int> structor_variant) {
     return llvm::createStringError("Not implemented");
   }
 

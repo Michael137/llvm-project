@@ -7768,7 +7768,9 @@ clang::CXXMethodDecl *TypeSystemClang::AddMethodToCXXRecordType(
       nullptr /*expr*/, is_explicit ? clang::ExplicitSpecKind::ResolvedTrue
                                     : clang::ExplicitSpecKind::ResolvedFalse);
 
+  bool is_ctor_dtor = false;
   if (name.starts_with("~")) {
+    is_ctor_dtor = true;
     cxx_dtor_decl = clang::CXXDestructorDecl::CreateDeserialized(
         getASTContext(), GlobalDeclID());
     cxx_dtor_decl->setDeclContext(cxx_record_decl);
@@ -7781,6 +7783,7 @@ clang::CXXMethodDecl *TypeSystemClang::AddMethodToCXXRecordType(
     cxx_dtor_decl->setConstexprKind(ConstexprSpecKind::Unspecified);
     cxx_method_decl = cxx_dtor_decl;
   } else if (decl_name == cxx_record_decl->getDeclName()) {
+    is_ctor_dtor = true;
     cxx_ctor_decl = clang::CXXConstructorDecl::CreateDeserialized(
         getASTContext(), GlobalDeclID(), 0);
     cxx_ctor_decl->setDeclContext(cxx_record_decl);
@@ -7857,9 +7860,15 @@ clang::CXXMethodDecl *TypeSystemClang::AddMethodToCXXRecordType(
   if (is_attr_used)
     cxx_method_decl->addAttr(clang::UsedAttr::CreateImplicit(getASTContext()));
 
-  if (asm_label)
-    cxx_method_decl->addAttr(clang::AsmLabelAttr::CreateImplicit(
-        getASTContext(), *asm_label, /*literal=*/false));
+  if (asm_label) {
+    if (is_ctor_dtor) {
+      cxx_method_decl->addAttr(
+          clang::StructorNameAttr::CreateImplicit(getASTContext(), *asm_label));
+    } else {
+      cxx_method_decl->addAttr(clang::AsmLabelAttr::CreateImplicit(
+          getASTContext(), *asm_label, /*literal=*/false));
+    }
+  }
 
   // Populate the method decl with parameter decls
 

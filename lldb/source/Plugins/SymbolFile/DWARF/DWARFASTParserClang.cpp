@@ -161,7 +161,7 @@ static bool TagIsRecordType(dw_tag_t tag) {
 }
 
 // TODO:
-// 0. Adjust FindInSymbols
+// 0. Adjust FindInSymbols: DONE
 // 1. log failure paths
 // 2. What happens for functions without a linkage name? Previously we didn't
 // attach a label for those but now we would

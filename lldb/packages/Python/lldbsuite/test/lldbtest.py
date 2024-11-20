@@ -1114,10 +1114,20 @@ class Base(unittest.TestCase):
         # Remove subprocesses created by the test.
         self.cleanupSubprocesses()
 
+        print ("Start SBDebugger.Destroy")
+
         # This must be the last statement, otherwise teardown hooks or other
         # lines might depend on this still being active.
         lldb.SBDebugger.Destroy(self.dbg)
+        print ("Finish SBDebugger.Destroy")
+
+        print ("Start del SBDebugger")
+
         del self.dbg
+
+        print ("Finish del SBDebugger")
+
+        print ("Start GarbageCollectAllocatedModules")
 
         # All modules should be orphaned now so that they can be cleared from
         # the shared module cache.
@@ -1127,6 +1137,9 @@ class Base(unittest.TestCase):
         # FIXME: This assert fails on Windows.
         if self.getPlatform() != "windows":
             self.assertEqual(lldb.SBModule.GetNumberAllocatedModules(), 0)
+
+        print ("Finished GarbageCollectAllocatedModules")
+        #self.assertTrue(False)
 
     # =========================================================
     # Various callbacks to allow introspection of test progress

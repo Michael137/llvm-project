@@ -193,16 +193,21 @@ llvm::StringRef ProcessGDBRemote::GetPluginDescriptionStatic() {
 }
 
 void ProcessGDBRemote::Terminate() {
+  llvm::errs() << "START: Unregistering ProcessGDBRemote\n";
+  std::this_thread::sleep_for(std::chrono::seconds(5));
   PluginManager::UnregisterPlugin(ProcessGDBRemote::CreateInstance);
+  llvm::errs() << "END: Unregistering ProcessGDBRemote\n";
 }
 
 lldb::ProcessSP ProcessGDBRemote::CreateInstance(
     lldb::TargetSP target_sp, ListenerSP listener_sp,
     const FileSpec *crash_file_path, bool can_connect) {
   lldb::ProcessSP process_sp;
-  if (crash_file_path == nullptr)
+  if (crash_file_path == nullptr) {
+    llvm::errs() << "ProcessGDBRemote::CreateInstance\n";
     process_sp = std::shared_ptr<ProcessGDBRemote>(
         new ProcessGDBRemote(target_sp, listener_sp));
+  }
   return process_sp;
 }
 
@@ -3425,6 +3430,8 @@ Status ProcessGDBRemote::LaunchAndConnectToDebugserver(
     // terminal key sequences (^C) don't affect debugserver.
     debugserver_launch_info.SetLaunchInSeparateProcessGroup(true);
 
+    llvm::errs() << __func__ << '\n';
+
     const std::weak_ptr<ProcessGDBRemote> this_wp =
         std::static_pointer_cast<ProcessGDBRemote>(shared_from_this());
     debugserver_launch_info.SetMonitorProcessCallback(
@@ -3522,15 +3529,20 @@ void ProcessGDBRemote::MonitorDebugserverProcess(
             __FUNCTION__, debugserver_pid, signo, signo, exit_status);
 
   std::shared_ptr<ProcessGDBRemote> process_sp = process_wp.lock();
+
+  llvm::errs() << "Monitoring 1 " << process_sp.get() << "\n";
+
   LLDB_LOGF(log, "ProcessGDBRemote::%s(process = %p)", __FUNCTION__,
             static_cast<void *>(process_sp.get()));
   if (!process_sp || process_sp->m_debugserver_pid != debugserver_pid)
     return;
 
+  llvm::errs() << "Monitoring 2\n";
+
   // Sleep for a half a second to make sure our inferior process has time to
   // set its exit status before we set it incorrectly when both the debugserver
   // and the inferior process shut down.
-  std::this_thread::sleep_for(std::chrono::milliseconds(500));
+  std::this_thread::sleep_for(std::chrono::seconds(20));
 
   // If our process hasn't yet exited, debugserver might have died. If the
   // process did exit, then we are reaping it.

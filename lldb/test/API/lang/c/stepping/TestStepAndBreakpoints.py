@@ -309,3 +309,6 @@ class TestCStepping(TestBase):
 
         thread.StepInto("NoSuchFunction")
         self.assertEqual(thread.GetFrameAtIndex(0).GetFunctionName(), "main")
+
+        # To force call to Monitor with ProcessGDBRemote pointer
+        process.Continue()

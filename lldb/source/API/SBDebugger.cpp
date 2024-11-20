@@ -307,10 +307,13 @@ SBDebugger SBDebugger::Create(bool source_init_files,
 void SBDebugger::Destroy(SBDebugger &debugger) {
   LLDB_INSTRUMENT_VA(debugger);
 
+  llvm::errs() << "START: Destory debugger\n";
   Debugger::Destroy(debugger.m_opaque_sp);
 
   if (debugger.m_opaque_sp.get() != nullptr)
     debugger.m_opaque_sp.reset();
+
+  llvm::errs() << "END: Destory debugger\n";
 }
 
 void SBDebugger::MemoryPressureDetected() {

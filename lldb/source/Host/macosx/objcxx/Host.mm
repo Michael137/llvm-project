@@ -1335,6 +1335,9 @@ static bool ShouldLaunchUsingXPC(ProcessLaunchInfo &launch_info) {
 }
 
 Status Host::LaunchProcess(ProcessLaunchInfo &launch_info) {
+
+  llvm::errs() << __func__ << '\n';
+
   Status error;
 
   FileSystem &fs = FileSystem::Instance();
@@ -1512,6 +1515,8 @@ llvm::Expected<HostThread> Host::StartMonitoringChildProcess(
   LLDB_LOGF(log,
             "Host::StartMonitoringChildProcess(callback, pid=%i) source = %p\n",
             static_cast<int>(pid), static_cast<void *>(source));
+
+  llvm::errs() << "START: StartMonitoringChildProcess\n";
 
   if (source) {
     Host::MonitorChildProcessCallback callback_copy = callback;

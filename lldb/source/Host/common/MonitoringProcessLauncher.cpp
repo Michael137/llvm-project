@@ -54,6 +54,7 @@ MonitoringProcessLauncher::LaunchProcess(const ProcessLaunchInfo &launch_info,
     Log *log = GetLog(LLDBLog::Process);
 
     assert(launch_info.GetMonitorProcessCallback());
+    llvm::errs() << "START: StartMonitoring\n";
     llvm::Expected<HostThread> maybe_thread =
         process.StartMonitoring(launch_info.GetMonitorProcessCallback());
     if (!maybe_thread)

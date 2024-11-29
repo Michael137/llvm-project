@@ -235,6 +235,13 @@ static unsigned GetCXXMethodCVQuals(const DWARFDIE &subprogram,
 // attach a label for those but now we would
 // 3. Unit-test
 // 4. API test (whilch checks expr and AST dump)
+//
+// Tests:
+// 1. unit-tests:
+//   * Parse subroutine and check AsmLabel format
+//     * DIE With/without mangled name
+//     * Check error paths
+//     * Check constructors/destructors
 static std::optional<std::string> MakeLLDBFuncAsmLabel(const DWARFDIE &die) {
   std::optional<std::string> label;
   char const *mangled = die.GetMangledName(/*substitute_name_allowed=*/false);

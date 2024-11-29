@@ -2521,6 +2521,7 @@ SymbolFileDWARF::ResolveFunctionUID(SymbolContextList &sc_list,
       if (ipd.partialDemangle(mangled))
         return true;
 
+      // TODO: need to account for structor variant aliases
       auto structor_code = ipd.getCtorDtorVariant();
       if (!structor_code)
         return true;

@@ -849,7 +849,13 @@ void DwarfUnit::constructTypeDIE(DIE &Buffer, const DIDerivedType *DTy) {
   }
 }
 
-void DwarfUnit::constructSubprogramArguments(DIE &Buffer, DITypeRefArray Args) {
+DIE *DwarfUnit::constructSubprogramArguments(DIE &Buffer, DITypeRefArray Args) {
+  // TODO: this should return a ObjectPointer, which applySubprogramAttributes
+  // then applies to the SubProgram. Realy this should be the same codepath
+  // (adding paramters in declaration vs. definition).
+  //
+  // Args[1] is the 'this' parameter.
+  DIE *ObjectPointer = nullptr;
   for (unsigned i = 1, N = Args.size(); i < N; ++i) {
     const DIType *Ty = Args[i];
     if (!Ty) {
@@ -860,8 +866,14 @@ void DwarfUnit::constructSubprogramArguments(DIE &Buffer, DITypeRefArray Args) {
       addType(Arg, Ty);
       if (Ty->isArtificial())
         addFlag(Arg, dwarf::DW_AT_artificial);
+      if (Ty->isObjectPointer()) {
+        assert (!ObjectPointer);
+        ObjectPointer = &Arg;
+      }
     }
   }
+
+  return ObjectPointer;
 }
 
 void DwarfUnit::constructTypeDIE(DIE &Buffer, const DISubroutineType *CTy) {
@@ -1358,7 +1370,8 @@ void DwarfUnit::applySubprogramAttributes(const DISubprogram *SP, DIE &SPDie,
 
     // Add arguments. Do not add arguments for subprogram definition. They will
     // be handled while processing variables.
-    constructSubprogramArguments(SPDie, Args);
+    if (auto * ObjectPointer = constructSubprogramArguments(SPDie, Args))
+      addDIEEntry(SPDie, dwarf::DW_AT_object_pointer, *ObjectPointer);
   }
 
   addThrownTypes(SPDie, SP->getThrownTypes());

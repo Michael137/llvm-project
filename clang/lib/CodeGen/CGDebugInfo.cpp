@@ -2031,6 +2031,9 @@ llvm::DISubroutineType *CGDebugInfo::getOrCreateInstanceMethodType(
   for (unsigned i = 1, e = Args.size(); i != e; ++i)
     Elts.push_back(Args[i]);
 
+  if (Elts.size() > 2 && ThisPtr.isNull())
+    Elts[1] = DBuilder.createObjectPointerType(cast<llvm::DIType>(Elts[1]));
+
   llvm::DITypeRefArray EltTypeArray = DBuilder.getOrCreateTypeArray(Elts);
 
   return DBuilder.createSubroutineType(EltTypeArray, OriginalFunc->getFlags(),
@@ -4824,6 +4827,9 @@ llvm::DILocalVariable *CGDebugInfo::EmitDeclare(const VarDecl *VD,
   if (const auto *IPD = dyn_cast<ImplicitParamDecl>(VD)) {
     if (IPD->getParameterKind() == ImplicitParamKind::CXXThis ||
         IPD->getParameterKind() == ImplicitParamKind::ObjCSelf)
+      Flags |= llvm::DINode::FlagObjectPointer;
+  } else if (const auto * PVD = dyn_cast<ParmVarDecl>(VD)) {
+    if (PVD->isExplicitObjectParameter())
       Flags |= llvm::DINode::FlagObjectPointer;
   }
 

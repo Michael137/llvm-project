@@ -3135,7 +3135,7 @@ size_t DWARFASTParserClang::ParseChildParameters(
           Type *this_type = die.ResolveTypeUID(param_type_die_form.Reference());
           if (this_type) {
             uint32_t encoding_mask = this_type->GetEncodingMask();
-            if (encoding_mask & Type::eEncodingIsPointerUID) {
+            if (encoding_mask & (1u << Type::eEncodingIsPointerUID)) {
               is_static = false;
 
               if (encoding_mask & (1u << Type::eEncodingIsConstUID))

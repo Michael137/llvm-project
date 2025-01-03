@@ -850,10 +850,6 @@ void DwarfUnit::constructTypeDIE(DIE &Buffer, const DIDerivedType *DTy) {
 }
 
 DIE *DwarfUnit::constructSubprogramArguments(DIE &Buffer, DITypeRefArray Args) {
-  // TODO: this should return a ObjectPointer, which applySubprogramAttributes
-  // then applies to the SubProgram. Realy this should be the same codepath
-  // (adding paramters in declaration vs. definition).
-  //
   // Args[1] is the 'this' parameter.
   DIE *ObjectPointer = nullptr;
   for (unsigned i = 1, N = Args.size(); i < N; ++i) {
@@ -867,7 +863,7 @@ DIE *DwarfUnit::constructSubprogramArguments(DIE &Buffer, DITypeRefArray Args) {
       if (Ty->isArtificial())
         addFlag(Arg, dwarf::DW_AT_artificial);
       if (Ty->isObjectPointer()) {
-        assert (!ObjectPointer);
+        assert (!ObjectPointer && "Can't have more than one object pointer");
         ObjectPointer = &Arg;
       }
     }

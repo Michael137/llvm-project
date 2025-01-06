@@ -2491,14 +2491,20 @@ SymbolFileDWARF::ResolveFunctionUID(SymbolContextList &sc_list,
     return llvm::createStringError(
         llvm::formatv("{0}: invalid input DIE", __func__));
 
-  // TODO: clang indexes by mangled name too...so could technically look up
-  // by mangled name....but GCC doesn't do that
-  char const *name = die.GetName();
+  // TODO: clang indexes definitions mangled name only...so we need to look up
+  // by mangled name if one is available on the declaration.
+  // Does this work for GCC?
+  // This GetMangledName(true) lookup doesn't quite work for GCC because declarations
+  // on structors have a D5 variant mangled name...so we would try a lookup by mangled
+  // name but fail to find an entry....will need to do something special for constructors
+  // here perhaps.
+  char const *name = die.GetMangledName(/*substitute_name_allowed=*/true);
   if (!name)
     return llvm::createStringError(
         llvm::formatv("{0}: input DIE has no name", __func__));
 
-  Module::LookupInfo info(ConstString(name), lldb::eFunctionNameTypeMethod,
+  // TODO: is eFunctionNameTypeFull correct here?
+  Module::LookupInfo info(ConstString(name), lldb::eFunctionNameTypeFull,
                           lldb::eLanguageTypeUnknown);
   m_index->GetFunctions(info, *this, {}, [&](DWARFDIE entry) {
     if (entry.GetAttributeValueAsUnsigned(llvm::dwarf::DW_AT_declaration, 0))

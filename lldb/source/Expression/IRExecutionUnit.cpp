@@ -868,7 +868,7 @@ ResolveFunctionCallLabel(llvm::StringRef label,
   const auto mangled_name = components[0];
   const auto module = components[1];
   auto die = components[2];
-  int structor_variant = -1;
+  std::optional<int> structor_variant;
   if (components.size() == 4) {
     auto structor = components[3];
     auto decoded_or_err = DecodeStructorVariant(structor);

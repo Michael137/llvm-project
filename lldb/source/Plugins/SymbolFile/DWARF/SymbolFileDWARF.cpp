@@ -2504,8 +2504,7 @@ SymbolFileDWARF::ResolveFunctionUID(SymbolContextList &sc_list,
         llvm::formatv("{0}: input DIE has no name", __func__));
 
   // TODO: is eFunctionNameTypeFull correct here?
-  Module::LookupInfo info(ConstString(name), lldb::eFunctionNameTypeFull,
-                          lldb::eLanguageTypeUnknown);
+  Module::LookupInfo info(ConstString(name), lldb::eFunctionNameTypeFull | lldb::eFunctionNameTypeMethod, lldb::eLanguageTypeUnknown);
   m_index->GetFunctions(info, *this, {}, [&](DWARFDIE entry) {
     if (entry.GetAttributeValueAsUnsigned(llvm::dwarf::DW_AT_declaration, 0))
       return true;

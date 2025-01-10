@@ -111,7 +111,7 @@ void UdtRecordCompleter::AddMethod(llvm::StringRef name, TypeIndex type_idx,
   bool is_artificial = (options & MethodOptions::CompilerGenerated) ==
                        MethodOptions::CompilerGenerated;
   m_ast_builder.clang().AddMethodToCXXRecordType(
-      derived_opaque_ty, name.data(), nullptr, method_ct,
+      derived_opaque_ty, name.data(), /*mangled_name=*/std::nullopt, method_ct,
       access_type, attrs.isVirtual(), attrs.isStatic(), false, false, false,
       is_artificial);
 

@@ -2509,10 +2509,23 @@ SymbolFileDWARF::ResolveFunctionUID(SymbolContextList &sc_list,
     if (entry.GetAttributeValueAsUnsigned(llvm::dwarf::DW_AT_declaration, 0))
       return true;
 
+    // The DWARF AST parser finds the method declarations in the debug_types section
+    // (i.e., from the type-unit).
+    // The index finds the definition in the debug_info section however. So, the DW_AT_specification
+    // on the index entry will point to the declaration in .debug_info, which is not the same
+    // DIE as 'die' (which lives in a .debug_types type-unit). So we somehow need to reconcile
+    // the 'spec == die' check here by accounting for the die being in a type-unit instead of
+    // a compile-unit.
+    //
     if (auto spec = entry.GetAttributeValueAsReferenceDIE(
-            llvm::dwarf::DW_AT_specification);
-        spec != die)
-      return true;
+            llvm::dwarf::DW_AT_specification)) {
+      if (spec != die) {
+        if (auto sig = spec.GetParent().GetReferencedDIE(DW_AT_signature)) {
+          if (sig.GetCU()->DIE() != die.GetCU()->DIE())
+            return true;
+        }
+      }
+    }
 
     if (structor_variant) {
       char const *mangled =

@@ -1448,7 +1448,7 @@ PDBASTParser::AddRecordMethod(lldb_private::SymbolFile &symbol_file,
   // TODO: get mangled name for the method.
   return m_ast.AddMethodToCXXRecordType(
       record_type.GetOpaqueQualType(), name.c_str(),
-      /*mangled_name*/ nullptr, method_comp_type, access, method.isVirtual(),
+      /*mangled_name*/ std::nullopt, method_comp_type, access, method.isVirtual(),
       method.isStatic(), method.hasInlineAttribute(),
       /*is_explicit*/ false, // FIXME: Need this field in CodeView.
       /*is_attr_used*/ false,

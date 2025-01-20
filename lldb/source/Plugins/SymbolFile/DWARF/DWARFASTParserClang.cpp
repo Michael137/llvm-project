@@ -3133,61 +3133,22 @@ void DWARFASTParserClang::ParseChildParameters(
     const dw_tag_t tag = die.Tag();
     switch (tag) {
     case DW_TAG_formal_parameter: {
-      DWARFAttributes attributes = die.GetAttributes();
-      if (attributes.Size() == 0)
+      if (die.GetAttributeValueAsUnsigned(DW_AT_artificial, 0))
+        break;
+    
+      Type *type = die.ResolveTypeUID(die.GetAttributeValueAsReferenceDIE(DW_AT_type));
+      if (!type)
         break;
 
-      const char *name = nullptr;
-      DWARFFormValue param_type_die_form;
-      bool is_artificial = false;
-      // one of None, Auto, Register, Extern, Static, PrivateExtern
+      function_param_types.push_back(type->GetForwardCompilerType());
 
-      clang::StorageClass storage = clang::SC_None;
-      uint32_t i;
-      for (i = 0; i < attributes.Size(); ++i) {
-        const dw_attr_t attr = attributes.AttributeAtIndex(i);
-        DWARFFormValue form_value;
-        if (attributes.ExtractFormValueAtIndex(i, form_value)) {
-          switch (attr) {
-          case DW_AT_name:
-            name = form_value.AsCString();
-            break;
-          case DW_AT_type:
-            param_type_die_form = form_value;
-            break;
-          case DW_AT_artificial:
-            is_artificial = form_value.Boolean();
-            break;
-          case DW_AT_location:
-          case DW_AT_const_value:
-          case DW_AT_default_value:
-          case DW_AT_description:
-          case DW_AT_endianity:
-          case DW_AT_is_optional:
-          case DW_AT_segment:
-          case DW_AT_variable_parameter:
-          default:
-          case DW_AT_abstract_origin:
-          case DW_AT_sibling:
-            break;
-          }
-        }
-      }
+      clang::ParmVarDecl *param_var_decl = m_ast.CreateParameterDeclaration(
+          containing_decl_ctx, GetOwningClangModule(die), die.GetName(),
+          type->GetForwardCompilerType(), clang::SC_None);
+      assert(param_var_decl);
+      function_param_decls.push_back(param_var_decl);
 
-      if (!is_artificial) {
-        Type *type = die.ResolveTypeUID(param_type_die_form.Reference());
-        if (type) {
-          function_param_types.push_back(type->GetForwardCompilerType());
-
-          clang::ParmVarDecl *param_var_decl = m_ast.CreateParameterDeclaration(
-              containing_decl_ctx, GetOwningClangModule(die), name,
-              type->GetForwardCompilerType(), storage);
-          assert(param_var_decl);
-          function_param_decls.push_back(param_var_decl);
-
-          m_ast.SetMetadataAsUserID(param_var_decl, die.GetID());
-        }
-      }
+      m_ast.SetMetadataAsUserID(param_var_decl, die.GetID());
     } break;
 
     case DW_TAG_unspecified_parameters:

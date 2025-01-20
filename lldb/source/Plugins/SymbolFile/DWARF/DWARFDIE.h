@@ -142,8 +142,8 @@ public:
 };
 
 class DWARFDIE::child_iterator
-    : public llvm::iterator_facade_base<DWARFDIE::child_iterator,
-                                        std::forward_iterator_tag, DWARFDIE> {
+    : public llvm::iterator_facade_base<
+          DWARFDIE::child_iterator, std::forward_iterator_tag, const DWARFDIE> {
   /// The current child or an invalid DWARFDie.
   DWARFDIE m_die;
 

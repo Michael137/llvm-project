@@ -165,6 +165,12 @@ void ClangUserExpression::ScanContext(ExecutionContext &exe_ctx, Status &err) {
           return;
         }
 
+        // For clang::MethodDecl's the object parameter is always the first
+        // parameter (for both explicit and implicit parameters);
+        // assert (method_decl->getNumParams() >= 1);
+        // auto * param = method_decl->getParamDecl(0);
+        // TODO: check param->isExplicitObjectParameter() and don't produce warning if one exists...this code is only relevant for explicit parameters (for which we need to add the struct argument later for JITting...for explicit objects that parameter already is added).
+
         lldb::VariableSP this_var_sp(
             variable_list_sp->FindVariable(ConstString("this")));
 

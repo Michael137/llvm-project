@@ -527,6 +527,12 @@ private:
                        const lldb_private::CompilerType &class_clang_type,
                        const lldb::AccessType default_accesibility,
                        lldb_private::ClangASTImporter::LayoutInfo &layout_info);
+
+  /// Wrapper for TypeSystemClang::GetLocForDecl that automatically returns an
+  /// invalid SourceLocation in case source locations are disabled.
+  clang::SourceLocation
+  GetLocForDecl(const lldb_private::plugin::dwarf::DWARFDIE &die,
+                const lldb_private::Declaration &decl);
 };
 
 /// Parsed form of all attributes that are relevant for type reconstruction.

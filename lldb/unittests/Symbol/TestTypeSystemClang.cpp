@@ -17,6 +17,9 @@
 #include "clang/AST/DeclCXX.h"
 #include "clang/AST/DeclObjC.h"
 #include "clang/AST/ExprCXX.h"
+#include "clang/Basic/FileManager.h"
+#include "clang/Basic/SourceManager.h"
+#include "llvm/Support/SmallVectorMemoryBuffer.h"
 #include "gtest/gtest.h"
 
 using namespace clang;
@@ -50,6 +53,17 @@ protected:
   QualType GetBasicQualType(const char *name) const {
     return ClangUtil::GetQualType(
         m_ast->GetBuiltinTypeByName(ConstString(name)));
+  }
+
+  /// Returns the textual representation of the given source location.
+  std::string GetLocAsStr(clang::SourceLocation loc) {
+    return loc.printToString(m_ast->getASTContext().getSourceManager());
+  }
+
+  /// Returns the textual representation of the given Declaration's source
+  /// location.
+  std::string GetDeclLocAsStr(const lldb_private::Declaration &decl) {
+    return GetLocAsStr(m_ast->GetLocForDecl(decl));
   }
 };
 
@@ -304,8 +318,7 @@ TEST_F(TestTypeSystemClang, TestGetEnumIntegerTypeBasicTypes) {
 
       CompilerType enum_type = ast.CreateEnumerationType(
           "my_enum", ast.GetTranslationUnitDecl(), OptionalClangModuleID(),
-          Declaration(), basic_compiler_type, scoped);
-
+          SourceLocation(), basic_compiler_type, scoped);
       CompilerType t = ast.GetEnumerationIntegerType(enum_type);
       // Check that the type we put in at the start is found again.
       EXPECT_EQ(basic_compiler_type.GetTypeName(), t.GetTypeName());
@@ -316,10 +329,10 @@ TEST_F(TestTypeSystemClang, TestGetEnumIntegerTypeBasicTypes) {
 TEST_F(TestTypeSystemClang, TestEnumerationValueSign) {
   CompilerType enum_type = m_ast->CreateEnumerationType(
       "my_enum_signed", m_ast->GetTranslationUnitDecl(),
-      OptionalClangModuleID(), Declaration(),
+      OptionalClangModuleID(), clang::SourceLocation(),
       m_ast->GetBasicType(lldb::eBasicTypeSignedChar), false);
   auto *enum_decl = m_ast->AddEnumerationValueToEnumerationType(
-      enum_type, Declaration(), "minus_one", -1, 8);
+      enum_type, clang::SourceLocation(), "minus_one", -1, 8);
   EXPECT_TRUE(enum_decl->getInitVal().isSigned());
 }
 
@@ -330,7 +343,7 @@ TEST_F(TestTypeSystemClang, TestOwningModule) {
   CompilerType basic_compiler_type = ast.GetBasicType(BasicType::eBasicTypeInt);
   CompilerType enum_type = ast.CreateEnumerationType(
       "my_enum", ast.GetTranslationUnitDecl(), OptionalClangModuleID(100),
-      Declaration(), basic_compiler_type, false);
+      clang::SourceLocation(), basic_compiler_type, false);
   auto *ed = TypeSystemClang::GetAsEnumDecl(enum_type);
   EXPECT_FALSE(!ed);
   EXPECT_EQ(ed->getOwningModuleID(), 100u);
@@ -1119,4 +1132,71 @@ TEST_F(TestTypeSystemClang, AddMethodToCXXRecordType_ParmVarDecls) {
   // DeclContext of each parameter should be the CXXMethodDecl itself.
   EXPECT_EQ(method_it->getParamDecl(0)->getDeclContext(), *method_it);
   EXPECT_EQ(method_it->getParamDecl(1)->getDeclContext(), *method_it);
+}
+
+/// Small utility function to create a Declaration with a given line without
+/// having to write down the other parameters that don't matter for most tests.
+static lldb_private::Declaration DeclAtLineAndCol(uint32_t line, uint32_t col) {
+  return Declaration(FileSpec("main.cpp"), line, col);
+}
+
+static const char *invalid_loc = "<invalid loc>";
+
+TEST_F(TestTypeSystemClang, TestGetLocForDecl_InvalidDeclaration) {
+  // Invalid Declaration should produce an invalid location.
+  lldb_private::Declaration decl;
+  EXPECT_EQ(invalid_loc, GetDeclLocAsStr(decl));
+}
+
+TEST_F(TestTypeSystemClang, TestGetLocForDecl) {
+  // Test that GetLocForDecl returns a valid source location pointing
+  // to the start of a dummy file with the same path.
+  EXPECT_EQ("main.cpp:1:1", GetDeclLocAsStr(DeclAtLineAndCol(1, 0)));
+  EXPECT_EQ("main.cpp:1:1", GetDeclLocAsStr(DeclAtLineAndCol(2, 0)));
+  EXPECT_EQ("main.cpp:1:1", GetDeclLocAsStr(DeclAtLineAndCol(3, 0)));
+  EXPECT_EQ("main.cpp:1:1", GetDeclLocAsStr(DeclAtLineAndCol(1000, 0)));
+
+  EXPECT_EQ("main.cpp:1:1", GetDeclLocAsStr(DeclAtLineAndCol(1, 1)));
+  EXPECT_EQ("main.cpp:1:1", GetDeclLocAsStr(DeclAtLineAndCol(1, 2)));
+  EXPECT_EQ("main.cpp:1:1", GetDeclLocAsStr(DeclAtLineAndCol(1, 3)));
+  EXPECT_EQ("main.cpp:1:1", GetDeclLocAsStr(DeclAtLineAndCol(1, 1000)));
+
+  EXPECT_EQ("main.cpp:1:1", GetDeclLocAsStr(DeclAtLineAndCol(2, 1)));
+  EXPECT_EQ("main.cpp:1:1", GetDeclLocAsStr(DeclAtLineAndCol(2, 2)));
+  EXPECT_EQ("main.cpp:1:1", GetDeclLocAsStr(DeclAtLineAndCol(2, 3)));
+  EXPECT_EQ("main.cpp:1:1", GetDeclLocAsStr(DeclAtLineAndCol(2, 1000)));
+}
+
+TEST_F(TestTypeSystemClang, TestGetLocForDecl_BufferContent) {
+  // Test that GetLocForDecl returns a valid source location pointing
+  // to the start of a dummy file with the same path.
+  SourceLocation loc = m_ast->GetLocForDecl(DeclAtLineAndCol(1, 0));
+  clang::SourceManager &sm = m_ast->getASTContext().getSourceManager();
+  EXPECT_EQ("<LLDB-generated contents of main.cpp>",
+            sm.getBufferData(sm.getFileID(loc)));
+}
+
+TEST_F(TestTypeSystemClang, TestGetLocForDecl_MultipleLocs) {
+  // Test having multiple source files passed to GetLocForDecl.
+  Declaration main_decl(FileSpec("main.cpp"), 2, 1);
+  SourceLocation main_loc = m_ast->GetLocForDecl(main_decl);
+  EXPECT_EQ("main.cpp:1:1", GetLocAsStr(main_loc));
+
+  Declaration header_decl(FileSpec("some_header.h"), 1, 1);
+  SourceLocation header_loc = m_ast->GetLocForDecl(header_decl);
+  EXPECT_EQ("some_header.h:1:1", GetLocAsStr(header_loc));
+
+  Declaration other_header_decl(FileSpec("other_header"), 1, 1);
+  SourceLocation other_header_loc = m_ast->GetLocForDecl(other_header_decl);
+  EXPECT_EQ("other_header:1:1", GetLocAsStr(other_header_loc));
+
+  // This tests that the file tree we create in the Clang SourceManager is
+  // allowing Clang to establish a deterministic ordering between all the source
+  // locations. If this wasn't the case, then isBeforeInTranslationUnit (which
+  // is for example used by Clang when ordering diagnostics) would assert.
+  clang::SourceManager &SM = m_ast->getASTContext().getSourceManager();
+  SM.isBeforeInTranslationUnit(header_loc, main_loc);
+  SM.isBeforeInTranslationUnit(main_loc, header_loc);
+  SM.isBeforeInTranslationUnit(header_loc, other_header_loc);
+  SM.isBeforeInTranslationUnit(main_loc, other_header_loc);
 }

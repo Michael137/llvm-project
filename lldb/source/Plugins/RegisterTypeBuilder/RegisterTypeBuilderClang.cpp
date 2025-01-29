@@ -90,15 +90,15 @@ CompilerType RegisterTypeBuilderClang::GetRegisterType(
           else {
             field_type = type_system->CreateEnumerationType(
                 enum_type_name, type_system->GetTranslationUnitDecl(),
-                OptionalClangModuleID(), Declaration(), field_uint_type, false);
+                OptionalClangModuleID(), clang::SourceLocation(),
+                field_uint_type, false);
 
             type_system->StartTagDeclarationDefinition(field_type);
 
-            Declaration decl;
             for (auto enumerator : enumerators) {
               type_system->AddEnumerationValueToEnumerationType(
-                  field_type, decl, enumerator.m_name.c_str(),
-                  enumerator.m_value, byte_size * 8);
+                  field_type, clang::SourceLocation(),
+                  enumerator.m_name.c_str(), enumerator.m_value, byte_size * 8);
             }
 
             type_system->CompleteTagDeclarationDefinition(field_type);

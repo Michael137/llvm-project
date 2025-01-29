@@ -5,4 +5,8 @@ let Definition = "symbolfiledwarf" in {
     Global,
     DefaultFalse,
     Desc<"Ignore indexes present in the object files and always index DWARF manually.">;
+  def UseSourceLocations: Property<"use-source-locations", "Boolean">,
+    Global,
+    DefaultTrue,
+    Desc<"Generate source locations for declarations to improve error diagnostics.">;
 }

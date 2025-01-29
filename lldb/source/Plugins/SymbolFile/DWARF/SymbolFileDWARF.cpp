@@ -129,6 +129,10 @@ public:
   bool IgnoreFileIndexes() const {
     return GetPropertyAtIndexAs<bool>(ePropertyIgnoreIndexes, false);
   }
+
+  bool UseSourceLocations() const {
+    return GetPropertyAtIndexAs<bool>(ePropertyUseSourceLocations, false);
+  }
 };
 
 } // namespace
@@ -4411,4 +4415,8 @@ void SymbolFileDWARF::GetCompileOptions(
       continue;
     args.insert({comp_unit, Args(flags)});
   }
+}
+
+bool SymbolFileDWARF::UseSourceLocations() const {
+  return GetGlobalPluginProperties().UseSourceLocations();
 }

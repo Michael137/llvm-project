@@ -44,6 +44,7 @@
 #include "clang/Sema/Sema.h"
 
 #include "llvm/Support/Signals.h"
+#include "llvm/Support/SmallVectorMemoryBuffer.h"
 #include "llvm/Support/Threading.h"
 
 #include "Plugins/ExpressionParser/Clang/ClangASTImporter.h"
@@ -662,6 +663,36 @@ private:
   Log *m_log;
 };
 
+/// Creates a dummy main file for the given SourceManager.
+/// This file only serves as a container for include locations to other
+/// FileIDs that are put into this type system (either by the ASTImporter
+/// or when TypeSystemClang generates source locations for declarations).
+static void CreateDummyMainFile(clang::SourceManager &sm,
+                                clang::FileManager &fm) {
+  llvm::StringRef main_file_path = "<LLDB Dummy Main File>";
+  // The file contents are empty and should never be seen by the user. The new
+  // line is just there to not throw off any line counting logic that might
+  // expect files to end with a newline.
+  llvm::StringRef main_file_contents = "\n";
+  const time_t mod_time = 0;
+  const off_t file_size = static_cast<off_t>(main_file_contents.size());
+
+  // Create a virtual FileEntry for our dummy file.
+  auto fe = fm.getVirtualFileRef(main_file_path, file_size, mod_time);
+
+  // Overwrite the file buffer with our empty file contents.
+  llvm::SmallVector<char, 64> buffer;
+  buffer.append(main_file_contents.begin(), main_file_contents.end());
+  auto file_contents = std::make_unique<llvm::SmallVectorMemoryBuffer>(
+      std::move(buffer), main_file_path);
+  sm.overrideFileContents(fe, std::move(file_contents));
+
+  // Create the actual file id for the FileEntry and set it as the main file.
+  clang::FileID fid =
+      sm.createFileID(fe, SourceLocation(), clang::SrcMgr::C_User);
+  sm.setMainFileID(fid);
+}
+
 void TypeSystemClang::CreateASTContext() {
   assert(!m_ast_up);
   m_ast_owned = true;
@@ -691,6 +722,8 @@ void TypeSystemClang::CreateASTContext() {
 
   m_diagnostic_consumer_up = std::make_unique<NullDiagnosticConsumer>();
   m_ast_up->getDiagnostics().setClient(m_diagnostic_consumer_up.get(), false);
+
+  CreateDummyMainFile(*m_source_manager_up, *m_file_manager_up);
 
   // This can be NULL if we don't know anything about the architecture or if
   // the target for an architecture isn't enabled in the llvm/clang that we
@@ -1243,7 +1276,7 @@ CompilerType TypeSystemClang::CreateRecordType(
     clang::DeclContext *decl_ctx, OptionalClangModuleID owning_module,
     AccessType access_type, llvm::StringRef name, int kind,
     LanguageType language, std::optional<ClangASTMetadata> metadata,
-    bool exports_symbols) {
+    bool exports_symbols, SourceLocation location) {
   ASTContext &ast = getASTContext();
 
   if (decl_ctx == nullptr)
@@ -1265,6 +1298,8 @@ CompilerType TypeSystemClang::CreateRecordType(
   CXXRecordDecl *decl = CXXRecordDecl::CreateDeserialized(ast, GlobalDeclID());
   decl->setTagKind(static_cast<TagDecl::TagKind>(kind));
   decl->setDeclContext(decl_ctx);
+  decl->setLocStart(location);
+  decl->setLocation(location);
   if (has_name)
     decl->setDeclName(&ast.Idents.get(name));
   SetOwningModule(decl, owning_module);
@@ -2309,15 +2344,83 @@ CompilerType TypeSystemClang::GetOrCreateStructForIdentifier(
   return CreateStructForIdentifier(type_name, type_fields, packed);
 }
 
+/// A unique prefix that can never be found at the start of a valid C++ file.
+/// Used to prefix content in LLDB-generated dummy files.
+static const char *g_lldb_generated_source_prefix =
+    "<LLDB-generated contents of ";
+static const time_t g_lldb_generated_mod_time = 0;
+
+bool TypeSystemClang::IsDummyFileID(FileID id) {
+  // Dummy FileIDs created by GetLocForDecl can't be distinguished from real
+  // FileIDs by looking at their metadata. Properties like the ID/HashValue or
+  // the respective FileEntry can change then the FileID is imported by the
+  // ASTImporter in a different AST. The only property that can be checked
+  // after an import are the modification time and the content.
+
+  // Check that the modification time matches the one assigned to dummy files.
+  clang::SourceManager &sm = getASTContext().getSourceManager();
+  const clang::FileEntry *fe = sm.getFileEntryForID(id);
+  if (fe && fe->getModificationTime() != g_lldb_generated_mod_time)
+    return false;
+
+  // Check that the content of the file buffer has the prefix that all dummy
+  // files have.
+  llvm::StringRef buffer = sm.getBufferData(id);
+  return buffer.starts_with(g_lldb_generated_source_prefix);
+}
+
+SourceLocation TypeSystemClang::GetLocForDecl(const Declaration &decl) {
+  // If the Declaration is invalid there is nothing to do.
+  if (!decl.IsValid())
+    return clang::SourceLocation();
+
+  clang::SourceManager &sm = getASTContext().getSourceManager();
+  clang::FileManager &fm = sm.getFileManager();
+  const std::string path = decl.GetFile().GetPath();
+
+  // Set modification time and content of the dummy file. This has to match
+  // the detection logic in IsDummyFileID.
+  // The contents of our dummy file. Will not be displayed to the user.
+  const std::string contents = g_lldb_generated_source_prefix + path + ">";
+  // Get the virtual file entry for the given path.
+  const time_t mod_time = g_lldb_generated_mod_time;
+
+  const off_t file_size = static_cast<off_t>(contents.size());
+  auto fe = fm.getVirtualFileRef(path, file_size, mod_time);
+
+  // Translate the file to a FileID.
+  clang::FileID fid = sm.translateFile(fe);
+  if (fid.isInvalid()) {
+    // We see the file for the first time, so create a dummy file for it now.
+    llvm::SmallVector<char, 64> buffer;
+    buffer.append(contents.begin(), contents.end());
+    auto file_contents = std::make_unique<llvm::SmallVectorMemoryBuffer>(
+        std::move(buffer), path);
+    sm.overrideFileContents(fe, std::move(file_contents));
+
+    // Connect the new dummy file to the main file via some fake include
+    // location. This is necessary as all file's in the SourceManager need to be
+    // reachable via an include chain from the main file.
+    SourceLocation ToIncludeLocOrFakeLoc;
+    assert(sm.getMainFileID().isValid());
+    ToIncludeLocOrFakeLoc = sm.getLocForStartOfFile(sm.getMainFileID());
+    fid = sm.createFileID(fe, ToIncludeLocOrFakeLoc, clang::SrcMgr::C_User);
+
+    assert(IsDummyFileID(fid) && "Dummy file not detected by IsDummyFileID?");
+  }
+
+  // Return a SourceLocation at the start of the dummy file. We always return
+  // the first line/column as the dummy file contains just one line.
+  return sm.getLocForStartOfFile(fid);
+}
+
 #pragma mark Enumeration Types
 
 CompilerType TypeSystemClang::CreateEnumerationType(
     llvm::StringRef name, clang::DeclContext *decl_ctx,
-    OptionalClangModuleID owning_module, const Declaration &decl,
+    OptionalClangModuleID owning_module, SourceLocation loc,
     const CompilerType &integer_clang_type, bool is_scoped,
     std::optional<clang::EnumExtensibilityAttr::Kind> enum_kind) {
-  // TODO: Do something intelligent with the Declaration object passed in
-  // like maybe filling in the SourceLocation with it...
   ASTContext &ast = getASTContext();
 
   // TODO: ask about these...
@@ -2329,6 +2432,8 @@ CompilerType TypeSystemClang::CreateEnumerationType(
   enum_decl->setScoped(is_scoped);
   enum_decl->setScopedUsingClassTag(is_scoped);
   enum_decl->setFixed(false);
+  enum_decl->setLocStart(loc);
+  enum_decl->setLocation(loc);
   SetOwningModule(enum_decl, owning_module);
   if (decl_ctx)
     decl_ctx->addDecl(enum_decl);
@@ -8524,7 +8629,7 @@ bool TypeSystemClang::CompleteTagDeclarationDefinition(
 }
 
 clang::EnumConstantDecl *TypeSystemClang::AddEnumerationValueToEnumerationType(
-    const CompilerType &enum_type, const Declaration &decl, const char *name,
+    const CompilerType &enum_type, SourceLocation loc, const char *name,
     const llvm::APSInt &value) {
 
   if (!enum_type || ConstString(name).IsEmpty())
@@ -8572,14 +8677,14 @@ clang::EnumConstantDecl *TypeSystemClang::AddEnumerationValueToEnumerationType(
 }
 
 clang::EnumConstantDecl *TypeSystemClang::AddEnumerationValueToEnumerationType(
-    const CompilerType &enum_type, const Declaration &decl, const char *name,
+    const CompilerType &enum_type, SourceLocation loc, const char *name,
     uint64_t enum_value, uint32_t enum_value_bit_size) {
   assert(enum_type.IsEnumerationType());
   llvm::APSInt value(enum_value_bit_size,
                      !enum_type.IsEnumerationIntegerTypeSigned());
   value = enum_value;
 
-  return AddEnumerationValueToEnumerationType(enum_type, decl, name, value);
+  return AddEnumerationValueToEnumerationType(enum_type, loc, name, value);
 }
 
 CompilerType TypeSystemClang::GetEnumerationIntegerType(CompilerType type) {

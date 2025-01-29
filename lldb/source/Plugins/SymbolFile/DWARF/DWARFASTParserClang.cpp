@@ -159,6 +159,11 @@ static bool TagIsRecordType(dw_tag_t tag) {
   }
 }
 
+// TODO:
+// * fix up docs
+// * add DWARFASTParserClangTests unit-test
+// * add API test that does "type lookup Foo" and ensures that explicit member functions don't show up as static and have the correct CV-quals
+//
 /// Get the object parameter DIE if one exists, otherwise returns
 /// a default DWARFDIE. If \c containing_decl_ctx is not a valid
 /// C++ declaration context for class methods, assume no object
@@ -166,6 +171,7 @@ static bool TagIsRecordType(dw_tag_t tag) {
 static DWARFDIE
 GetCXXObjectParameter(const DWARFDIE &subprogram,
                       const clang::DeclContext &containing_decl_ctx) {
+  assert (subprogram);
   assert(subprogram.Tag() == DW_TAG_subprogram ||
          subprogram.Tag() == DW_TAG_inlined_subroutine ||
          subprogram.Tag() == DW_TAG_subroutine_type);
@@ -173,22 +179,42 @@ GetCXXObjectParameter(const DWARFDIE &subprogram,
   if (!DeclKindIsCXXClass(containing_decl_ctx.getDeclKind()))
     return {};
 
-  if (DWARFDIE object_parameter =
-          subprogram.GetAttributeValueAsReferenceDIE(DW_AT_object_pointer))
-    return object_parameter;
+  // If DWARF didn't encode an object parameter index, assume it's
+  // at 0 (which is where Clang and GCC place it).
+  std::optional<size_t> object_param_index;
+  DWARFFormValue form_value;
+  if (subprogram.GetDIE()->GetAttributeValue(subprogram.GetCU(), DW_AT_object_pointer, form_value, /*end_attr_offset_ptr=*/nullptr, /*check_elaborating_dies=*/true)) {
+    if (auto ref = form_value.Reference())
+      return ref;
+
+    object_param_index = form_value.Unsigned();
+  }
 
   // If no DW_AT_object_pointer was specified, assume the implicit object
   // parameter is the first parameter to the function, is called "this" and is
   // artificial (which is what most compilers would generate).
+  size_t arg_idx = 0;
   auto children = subprogram.children();
-  auto it = llvm::find_if(children, [](const DWARFDIE &child) {
-    return child.Tag() == DW_TAG_formal_parameter;
+  auto it = llvm::find_if(children, [&](const DWARFDIE &child) {
+    if (child.Tag() == DW_TAG_formal_parameter) {
+      if (arg_idx == object_param_index.value_or(0))
+        return true;
+
+      arg_idx++;
+    }
+
+    return false;
   });
 
   if (it == children.end())
     return {};
 
   DWARFDIE object_pointer = *it;
+
+  // We found the object pointer encoded via parameter index.
+  // No need for the remaining heuristics.
+  if (object_param_index)
+    return object_pointer;
 
   if (!object_pointer.GetAttributeValueAsUnsigned(DW_AT_artificial, 0))
     return {};

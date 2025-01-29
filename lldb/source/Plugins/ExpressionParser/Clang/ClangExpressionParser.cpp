@@ -165,12 +165,23 @@ class ClangDiagnosticManagerAdapter : public clang::DiagnosticConsumer {
 public:
   ClangDiagnosticManagerAdapter(DiagnosticOptions &opts, StringRef filename)
       : m_filename(filename) {
+    // Diagnostic printer for real SourceLocations.
     DiagnosticOptions *options = new DiagnosticOptions(opts);
     options->ShowPresumedLoc = true;
     options->ShowLevel = false;
     m_os = std::make_shared<llvm::raw_string_ostream>(m_output);
     m_passthrough =
         std::make_shared<clang::TextDiagnosticPrinter>(*m_os, options);
+
+    // Diagnostic printer for LLDB-generated dummy locations that have
+    // artificial line/column numbers and artificial source code.
+    DiagnosticOptions *dummy_options = new DiagnosticOptions(opts);
+    dummy_options->ShowLine = false;
+    dummy_options->ShowColumn = false;
+    dummy_options->ShowSourceRanges = false;
+    dummy_options->ShowCarets = false;
+    m_dummy_passthrough =
+        std::make_shared<clang::TextDiagnosticPrinter>(*m_os, dummy_options);
   }
 
   void ResetManager(DiagnosticManager *manager = nullptr) {
@@ -193,6 +204,16 @@ public:
       }
     }
     return nullptr;
+  }
+
+  /// Returns true if the SourceLocation is from a LLDB-generated dummy file.
+  bool IsDummySourceLocation(SourceLocation loc) const {
+    if (!m_ts)
+      return false;
+    if (loc.isInvalid())
+      return false;
+    FileID file = m_ts->getASTContext().getSourceManager().getFileID(loc);
+    return m_ts->IsDummyFileID(file);
   }
 
   void HandleDiagnostic(DiagnosticsEngine::Level DiagLevel,
@@ -219,7 +240,13 @@ public:
 
     // Render diagnostic message to m_output.
     m_output.clear();
-    m_passthrough->HandleDiagnostic(DiagLevel, Info);
+    // Determine which is the right diagnostic printer for this diagnostic.
+    // For dummy files we use special diagnostic settings to hide confusing
+    // information from the user (wrong line/columns and generated source code).
+    if (IsDummySourceLocation(Info.getLocation()))
+      m_dummy_passthrough->HandleDiagnostic(DiagLevel, Info);
+    else
+      m_passthrough->HandleDiagnostic(DiagLevel, Info);
 
     DiagnosticDetail detail;
     switch (DiagLevel) {
@@ -305,13 +332,23 @@ public:
 
   void BeginSourceFile(const LangOptions &LO, const Preprocessor *PP) override {
     m_passthrough->BeginSourceFile(LO, PP);
+    m_dummy_passthrough->BeginSourceFile(LO, PP);
   }
 
-  void EndSourceFile() override { m_passthrough->EndSourceFile(); }
+  void EndSourceFile() override {
+    m_passthrough->EndSourceFile();
+    m_dummy_passthrough->EndSourceFile();
+  }
+
+  void SetTypeSystem(TypeSystemClang *ts) { m_ts = ts; }
 
 private:
+  TypeSystemClang *m_ts = nullptr;
   DiagnosticManager *m_manager = nullptr;
+  /// Diagnostic printer for real SourceLocations.
   std::shared_ptr<clang::TextDiagnosticPrinter> m_passthrough;
+  /// Diagnostic printer for LLDB-generated dummy locations.
+  std::shared_ptr<clang::TextDiagnosticPrinter> m_dummy_passthrough;
   /// Output stream of m_passthrough.
   std::shared_ptr<llvm::raw_string_ostream> m_os;
   /// Output string filled by m_os.
@@ -887,6 +924,7 @@ ClangExpressionParser::ClangExpressionParser(
 
   m_ast_context = std::make_shared<TypeSystemClang>(
       "Expression ASTContext for '" + m_filename + "'", ast_context);
+  diag_mgr->SetTypeSystem(m_ast_context.get());
 
   std::string module_name("$__lldb_module");
 

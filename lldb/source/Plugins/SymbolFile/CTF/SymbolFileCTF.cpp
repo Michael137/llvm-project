@@ -458,21 +458,20 @@ SymbolFileCTF::CreateArray(const CTFArray &ctf_array) {
 
 llvm::Expected<lldb::TypeSP>
 SymbolFileCTF::CreateEnum(const CTFEnum &ctf_enum) {
-  Declaration decl;
   CompilerType enum_type = m_ast->CreateEnumerationType(
       ctf_enum.name, m_ast->GetTranslationUnitDecl(), OptionalClangModuleID(),
-      decl, m_ast->GetBasicType(eBasicTypeInt),
+      clang::SourceLocation(), m_ast->GetBasicType(eBasicTypeInt),
       /*is_scoped=*/false);
 
   for (const CTFEnum::Value &value : ctf_enum.values) {
-    Declaration value_decl;
     m_ast->AddEnumerationValueToEnumerationType(
-        enum_type, value_decl, value.name.data(), value.value, ctf_enum.size);
+        enum_type, clang::SourceLocation(), value.name.data(), value.value,
+        ctf_enum.size);
   }
   TypeSystemClang::CompleteTagDeclarationDefinition(enum_type);
 
   return MakeType(ctf_enum.uid, ConstString(), 0, nullptr, LLDB_INVALID_UID,
-                  Type::eEncodingIsUID, decl, enum_type,
+                  Type::eEncodingIsUID, Declaration(), enum_type,
                   lldb_private::Type::ResolveState::Full);
 }
 

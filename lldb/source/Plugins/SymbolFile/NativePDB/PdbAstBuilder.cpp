@@ -1154,7 +1154,7 @@ clang::QualType PdbAstBuilder::CreateEnumType(PdbTypeSymId id,
 
   Declaration declaration;
   CompilerType enum_ct = m_clang.CreateEnumerationType(
-      uname, decl_context, OptionalClangModuleID(), declaration,
+      uname, decl_context, OptionalClangModuleID(), clang::SourceLocation(),
       ToCompilerType(underlying_type), er.isScoped());
 
   TypeSystemClang::StartTagDeclarationDefinition(enum_ct);

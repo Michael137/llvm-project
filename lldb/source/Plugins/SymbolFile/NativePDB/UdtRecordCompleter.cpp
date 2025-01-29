@@ -301,7 +301,8 @@ Error UdtRecordCompleter::visitKnownMember(CVMemberRecord &cvr,
   llvm::StringRef name = DropNameScope(enumerator.getName());
 
   m_ast_builder.clang().AddEnumerationValueToEnumerationType(
-      m_derived_ct, decl, name.str().c_str(), enumerator.Value);
+      m_derived_ct, clang::SourceLocation(), name.str().c_str(),
+      enumerator.Value);
   return Error::success();
 }
 

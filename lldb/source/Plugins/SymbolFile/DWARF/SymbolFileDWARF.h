@@ -274,6 +274,8 @@ public:
   std::vector<std::unique_ptr<CallEdge>>
   ParseCallEdgesInFunction(UserID func_id) override;
 
+  bool UseSourceLocations() const;
+
   void Dump(Stream &s) override;
 
   void DumpClangAST(Stream &s) override;

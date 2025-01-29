@@ -102,13 +102,12 @@ public:
         32);
     CompilerType enum_type = m_type_system->CreateEnumerationType(
         "TestEnum", m_type_system->GetTranslationUnitDecl(),
-        OptionalClangModuleID(), Declaration(), int_type, false);
+        OptionalClangModuleID(), clang::SourceLocation(), int_type, false);
 
     m_type_system->StartTagDeclarationDefinition(enum_type);
-    Declaration decl;
     for (auto [name, value] : enumerators)
-      m_type_system->AddEnumerationValueToEnumerationType(enum_type, decl, name,
-                                                          value, 32);
+      m_type_system->AddEnumerationValueToEnumerationType(
+          enum_type, clang::SourceLocation(), name, value, 32);
     m_type_system->CompleteTagDeclarationDefinition(enum_type);
 
     return enum_type;

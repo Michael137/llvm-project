@@ -1644,6 +1644,7 @@ public:
     return translateFile(&SourceFile.getFileEntry());
   }
 
+  // TODO: could LLDB make use of this?
   /// Get the source location in \p FID for the given line:col.
   /// Returns null location if \p FID is not a file SLocEntry.
   SourceLocation translateLineCol(FileID FID,

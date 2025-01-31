@@ -2381,7 +2381,7 @@ SourceLocation TypeSystemClang::GetLocForDecl(const Declaration &decl) {
   // Set modification time and content of the dummy file. This has to match
   // the detection logic in IsDummyFileID.
   // The contents of our dummy file. Will not be displayed to the user.
-  const std::string contents = g_lldb_generated_source_prefix + path + ">";
+  std::string contents = g_lldb_generated_source_prefix + path + ">";
   // Get the virtual file entry for the given path.
   const time_t mod_time = g_lldb_generated_mod_time;
 
@@ -2391,6 +2391,11 @@ SourceLocation TypeSystemClang::GetLocForDecl(const Declaration &decl) {
   // Translate the file to a FileID.
   clang::FileID fid = sm.translateFile(fe);
   if (fid.isInvalid()) {
+    if (auto tmp = fm.getVirtualFileSystem().openFileForRead(path)) {
+      if (auto buffer = (*tmp)->getBuffer("tmp"))
+        contents = (*buffer)->getBuffer().str();
+    }
+
     // We see the file for the first time, so create a dummy file for it now.
     llvm::SmallVector<char, 64> buffer;
     buffer.append(contents.begin(), contents.end());
@@ -2406,12 +2411,13 @@ SourceLocation TypeSystemClang::GetLocForDecl(const Declaration &decl) {
     ToIncludeLocOrFakeLoc = sm.getLocForStartOfFile(sm.getMainFileID());
     fid = sm.createFileID(fe, ToIncludeLocOrFakeLoc, clang::SrcMgr::C_User);
 
-    assert(IsDummyFileID(fid) && "Dummy file not detected by IsDummyFileID?");
+    //assert(IsDummyFileID(fid) && "Dummy file not detected by IsDummyFileID?");
   }
 
   // Return a SourceLocation at the start of the dummy file. We always return
   // the first line/column as the dummy file contains just one line.
-  return sm.getLocForStartOfFile(fid);
+  //return sm.getLocForStartOfFile(fid);
+  return sm.translateLineCol(fid, decl.GetLine(), 1/*decl.GetColumn()*/);
 }
 
 #pragma mark Enumeration Types

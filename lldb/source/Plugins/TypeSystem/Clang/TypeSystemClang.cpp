@@ -8465,29 +8465,22 @@ bool TypeSystemClang::CompleteTagDeclarationDefinition(
 
   clang::ASTContext &ast = lldb_ast->getASTContext();
 
-  /// TODO This really needs to be fixed.
+  unsigned NumNegativeBits;
+  unsigned NumPositiveBits;
+  ast.computeEnumBits(NumNegativeBits, NumPositiveBits, enum_decl->enumerators());
 
-  QualType integer_type(enum_decl->getIntegerType());
-  if (!integer_type.isNull()) {
-    unsigned NumPositiveBits = 1;
-    unsigned NumNegativeBits = 0;
+  clang::QualType BestPromotionType;
+  clang::QualType BestType;
+  ast.computeBestEnumTypes(
+      /*IsPacked=*/false, NumNegativeBits, NumPositiveBits, BestType,
+      BestPromotionType);
+  enum_decl->setPromotionType(BestPromotionType);
 
-    clang::QualType promotion_qual_type;
-    // If the enum integer type is less than an integer in bit width,
-    // then we must promote it to an integer size.
-    if (ast.getTypeSize(enum_decl->getIntegerType()) <
-        ast.getTypeSize(ast.IntTy)) {
-      if (enum_decl->getIntegerType()->isSignedIntegerType())
-        promotion_qual_type = ast.IntTy;
-      else
-        promotion_qual_type = ast.UnsignedIntTy;
-    } else
-      promotion_qual_type = enum_decl->getIntegerType();
+  enum_decl->completeDefinition(enum_decl->getIntegerType(),
+                                enum_decl->getPromotionType(),
+                                NumPositiveBits,
+                                NumNegativeBits);
 
-    enum_decl->completeDefinition(enum_decl->getIntegerType(),
-                                  promotion_qual_type, NumPositiveBits,
-                                  NumNegativeBits);
-  }
   return true;
 }
 
@@ -8541,7 +8534,7 @@ clang::EnumConstantDecl *TypeSystemClang::AddEnumerationValueToEnumerationType(
 
 clang::EnumConstantDecl *TypeSystemClang::AddEnumerationValueToEnumerationType(
     const CompilerType &enum_type, const Declaration &decl, const char *name,
-    int64_t enum_value, uint32_t enum_value_bit_size) {
+    uint64_t enum_value, uint32_t enum_value_bit_size) {
   CompilerType underlying_type = GetEnumerationIntegerType(enum_type);
   bool is_signed = false;
   underlying_type.IsIntegerType(is_signed);

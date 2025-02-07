@@ -21,6 +21,7 @@
 #include <vector>
 
 #include "clang/AST/ASTContext.h"
+#include "clang/AST/Attr.h"
 #include "clang/AST/ASTFwd.h"
 #include "clang/AST/Decl.h"
 #include "clang/AST/TemplateBase.h"
@@ -503,7 +504,8 @@ public:
                                      OptionalClangModuleID owning_module,
                                      const Declaration &decl,
                                      const CompilerType &integer_qual_type,
-                                     bool is_scoped);
+                                     bool is_scoped,
+                                     std::optional<clang::EnumExtensibilityAttr::Kind> enum_kind = std::nullopt);
 
   // Integer type functions
 

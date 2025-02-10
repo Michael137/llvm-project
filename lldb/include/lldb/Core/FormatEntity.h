@@ -86,6 +86,7 @@ struct Entry {
     FunctionInitialFunction,
     FunctionName,
     FunctionNameWithArgs,
+    FunctionNameWithArgsColored,
     FunctionNameNoArgs,
     FunctionMangledName,
     FunctionAddrOffset,

@@ -114,6 +114,7 @@ constexpr Definition g_function_child_entries[] = {
     Definition("name", EntryType::FunctionName),
     Definition("name-without-args", EntryType::FunctionNameNoArgs),
     Definition("name-with-args", EntryType::FunctionNameWithArgs),
+    Definition("name-with-args-colored", EntryType::FunctionNameWithArgsColored),
     Definition("mangled-name", EntryType::FunctionMangledName),
     Definition("addr-offset", EntryType::FunctionAddrOffset),
     Definition("concrete-only-addr-offset-no-padding",
@@ -343,6 +344,7 @@ const char *FormatEntity::Entry::TypeToCString(Type t) {
     ENUM_TO_CSTR(FunctionInitialFunction);
     ENUM_TO_CSTR(FunctionName);
     ENUM_TO_CSTR(FunctionNameWithArgs);
+    ENUM_TO_CSTR(FunctionNameWithArgsColored);
     ENUM_TO_CSTR(FunctionNameNoArgs);
     ENUM_TO_CSTR(FunctionMangledName);
     ENUM_TO_CSTR(FunctionAddrOffset);
@@ -1710,6 +1712,8 @@ bool FormatEntity::Format(const Entry &entry, Stream &s,
   }
     return false;
 
+  case Entry::Type::FunctionNameWithArgsColored:
+      LLVM_FALLTHROUGH;
   case Entry::Type::FunctionNameWithArgs: {
     if (!sc)
       return false;

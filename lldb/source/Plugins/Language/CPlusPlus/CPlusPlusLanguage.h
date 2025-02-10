@@ -47,6 +47,7 @@ public:
     ConstString GetFullName() const { return m_full; }
 
     std::string GetScopeQualifiedName();
+    std::string GetScopeQualifiedNameColored();
 
     llvm::StringRef GetBasename();
 
@@ -78,6 +79,7 @@ public:
     //   | void func<std::vector<int>>()  | func    |
     //   +--------------------------------+---------+
     llvm::StringRef GetBasenameNoTemplateParameters();
+    std::pair<llvm::StringRef, llvm::StringRef> GetDecomposedBasename();
 
   protected:
     void Parse();

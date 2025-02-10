@@ -29,11 +29,11 @@
 #include "lldb/DataFormatters/VectorType.h"
 #include "lldb/Symbol/SymbolFile.h"
 #include "lldb/Symbol/VariableList.h"
+#include "lldb/Utility/AnsiTerminal.h"
 #include "lldb/Utility/ConstString.h"
 #include "lldb/Utility/LLDBLog.h"
 #include "lldb/Utility/Log.h"
 #include "lldb/Utility/RegularExpression.h"
-#include "lldb/ValueObject/ValueObjectVariable.h"
 
 #include "BlockPointer.h"
 #include "CPlusPlusNameParser.h"
@@ -186,13 +186,16 @@ static bool PrettyPrintFunctionNameWithArgs(Stream &out_stream,
   if (!cpp_method.IsValid())
     return false;
 
+  // TODO: could omit return type here instead of demangler. Though
+  // would be nice to reduce reliance on MethodName/CPlusPlusNameParser
   llvm::StringRef return_type = cpp_method.GetReturnType();
   if (!return_type.empty()) {
     out_stream.PutCString(return_type);
     out_stream.PutChar(' ');
   }
 
-  out_stream.PutCString(cpp_method.GetScopeQualifiedName());
+  //out_stream.PutCString(cpp_method.GetScopeQualifiedName());
+  out_stream.PutCString(cpp_method.GetScopeQualifiedNameColored());
   out_stream.PutChar('(');
 
   FormatEntity::PrettyPrintFunctionArguments(out_stream, args, exe_scope);
@@ -205,6 +208,38 @@ static bool PrettyPrintFunctionNameWithArgs(Stream &out_stream,
     out_stream.PutCString(qualifiers);
   }
 
+  return true;
+}
+
+static bool PrintSymbolWithColor(Stream &out_stream,
+                                 char const *full_name) {
+  StreamString ss;
+  CPlusPlusLanguage::MethodName cpp_method{ConstString(full_name)};
+
+  if (!cpp_method.IsValid())
+    return false;
+
+  // TODO: could omit return type here instead of demangler. Though
+  // would be nice to reduce reliance on MethodName/CPlusPlusNameParser
+  llvm::StringRef return_type = cpp_method.GetReturnType();
+  if (!return_type.empty()) {
+    ss.PutCString(return_type);
+    ss.PutChar(' ');
+  }
+
+  //out_stream.PutCString(cpp_method.GetScopeQualifiedName());
+  ss.PutCString(cpp_method.GetScopeQualifiedNameColored());
+
+  auto args = cpp_method.GetArguments();
+  ss.PutCString(args);
+
+  llvm::StringRef qualifiers = cpp_method.GetQualifiers();
+  if (!qualifiers.empty()) {
+    ss.PutChar(' ');
+    ss.PutCString(qualifiers);
+  }
+
+  out_stream << ss.GetString();
   return true;
 }
 
@@ -315,6 +350,48 @@ std::string CPlusPlusLanguage::MethodName::GetScopeQualifiedName() {
   return res;
 }
 
+std::string CPlusPlusLanguage::MethodName::GetScopeQualifiedNameColored() {
+  if (!m_parsed)
+    Parse();
+  if (m_context.empty())
+    return std::string(m_basename);
+
+#define _TO_STR2(_val) #_val
+#define _TO_STR(_val) _TO_STR2(_val)
+
+  std::string res;
+  res += m_context;
+  res += "::";
+  
+  auto [basename, rest] = GetDecomposedBasename();
+  res += ANSI_ESC_START;
+  res += _TO_STR(ANSI_CTRL_BOLD);
+  res += ANSI_ESC_END;
+
+  res += ANSI_ESC_START;
+  res += _TO_STR(ANSI_FG_COLOR_GREEN);
+  res += ANSI_ESC_END;
+
+  res += basename;
+  res += ANSI_ESC_START;
+  res += ANSI_ESC_END;
+
+  if (!rest.empty())
+    res += rest;
+
+  return res;
+}
+
+std::pair<llvm::StringRef, llvm::StringRef> CPlusPlusLanguage::MethodName::GetDecomposedBasename() {
+  llvm::StringRef basename = GetBasename();
+  size_t arg_start, arg_end;
+  llvm::StringRef parens("<>", 2);
+  if (ReverseFindMatchingChars(basename, parens, arg_start, arg_end))
+    return { basename.substr(0, arg_start), basename.substr(arg_start, arg_end) };
+
+  return { basename, "" };
+}
+
 llvm::StringRef
 CPlusPlusLanguage::MethodName::GetBasenameNoTemplateParameters() {
   llvm::StringRef basename = GetBasename();
@@ -376,15 +453,17 @@ bool CPlusPlusLanguage::MethodName::ContainsPath(llvm::StringRef path) {
 }
 
 bool CPlusPlusLanguage::IsCPPMangledName(llvm::StringRef name) {
-  // FIXME!! we should really run through all the known C++ Language plugins
-  // and ask each one if this is a C++ mangled name
-
   Mangled::ManglingScheme scheme = Mangled::GetManglingScheme(name);
-
-  if (scheme == Mangled::eManglingSchemeNone)
+  switch (scheme) {
+  case Mangled::eManglingSchemeMSVC:
+  case Mangled::eManglingSchemeItanium:
+    return true;
+  case Mangled::eManglingSchemeNone:
+  case Mangled::eManglingSchemeRustV0:
+  case Mangled::eManglingSchemeD:
+  case Mangled::eManglingSchemeSwift:
     return false;
-
-  return true;
+  }
 }
 
 bool CPlusPlusLanguage::DemangledNameContainsPath(llvm::StringRef path,
@@ -641,7 +720,7 @@ static void LoadLibCxxFormatters(lldb::TypeCategoryImplSP cpp_category_sp) {
       .SetSkipPointers(false)
       .SetSkipReferences(false)
       .SetDontShowChildren(true)
-      .SetDontShowValue(false)
+      .SetDontShowValue(true)
       .SetShowMembersOneLiner(false)
       .SetHideItemNames(false);
 
@@ -1204,7 +1283,7 @@ static void LoadLibStdcppFormatters(lldb::TypeCategoryImplSP cpp_category_sp) {
       .SetSkipPointers(false)
       .SetSkipReferences(false)
       .SetDontShowChildren(true)
-      .SetDontShowValue(false)
+      .SetDontShowValue(true)
       .SetShowMembersOneLiner(false)
       .SetHideItemNames(false);
 
@@ -1748,7 +1827,8 @@ bool CPlusPlusLanguage::GetFunctionDisplayName(
     } else if (sc->symbol) {
       const char *cstr = sc->symbol->GetName().AsCString(nullptr);
       if (cstr) {
-        s.PutCString(cstr);
+        if (!PrintSymbolWithColor(s, cstr))
+          s.PutCString(cstr);
         return true;
       }
     }

@@ -1708,6 +1708,7 @@ bool CPlusPlusLanguage::GetFunctionDisplayName(
           exe_ctx ? exe_ctx->GetBestExecutionContextScope() : nullptr;
       const char *cstr = sc->function->GetName().AsCString(nullptr);
       if (cstr) {
+        const char *non_inline_func_name = cstr;
         const InlineFunctionInfo *inline_info = nullptr;
         VariableListSP variable_list_sp;
         bool get_function_vars = true;
@@ -1717,20 +1718,16 @@ bool CPlusPlusLanguage::GetFunctionDisplayName(
           if (inline_block) {
             get_function_vars = false;
             inline_info = inline_block->GetInlinedFunctionInfo();
-            if (inline_info)
+            if (inline_info) {
               variable_list_sp = inline_block->GetBlockVariableList(true);
+              cstr = inline_info->GetName().GetCString();
+            }
           }
         }
 
         if (get_function_vars) {
           variable_list_sp =
               sc->function->GetBlock(true).GetBlockVariableList(true);
-        }
-
-        if (inline_info) {
-          s.PutCString(cstr);
-          s.PutCString(" [inlined] ");
-          cstr = inline_info->GetName().GetCString();
         }
 
         VariableList args;
@@ -1743,6 +1740,10 @@ bool CPlusPlusLanguage::GetFunctionDisplayName(
         } else {
           s.PutCString(cstr);
         }
+
+        if (inline_info)
+          FormatEntity::FormatInlinedBlock(s, non_inline_func_name, exe_ctx);
+
         return true;
       }
     } else if (sc->symbol) {

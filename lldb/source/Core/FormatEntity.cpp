@@ -1138,16 +1138,31 @@ static void PrettyPrintFunctionNameWithArgs(Stream &out_stream,
     out_stream.PutChar(')');
 }
 
-static void FormatInlinedBlock(Stream &out_stream, Block *block) {
+static const char *GetInlineFunctionName(Block * block) {
   if (!block)
-    return;
+    return nullptr;
+
   Block *inline_block = block->GetContainingInlinedBlock();
-  if (inline_block) {
-    if (const InlineFunctionInfo *inline_info =
-            inline_block->GetInlinedFunctionInfo()) {
-      out_stream.PutCString(" [inlined] ");
-      inline_info->GetName().Dump(&out_stream);
-    }
+  if (inline_block)
+    return nullptr;
+
+  const InlineFunctionInfo *inline_info = inline_block->GetInlinedFunctionInfo();
+  if (!inline_info)
+    return nullptr;
+
+  return inline_info->GetName().GetCString();
+}
+
+void FormatEntity::FormatInlinedBlock(Stream &out_stream,
+                                     const char *parent_name, const ExecutionContext *exe_ctx) {
+  out_stream.PutCString(" [inlined] into ");
+
+  StackFrame * frame = exe_ctx ? exe_ctx->GetFramePtr() : nullptr;
+  if (frame) {
+    out_stream.PutCString("frame #");
+    out_stream.PutCString(std::to_string(frame->GetFrameIndex()));
+  } else if (parent_name) {
+    out_stream.PutCString(parent_name);
   }
 }
 
@@ -1666,11 +1681,16 @@ bool FormatEntity::Format(const Entry &entry, Stream &s,
       else if (sc->symbol)
         name = sc->symbol->GetName().AsCString(nullptr);
 
-      if (name) {
+      if (!name)
+        return false;
+
+      if (const auto *inline_name = GetInlineFunctionName(sc->block)) {
+        s.PutCString(inline_name);
+        FormatInlinedBlock(s, name, exe_ctx);
+      } else {
         s.PutCString(name);
-        FormatInlinedBlock(s, sc->block);
-        return true;
       }
+      return true;
     }
   }
     return false;
@@ -1701,11 +1721,18 @@ bool FormatEntity::Format(const Entry &entry, Stream &s,
         name = sc->function->GetNameNoArguments();
       else if (sc->symbol)
         name = sc->symbol->GetNameNoArguments();
-      if (name) {
-        s.PutCString(name.GetCString());
-        FormatInlinedBlock(s, sc->block);
-        return true;
+
+      if (name)
+        return false;
+
+      if (const auto *inline_name = GetInlineFunctionName(sc->block)) {
+        s.PutCString(inline_name);
+        FormatInlinedBlock(s, name.GetCString(), exe_ctx);
+      } else {
+        s.PutCString(name);
       }
+
+      return true;
     }
   }
     return false;
@@ -1734,8 +1761,9 @@ bool FormatEntity::Format(const Entry &entry, Stream &s,
       if (sc->function) {
         ExecutionContextScope *exe_scope =
             exe_ctx ? exe_ctx->GetBestExecutionContextScope() : nullptr;
-        const char *cstr = sc->function->GetName().AsCString(nullptr);
+        const char *cstr = sc->function->GetType()->GetName().AsCString(nullptr);
         if (cstr) {
+          const char *non_inline_func_name = cstr;
           const InlineFunctionInfo *inline_info = nullptr;
           VariableListSP variable_list_sp;
           bool get_function_vars = true;
@@ -1745,20 +1773,16 @@ bool FormatEntity::Format(const Entry &entry, Stream &s,
             if (inline_block) {
               get_function_vars = false;
               inline_info = inline_block->GetInlinedFunctionInfo();
-              if (inline_info)
+              if (inline_info) {
                 variable_list_sp = inline_block->GetBlockVariableList(true);
+                cstr = inline_info->GetName().GetCString();
+              }
             }
           }
 
           if (get_function_vars) {
             variable_list_sp =
                 sc->function->GetBlock(true).GetBlockVariableList(true);
-          }
-
-          if (inline_info) {
-            s.PutCString(cstr);
-            s.PutCString(" [inlined] ");
-            cstr = inline_info->GetName().GetCString();
           }
 
           VariableList args;
@@ -1770,6 +1794,10 @@ bool FormatEntity::Format(const Entry &entry, Stream &s,
           } else {
             s.PutCString(cstr);
           }
+
+          if (inline_info)
+            FormatInlinedBlock(s, non_inline_func_name, exe_ctx);
+
           return true;
         }
       } else if (sc->symbol) {
@@ -1798,8 +1826,14 @@ bool FormatEntity::Format(const Entry &entry, Stream &s,
 
     if (!name)
       return false;
-    s.PutCString(name);
-    FormatInlinedBlock(s, sc->block);
+
+    if (const auto *inline_name = GetInlineFunctionName(sc->block)) {
+      s.PutCString(inline_name);
+      FormatInlinedBlock(s, name, exe_ctx);
+    } else {
+      s.PutCString(name);
+    }
+
     return true;
   }
   case Entry::Type::FunctionAddrOffset:

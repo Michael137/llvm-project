@@ -246,6 +246,9 @@ bool FormatFileSpec(const FileSpec &file, Stream &s, llvm::StringRef elements,
 /// \endverbatim
 void PrettyPrintFunctionArguments(Stream &out_stream, VariableList const &args,
                                   ExecutionContextScope *exe_scope);
+
+void FormatInlinedBlock(Stream &out_stream, const char *parent_name,
+                        const ExecutionContext *exe_ctx);
 } // namespace FormatEntity
 } // namespace lldb_private
 

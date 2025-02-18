@@ -26,6 +26,7 @@
 #include "clang/AST/Decl.h"
 #include "clang/AST/TemplateBase.h"
 #include "clang/AST/Type.h"
+#include "clang/Basic/SourceLocation.h"
 #include "clang/Basic/TargetInfo.h"
 #include "llvm/ADT/APSInt.h"
 #include "llvm/ADT/SmallVector.h"
@@ -301,6 +302,9 @@ public:
   /// Returns true iff the given FileID was created for a dummy file by
   /// GetLocForDecl.
   bool IsDummyFileID(clang::FileID fid);
+  void SetIsDummyFileID(clang::FileID id) {
+    m_dummy_file_ids.insert(id);
+  }
 
   /// Returns the SourceLocation of the given Declaration.
   ///
@@ -498,7 +502,7 @@ public:
   CreateParameterDeclaration(clang::DeclContext *decl_ctx,
                              OptionalClangModuleID owning_module,
                              const char *name, const CompilerType &param_type,
-                             int storage, bool add_decl = false);
+                             int storage, bool add_decl = false, clang::SourceLocation loc = {});
 
   CompilerType CreateBlockPointerType(const CompilerType &function_type);
 
@@ -1243,12 +1247,17 @@ private:
   /// ASTContext wasn't created by parsing source code.
   clang::Sema *m_sema = nullptr;
 
+  // Should we use something more unique that FileIDs?
+  llvm::DenseSet<clang::FileID> m_dummy_file_ids;
+
   // For TypeSystemClang only
   TypeSystemClang(const TypeSystemClang &);
   const TypeSystemClang &operator=(const TypeSystemClang &);
   /// Creates the internal ASTContext.
   void CreateASTContext();
   void SetTargetTriple(llvm::StringRef target_triple);
+
+
 };
 
 /// The TypeSystemClang instance used for the scratch ASTContext in a

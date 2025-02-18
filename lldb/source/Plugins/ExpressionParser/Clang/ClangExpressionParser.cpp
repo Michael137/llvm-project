@@ -176,10 +176,15 @@ public:
     // Diagnostic printer for LLDB-generated dummy locations that have
     // artificial line/column numbers and artificial source code.
     DiagnosticOptions *dummy_options = new DiagnosticOptions(opts);
-    dummy_options->ShowLine = false;
+    dummy_options->ShowLine = true;
+    dummy_options->ShowSourceRanges = true;
+
+    // DW_AT_decl_column currently not emitted by Clang
     dummy_options->ShowColumn = false;
-    dummy_options->ShowSourceRanges = false;
-    dummy_options->ShowCarets = false;
+
+    // Required to show source snippet
+    dummy_options->ShowCarets = true;
+
     m_dummy_passthrough =
         std::make_shared<clang::TextDiagnosticPrinter>(*m_os, dummy_options);
   }

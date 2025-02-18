@@ -10,6 +10,7 @@
 #include "lldb/Utility/LLDBAssert.h"
 #include "lldb/Utility/LLDBLog.h"
 #include "lldb/Utility/Log.h"
+#include "clang/Basic/SourceManager.h"
 #include "clang/AST/ASTContext.h"
 #include "clang/AST/Decl.h"
 #include "clang/AST/DeclCXX.h"
@@ -1278,6 +1279,14 @@ RemapModule(OptionalClangModuleID from_id,
 void ClangASTImporter::ASTImporterDelegate::Imported(clang::Decl *from,
                                                      clang::Decl *to) {
   Log *log = GetLog(LLDBLog::Expressions);
+
+  auto * tmp1 = TypeSystemClang::GetASTContext(&from->getASTContext());
+  auto * tmp2 = TypeSystemClang::GetASTContext(&to->getASTContext());
+  if (tmp1->IsDummyFileID(from->getASTContext().getSourceManager().getFileID(from->getLocation()))) {
+    // We should never be importing anything from the dummy MainFileID
+    assert (from->getASTContext().getSourceManager().getFileID(from->getLocation()) != from->getASTContext().getSourceManager().getMainFileID());
+    tmp2->SetIsDummyFileID(to->getASTContext().getSourceManager().getFileID(to->getLocation()));
+  }
 
   // Some decls shouldn't be tracked here because they were not created by
   // copying 'from' to 'to'. Just exit early for those.

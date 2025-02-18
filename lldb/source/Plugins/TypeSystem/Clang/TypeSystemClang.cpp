@@ -667,8 +667,8 @@ private:
 /// This file only serves as a container for include locations to other
 /// FileIDs that are put into this type system (either by the ASTImporter
 /// or when TypeSystemClang generates source locations for declarations).
-static void CreateDummyMainFile(clang::SourceManager &sm,
-                                clang::FileManager &fm) {
+static clang::FileID CreateDummyMainFile(clang::SourceManager &sm,
+                                         clang::FileManager &fm) {
   llvm::StringRef main_file_path = "<LLDB Dummy Main File>";
   // The file contents are empty and should never be seen by the user. The new
   // line is just there to not throw off any line counting logic that might
@@ -691,6 +691,8 @@ static void CreateDummyMainFile(clang::SourceManager &sm,
   clang::FileID fid =
       sm.createFileID(fe, SourceLocation(), clang::SrcMgr::C_User);
   sm.setMainFileID(fid);
+
+  return fid;
 }
 
 void TypeSystemClang::CreateASTContext() {
@@ -723,7 +725,7 @@ void TypeSystemClang::CreateASTContext() {
   m_diagnostic_consumer_up = std::make_unique<NullDiagnosticConsumer>();
   m_ast_up->getDiagnostics().setClient(m_diagnostic_consumer_up.get(), false);
 
-  CreateDummyMainFile(*m_source_manager_up, *m_file_manager_up);
+  m_dummy_file_ids.insert(CreateDummyMainFile(*m_source_manager_up, *m_file_manager_up));
 
   // This can be NULL if we don't know anything about the architecture or if
   // the target for an architecture isn't enabled in the llvm/clang that we
@@ -2254,7 +2256,7 @@ CompilerType TypeSystemClang::CreateFunctionType(
 ParmVarDecl *TypeSystemClang::CreateParameterDeclaration(
     clang::DeclContext *decl_ctx, OptionalClangModuleID owning_module,
     const char *name, const CompilerType &param_type, int storage,
-    bool add_decl) {
+    bool add_decl, clang::SourceLocation loc) {
   ASTContext &ast = getASTContext();
   auto *decl = ParmVarDecl::CreateDeserialized(ast, GlobalDeclID());
   decl->setDeclContext(decl_ctx);
@@ -2262,6 +2264,7 @@ ParmVarDecl *TypeSystemClang::CreateParameterDeclaration(
     decl->setDeclName(&ast.Idents.get(name));
   decl->setType(ClangUtil::GetQualType(param_type));
   decl->setStorageClass(static_cast<clang::StorageClass>(storage));
+  decl->setLocation(loc);
   SetOwningModule(decl, owning_module);
   if (add_decl)
     decl_ctx->addDecl(decl);
@@ -2351,6 +2354,9 @@ static const char *g_lldb_generated_source_prefix =
 static const time_t g_lldb_generated_mod_time = 0;
 
 bool TypeSystemClang::IsDummyFileID(FileID id) {
+  if (m_dummy_file_ids.contains(id))
+    return true;
+
   // Dummy FileIDs created by GetLocForDecl can't be distinguished from real
   // FileIDs by looking at their metadata. Properties like the ID/HashValue or
   // the respective FileEntry can change then the FileID is imported by the
@@ -2391,8 +2397,10 @@ SourceLocation TypeSystemClang::GetLocForDecl(const Declaration &decl) {
   // Translate the file to a FileID.
   clang::FileID fid = sm.translateFile(fe);
   if (fid.isInvalid()) {
+    // TODO: copying file here is too expensive. can we avoid opening the file and adding file contents here? can we just create a SLocEntry with a FileName without opening the buffer until we need it?
     if (auto tmp = fm.getVirtualFileSystem().openFileForRead(path)) {
       if (auto buffer = (*tmp)->getBuffer("tmp"))
+        // contents.append((*buffer)->getBuffer().str());
         contents = (*buffer)->getBuffer().str();
     }
 
@@ -2411,13 +2419,15 @@ SourceLocation TypeSystemClang::GetLocForDecl(const Declaration &decl) {
     ToIncludeLocOrFakeLoc = sm.getLocForStartOfFile(sm.getMainFileID());
     fid = sm.createFileID(fe, ToIncludeLocOrFakeLoc, clang::SrcMgr::C_User);
 
+    m_dummy_file_ids.insert(fid);
+
     //assert(IsDummyFileID(fid) && "Dummy file not detected by IsDummyFileID?");
   }
 
   // Return a SourceLocation at the start of the dummy file. We always return
   // the first line/column as the dummy file contains just one line.
   //return sm.getLocForStartOfFile(fid);
-  return sm.translateLineCol(fid, decl.GetLine(), 1/*decl.GetColumn()*/);
+  return sm.translateLineCol(fid, decl.GetLine(), decl.GetColumn() ? decl.GetColumn() : 1);
 }
 
 #pragma mark Enumeration Types
@@ -7866,10 +7876,11 @@ TypeSystemClang::CreateParameterDeclarations(
     llvm::StringRef name =
         !parameter_names.empty() ? parameter_names[param_index] : "";
 
+    // TODO: pass correct SourceLocation here
     auto *param =
         CreateParameterDeclaration(func, /*owning_module=*/{}, name.data(),
                                    GetType(prototype.getParamType(param_index)),
-                                   clang::SC_None, /*add_decl=*/false);
+                                   clang::SC_None, /*add_decl=*/false, func->getLocation());
     assert(param);
 
     params.push_back(param);

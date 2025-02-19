@@ -2391,25 +2391,14 @@ SourceLocation TypeSystemClang::GetLocForDecl(const Declaration &decl) {
   // Get the virtual file entry for the given path.
   const time_t mod_time = g_lldb_generated_mod_time;
 
-  const off_t file_size = static_cast<off_t>(contents.size());
-  auto fe = fm.getVirtualFileRef(path, file_size, mod_time);
+  //const off_t file_size = static_cast<off_t>(contents.size());
+  auto fe = fm.getFileRef(path);
+  if (!fe)
+    return {};
 
-  // Translate the file to a FileID.
-  clang::FileID fid = sm.translateFile(fe);
+  clang::FileID fid = sm.translateFile(*fe);
   if (fid.isInvalid()) {
-    // TODO: copying file here is too expensive. can we avoid opening the file and adding file contents here? can we just create a SLocEntry with a FileName without opening the buffer until we need it?
-    if (auto tmp = fm.getVirtualFileSystem().openFileForRead(path)) {
-      if (auto buffer = (*tmp)->getBuffer("tmp"))
-        // contents.append((*buffer)->getBuffer().str());
-        contents = (*buffer)->getBuffer().str();
-    }
-
     // We see the file for the first time, so create a dummy file for it now.
-    llvm::SmallVector<char, 64> buffer;
-    buffer.append(contents.begin(), contents.end());
-    auto file_contents = std::make_unique<llvm::SmallVectorMemoryBuffer>(
-        std::move(buffer), path);
-    sm.overrideFileContents(fe, std::move(file_contents));
 
     // Connect the new dummy file to the main file via some fake include
     // location. This is necessary as all file's in the SourceManager need to be
@@ -2417,11 +2406,11 @@ SourceLocation TypeSystemClang::GetLocForDecl(const Declaration &decl) {
     SourceLocation ToIncludeLocOrFakeLoc;
     assert(sm.getMainFileID().isValid());
     ToIncludeLocOrFakeLoc = sm.getLocForStartOfFile(sm.getMainFileID());
-    fid = sm.createFileID(fe, ToIncludeLocOrFakeLoc, clang::SrcMgr::C_User);
+    fid = sm.createFileID(*fe, ToIncludeLocOrFakeLoc, clang::SrcMgr::C_User);
 
     m_dummy_file_ids.insert(fid);
 
-    //assert(IsDummyFileID(fid) && "Dummy file not detected by IsDummyFileID?");
+    assert(IsDummyFileID(fid) && "Dummy file not detected by IsDummyFileID?");
   }
 
   // Return a SourceLocation at the start of the dummy file. We always return

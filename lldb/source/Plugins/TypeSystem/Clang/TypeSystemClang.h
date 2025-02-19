@@ -434,7 +434,8 @@ public:
 
   clang::FunctionTemplateDecl *CreateFunctionTemplateDecl(
       clang::DeclContext *decl_ctx, OptionalClangModuleID owning_module,
-      clang::FunctionDecl *func_decl, const TemplateParameterInfos &infos);
+      clang::FunctionDecl *func_decl, const TemplateParameterInfos &infos,
+      const Declaration& declaration);
 
   void CreateFunctionTemplateSpecializationInfo(
       clang::FunctionDecl *func_decl, clang::FunctionTemplateDecl *Template,
@@ -490,7 +491,8 @@ public:
   clang::FunctionDecl *CreateFunctionDeclaration(
       clang::DeclContext *decl_ctx, OptionalClangModuleID owning_module,
       llvm::StringRef name, const CompilerType &function_Type,
-      clang::StorageClass storage, bool is_inline);
+      clang::StorageClass storage, bool is_inline,
+      const Declaration &declaration = {});
 
   CompilerType
   CreateFunctionType(const CompilerType &result_type, const CompilerType *args,
@@ -1010,7 +1012,8 @@ public:
       lldb::opaque_compiler_type_t type, llvm::StringRef name,
       const char *mangled_name, const CompilerType &method_type,
       lldb::AccessType access, bool is_virtual, bool is_static, bool is_inline,
-      bool is_explicit, bool is_attr_used, bool is_artificial);
+      bool is_explicit, bool is_attr_used, bool is_artificial,
+      const Declaration &declaration = {});
 
   void AddMethodOverridesForCXXRecordType(lldb::opaque_compiler_type_t type);
 

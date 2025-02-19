@@ -1452,7 +1452,8 @@ static TemplateParameterList *CreateTemplateParameterList(
 clang::FunctionTemplateDecl *TypeSystemClang::CreateFunctionTemplateDecl(
     clang::DeclContext *decl_ctx, OptionalClangModuleID owning_module,
     clang::FunctionDecl *func_decl,
-    const TemplateParameterInfos &template_param_infos) {
+    const TemplateParameterInfos &template_param_infos,
+    const Declaration& declaration) {
   //    /// Create a function template node.
   ASTContext &ast = getASTContext();
 
@@ -1466,6 +1467,7 @@ clang::FunctionTemplateDecl *TypeSystemClang::CreateFunctionTemplateDecl(
   func_tmpl_decl->setDeclName(func_decl->getDeclName());
   func_tmpl_decl->setTemplateParameters(template_param_list);
   func_tmpl_decl->init(func_decl);
+  func_tmpl_decl->setLocation(GetLocForDecl(declaration));
   SetOwningModule(func_tmpl_decl, owning_module);
 
   for (size_t i = 0, template_param_decl_count = template_param_decls.size();
@@ -2186,7 +2188,8 @@ std::string TypeSystemClang::GetTypeNameForDecl(const NamedDecl *named_decl,
 FunctionDecl *TypeSystemClang::CreateFunctionDeclaration(
     clang::DeclContext *decl_ctx, OptionalClangModuleID owning_module,
     llvm::StringRef name, const CompilerType &function_clang_type,
-    clang::StorageClass storage, bool is_inline) {
+    clang::StorageClass storage, bool is_inline,
+    const Declaration &declaration) {
   FunctionDecl *func_decl = nullptr;
   ASTContext &ast = getASTContext();
   if (!decl_ctx)
@@ -2207,6 +2210,9 @@ FunctionDecl *TypeSystemClang::CreateFunctionDeclaration(
   func_decl->setConstexprKind(isConstexprSpecified
                                   ? ConstexprSpecKind::Constexpr
                                   : ConstexprSpecKind::Unspecified);
+  const clang::SourceLocation loc = GetLocForDecl(declaration);
+  func_decl->setLocation(loc);
+  func_decl->setRangeEnd(loc);
   SetOwningModule(func_decl, owning_module);
   decl_ctx->addDecl(func_decl);
 
@@ -7884,7 +7890,7 @@ clang::CXXMethodDecl *TypeSystemClang::AddMethodToCXXRecordType(
     lldb::opaque_compiler_type_t type, llvm::StringRef name,
     const char *mangled_name, const CompilerType &method_clang_type,
     lldb::AccessType access, bool is_virtual, bool is_static, bool is_inline,
-    bool is_explicit, bool is_attr_used, bool is_artificial) {
+    bool is_explicit, bool is_attr_used, bool is_artificial, const Declaration &declaration) {
   if (!type || !method_clang_type.IsValid() || name.empty())
     return nullptr;
 
@@ -8024,6 +8030,10 @@ clang::CXXMethodDecl *TypeSystemClang::AddMethodToCXXRecordType(
   // have names, so we omit them when creating the ParmVarDecls.
   cxx_method_decl->setParams(CreateParameterDeclarations(
       cxx_method_decl, *method_function_prototype, /*parameter_names=*/{}));
+
+  auto location = GetLocForDecl(declaration);
+  cxx_method_decl->setLocation(location);
+  cxx_method_decl->setRangeEnd(location);
 
   AddAccessSpecifierDecl(cxx_record_decl, getASTContext(),
                          GetCXXRecordDeclAccess(cxx_record_decl),

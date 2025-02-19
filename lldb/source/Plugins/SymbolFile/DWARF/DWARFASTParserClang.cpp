@@ -1215,7 +1215,7 @@ std::pair<bool, TypeSP> DWARFASTParserClang::ParseCXXMethod(
       class_opaque_type.GetOpaqueQualType(), attrs.name.GetCString(),
       attrs.mangled_name, clang_type, accessibility, attrs.is_virtual,
       is_static, attrs.is_inline, attrs.is_explicit, is_attr_used,
-      attrs.is_artificial);
+      attrs.is_artificial, attrs.decl);
 
   if (cxx_method_decl) {
     LinkDeclContextToDIE(cxx_method_decl, die);
@@ -1372,12 +1372,8 @@ DWARFASTParserClang::ParseSubroutine(const DWARFDIE &die,
             ignore_containing_context ? m_ast.GetTranslationUnitDecl()
                                       : containing_decl_ctx,
             GetOwningClangModule(die), name, clang_type, attrs.storage,
-            attrs.is_inline);
+            attrs.is_inline, attrs.decl);
         std::free(name_buf);
-
-        const clang::SourceLocation loc = GetLocForDecl(die, attrs.decl);
-        function_decl->setLocation(loc);
-        function_decl->setRangeEnd(loc);
 
         if (has_template_params) {
           TypeSystemClang::TemplateParameterInfos template_param_infos;
@@ -1386,13 +1382,11 @@ DWARFASTParserClang::ParseSubroutine(const DWARFDIE &die,
               ignore_containing_context ? m_ast.GetTranslationUnitDecl()
                                         : containing_decl_ctx,
               GetOwningClangModule(die), attrs.name.GetStringRef(), clang_type,
-              attrs.storage, attrs.is_inline);
-          template_function_decl->setLocation(loc);
+              attrs.storage, attrs.is_inline, attrs.decl);
           clang::FunctionTemplateDecl *func_template_decl =
               m_ast.CreateFunctionTemplateDecl(
                   containing_decl_ctx, GetOwningClangModule(die),
-                  template_function_decl, template_param_infos);
-          func_template_decl->setLocation(loc);
+                  template_function_decl, template_param_infos, attrs.decl);
           m_ast.CreateFunctionTemplateSpecializationInfo(
               template_function_decl, func_template_decl, template_param_infos);
         }

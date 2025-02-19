@@ -2354,6 +2354,8 @@ static const char *g_lldb_generated_source_prefix =
 static const time_t g_lldb_generated_mod_time = 0;
 
 bool TypeSystemClang::IsDummyFileID(FileID id) {
+  assert (id.isValid());
+
   if (m_dummy_file_ids.contains(id))
     return true;
 

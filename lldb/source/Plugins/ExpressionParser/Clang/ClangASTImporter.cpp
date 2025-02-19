@@ -1282,7 +1282,7 @@ void ClangASTImporter::ASTImporterDelegate::Imported(clang::Decl *from,
 
   auto * tmp1 = TypeSystemClang::GetASTContext(&from->getASTContext());
   auto * tmp2 = TypeSystemClang::GetASTContext(&to->getASTContext());
-  if (tmp1->IsDummyFileID(from->getASTContext().getSourceManager().getFileID(from->getLocation()))) {
+  if (from->getASTContext().getSourceManager().getFileID(from->getLocation()).isValid() && tmp1->IsDummyFileID(from->getASTContext().getSourceManager().getFileID(from->getLocation()))) {
     // We should never be importing anything from the dummy MainFileID
     assert (from->getASTContext().getSourceManager().getFileID(from->getLocation()) != from->getASTContext().getSourceManager().getMainFileID());
     tmp2->SetIsDummyFileID(to->getASTContext().getSourceManager().getFileID(to->getLocation()));

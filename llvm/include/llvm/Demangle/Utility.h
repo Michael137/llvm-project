@@ -92,6 +92,18 @@ public:
   /// Use a counter so we can simply increment inside parentheses.
   unsigned GtIsGt = 1;
 
+  // TODO: need to account for nested <encoding>s. We only want to keep track of the first one, so need some sort of RAII object that we construct/destruct when printing FunctionEncoding to keep track of the depth of FunctionEncodings.
+  size_t BasenameStart = 0;
+  size_t BasenameEnd = 0;
+  size_t ScopeStart = 0;
+  size_t ScopeEnd = 0;
+  size_t ReturnEnd = 0;
+  size_t QualsBegin = 0;
+  size_t ArgsBegin = 0;
+  size_t ArgsEnd = 0;
+
+  bool InsideFunctionParams = false;
+
   bool isGtInsideTemplateArgs() const { return GtIsGt == 0; }
 
   void printOpen(char Open = '(') {

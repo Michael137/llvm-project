@@ -271,7 +271,7 @@ public:
   virtual bool GetFunctionDisplayName(const SymbolContext *sc,
                                       const ExecutionContext *exe_ctx,
                                       FunctionNameRepresentation representation,
-                                      Stream &s);
+                                      Stream &s, bool highlight_basename);
 
   virtual ConstString
   GetDemangledFunctionNameWithoutArguments(Mangled mangled) const {

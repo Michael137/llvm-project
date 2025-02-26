@@ -513,7 +513,8 @@ bool Language::IsUninitializedReference(ValueObject &valobj) { return false; }
 bool Language::GetFunctionDisplayName(const SymbolContext *sc,
                                       const ExecutionContext *exe_ctx,
                                       FunctionNameRepresentation representation,
-                                      Stream &s) {
+                                      Stream &s,
+                                      bool highlight_basename) {
   return false;
 }
 

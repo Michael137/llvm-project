@@ -29,6 +29,7 @@
 #include "lldb/DataFormatters/VectorType.h"
 #include "lldb/Symbol/SymbolFile.h"
 #include "lldb/Symbol/VariableList.h"
+#include "lldb/Utility/AnsiTerminal.h"
 #include "lldb/Utility/ConstString.h"
 #include "lldb/Utility/LLDBLog.h"
 #include "lldb/Utility/Log.h"
@@ -177,33 +178,65 @@ static bool IsTrivialBasename(const llvm::StringRef &basename) {
 /// Writes out the function name in 'full_name' to 'out_stream'
 /// but replaces each argument type with the variable name
 /// and the corresponding pretty-printed value
+//static bool PrettyPrintFunctionNameWithArgs(Stream &out_stream,
+//                                            char const *full_name,
+//                                            Mangled::DemangledInfo const& demangled_parts,
+//                                            ExecutionContextScope *exe_scope,
+//                                            VariableList const &args) {
+//  CPlusPlusLanguage::MethodName cpp_method{ConstString(full_name)};
+//
+//  if (!cpp_method.IsValid())
+//    return false;
+//
+//  llvm::StringRef return_type = cpp_method.GetReturnType();
+//  if (!return_type.empty()) {
+//    out_stream.PutCString(return_type);
+//    out_stream.PutChar(' ');
+//  }
+//
+//  out_stream.PutCString(cpp_method.GetScopeQualifiedName());
+//  out_stream.PutChar('(');
+//
+//  FormatEntity::PrettyPrintFunctionArguments(out_stream, args, exe_scope);
+//
+//  out_stream.PutChar(')');
+//
+//  llvm::StringRef qualifiers = cpp_method.GetQualifiers();
+//  if (!qualifiers.empty()) {
+//    out_stream.PutChar(' ');
+//    out_stream.PutCString(qualifiers);
+//  }
+//
+//  return true;
+//}
 static bool PrettyPrintFunctionNameWithArgs(Stream &out_stream,
-                                            char const *full_name,
+                                            llvm::StringRef full_name,
+                                            std::optional<Mangled::DemangledInfo> demangled_parts,
                                             ExecutionContextScope *exe_scope,
-                                            VariableList const &args) {
-  CPlusPlusLanguage::MethodName cpp_method{ConstString(full_name)};
+                                            VariableList const &args,
+                                            bool show_colors) {
+  auto info = demangled_parts.value_or(Mangled::DemangledInfo{.basename = {0, full_name.size()}});
+  auto [base_start, base_end] = info.basename;
+  if (base_start > 0)
+    out_stream.PutCString(full_name.substr(0, base_start));
 
-  if (!cpp_method.IsValid())
-    return false;
-
-  llvm::StringRef return_type = cpp_method.GetReturnType();
-  if (!return_type.empty()) {
-    out_stream.PutCString(return_type);
-    out_stream.PutChar(' ');
+  auto text = full_name.substr(base_start, base_end - base_start);
+  if (show_colors) {
+    out_stream.PutCString(ansi::FormatAnsiTerminalCodes("${ansi.fg.green}"));
+    out_stream.PutCStringColorHighlighted(text);
+    out_stream.PutCString(ansi::FormatAnsiTerminalCodes("${ansi.normal}"));
+  } else {
+    out_stream.PutCString(text);
   }
 
-  out_stream.PutCString(cpp_method.GetScopeQualifiedName());
   out_stream.PutChar('(');
 
   FormatEntity::PrettyPrintFunctionArguments(out_stream, args, exe_scope);
 
   out_stream.PutChar(')');
 
-  llvm::StringRef qualifiers = cpp_method.GetQualifiers();
-  if (!qualifiers.empty()) {
-    out_stream.PutChar(' ');
-    out_stream.PutCString(qualifiers);
-  }
+  if (info.quals_start > 0)
+    out_stream.PutCString(full_name.substr(info.quals_start, base_end - info.quals_start));
 
   return true;
 }
@@ -1699,7 +1732,8 @@ bool CPlusPlusLanguage::IsSourceFile(llvm::StringRef file_path) const {
 
 bool CPlusPlusLanguage::GetFunctionDisplayName(
     const SymbolContext *sc, const ExecutionContext *exe_ctx,
-    FunctionNameRepresentation representation, Stream &s) {
+    FunctionNameRepresentation representation, Stream &s,
+    bool highlight_basename) {
   switch (representation) {
   case FunctionNameRepresentation::eNameWithArgs: {
     // Print the function name with arguments in it
@@ -1707,6 +1741,7 @@ bool CPlusPlusLanguage::GetFunctionDisplayName(
       ExecutionContextScope *exe_scope =
           exe_ctx ? exe_ctx->GetBestExecutionContextScope() : nullptr;
       const char *cstr = sc->function->GetName().AsCString(nullptr);
+      auto demangled_parts = sc->function->GetDemangledParts();
       if (cstr) {
         const InlineFunctionInfo *inline_info = nullptr;
         VariableListSP variable_list_sp;
@@ -1738,7 +1773,7 @@ bool CPlusPlusLanguage::GetFunctionDisplayName(
           variable_list_sp->AppendVariablesWithScope(eValueTypeVariableArgument,
                                                      args);
         if (args.GetSize() > 0) {
-          if (!PrettyPrintFunctionNameWithArgs(s, cstr, exe_scope, args))
+          if (!PrettyPrintFunctionNameWithArgs(s, cstr, demangled_parts, exe_scope, args, highlight_basename))
             return false;
         } else {
           s.PutCString(cstr);

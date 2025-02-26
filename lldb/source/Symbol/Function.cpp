@@ -720,6 +720,10 @@ ConstString Function::GetName() const {
   return m_mangled.GetName();
 }
 
+std::optional<Mangled::DemangledInfo> Function::GetDemangledParts() const {
+  return m_mangled.GetDemangledNameInfo();
+}
+
 ConstString Function::GetNameNoArguments() const {
   return m_mangled.GetName(Mangled::ePreferDemangledWithoutArguments);
 }

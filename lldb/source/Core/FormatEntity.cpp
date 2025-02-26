@@ -1654,7 +1654,7 @@ bool FormatEntity::Format(const Entry &entry, Stream &s,
 
     if (language_plugin)
       language_plugin_handled = language_plugin->GetFunctionDisplayName(
-          sc, exe_ctx, Language::FunctionNameRepresentation::eName, ss);
+          sc, exe_ctx, Language::FunctionNameRepresentation::eName, ss, /*highlight_basename=*/false);
 
     if (language_plugin_handled) {
       s << ss.GetString();
@@ -1690,7 +1690,7 @@ bool FormatEntity::Format(const Entry &entry, Stream &s,
     if (language_plugin)
       language_plugin_handled = language_plugin->GetFunctionDisplayName(
           sc, exe_ctx, Language::FunctionNameRepresentation::eNameWithNoArgs,
-          ss);
+          ss, /*highlight_basename=*/false);
 
     if (language_plugin_handled) {
       s << ss.GetString();
@@ -1724,7 +1724,8 @@ bool FormatEntity::Format(const Entry &entry, Stream &s,
 
     if (language_plugin)
       language_plugin_handled = language_plugin->GetFunctionDisplayName(
-          sc, exe_ctx, Language::FunctionNameRepresentation::eNameWithArgs, ss);
+          sc, exe_ctx, Language::FunctionNameRepresentation::eNameWithArgs, ss,
+          entry.printf_format == "color");
 
     if (language_plugin_handled) {
       s << ss.GetString();
@@ -2201,6 +2202,7 @@ static Status ParseInternal(llvm::StringRef &format, Entry &parent_entry,
         if (error.Fail())
           return error;
         bool verify_is_thread_id = false;
+        bool verify_is_function_name = false;
         Entry entry;
         if (!variable_format.empty()) {
           entry.printf_format = variable_format.str();
@@ -2266,6 +2268,8 @@ static Status ParseInternal(llvm::StringRef &format, Entry &parent_entry,
                 clear_printf = true;
               } else if (entry.printf_format == "tid") {
                 verify_is_thread_id = true;
+              } else if (entry.printf_format == "color") {
+                verify_is_function_name = true;
               } else {
                 error = Status::FromErrorStringWithFormat(
                     "invalid format: '%s'", entry.printf_format.c_str());
@@ -2306,6 +2310,16 @@ static Status ParseInternal(llvm::StringRef &format, Entry &parent_entry,
             error = Status::FromErrorString(
                 "the 'tid' format can only be used on "
                 "${thread.id} and ${thread.protocol_id}");
+          }
+        }
+
+        if (verify_is_function_name) {
+          if (entry.type != Entry::Type::FunctionName &&
+              entry.type != Entry::Type::FunctionNameNoArgs &&
+              entry.type != Entry::Type::FunctionNameWithArgs) {
+            error = Status::FromErrorString(
+                "the 'color' format can only be used on "
+                "${function.name-XXX} variables");
           }
         }
 

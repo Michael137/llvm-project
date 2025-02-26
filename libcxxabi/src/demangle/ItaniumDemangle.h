@@ -976,15 +976,21 @@ public:
       if (!Ret->hasRHSComponent(OB))
         OB += " ";
     }
+    OB.ScopeStart = OB.getCurrentPosition();
     Name->print(OB);
+    if (!OB.BasenameEnd)
+      OB.BasenameEnd = OB.getCurrentPosition();
   }
 
   void printRight(OutputBuffer &OB) const override {
+    OB.InsideFunctionParams = true;
     OB.printOpen();
     Params.printWithComma(OB);
     OB.printClose();
     if (Ret)
       Ret->printRight(OB);
+    
+    OB.QualsBegin = OB.getCurrentPosition();
 
     if (CVQuals & QualConst)
       OB += " const";
@@ -1071,8 +1077,14 @@ struct NestedName : Node {
 
   void printLeft(OutputBuffer &OB) const override {
     Qual->print(OB);
+    if (!OB.isGtInsideTemplateArgs() && !OB.InsideFunctionParams)
+      OB.ScopeEnd = OB.getCurrentPosition();
     OB += "::";
+    if (!OB.isGtInsideTemplateArgs() && !OB.InsideFunctionParams)
+      OB.BasenameStart = OB.getCurrentPosition() ;//+ 1; // Position should be 1 after the ::
     Name->print(OB);
+    if (!OB.isGtInsideTemplateArgs() && !OB.InsideFunctionParams)
+      OB.BasenameEnd = OB.getCurrentPosition() ;//+ 1; // Position should be 1 after the ::
   }
 };
 
@@ -1145,8 +1157,14 @@ struct LocalName : Node {
 
   void printLeft(OutputBuffer &OB) const override {
     Encoding->print(OB);
+    if (!OB.isGtInsideTemplateArgs() && !OB.InsideFunctionParams)
+      OB.ScopeEnd = OB.getCurrentPosition();
     OB += "::";
+    if (!OB.isGtInsideTemplateArgs() && !OB.InsideFunctionParams)
+      OB.BasenameStart = OB.getCurrentPosition() ;//+ 1; // Position should be 1 after the ::
     Entity->print(OB);
+    if (!OB.isGtInsideTemplateArgs() && !OB.InsideFunctionParams)
+      OB.BasenameEnd = OB.getCurrentPosition() ;//+ 1; // Position should be 1 after the ::
   }
 };
 
@@ -1165,8 +1183,14 @@ public:
 
   void printLeft(OutputBuffer &OB) const override {
     Qualifier->print(OB);
+    if (!OB.isGtInsideTemplateArgs() && !OB.InsideFunctionParams)
+      OB.ScopeEnd = OB.getCurrentPosition();
     OB += "::";
+    if (!OB.isGtInsideTemplateArgs() && !OB.InsideFunctionParams)
+      OB.BasenameStart = OB.getCurrentPosition() ;//+ 1; // Position should be 1 after the ::
     Name->print(OB);
+    if (!OB.isGtInsideTemplateArgs() && !OB.InsideFunctionParams)
+      OB.BasenameEnd = OB.getCurrentPosition() ;//+ 1; // Position should be 1 after the ::
   }
 };
 
@@ -1633,6 +1657,8 @@ struct NameWithTemplateArgs : Node {
 
   void printLeft(OutputBuffer &OB) const override {
     Name->print(OB);
+    if (!OB.isGtInsideTemplateArgs() && !OB.InsideFunctionParams)
+      OB.BasenameEnd = OB.getCurrentPosition();
     TemplateArgs->print(OB);
   }
 };

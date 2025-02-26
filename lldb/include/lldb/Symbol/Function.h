@@ -534,6 +534,7 @@ public:
   const DWARFExpressionList &GetFrameBaseExpression() const { return m_frame_base; }
 
   ConstString GetName() const;
+  std::optional<Mangled::DemangledInfo> GetDemangledParts() const;
 
   ConstString GetNameNoArguments() const;
 

@@ -126,7 +126,24 @@ public:
   ///
   /// \return
   ///     A const reference to the demangled name string object.
-  ConstString GetDemangledName() const;
+  ConstString GetDemangledName(bool force = false) const;
+
+  // Assumes function signature is structured as follows:
+  // [<return-type>] [<scope>::].*<basename>(<arguments>)
+  struct DemangledInfo {
+    ///< Where scope begins/ends if one exists.
+    std::optional<std::pair<size_t, size_t>> scope;
+
+    ///< Start/end of (unqualified) function name.
+    std::pair<size_t, size_t> basename;
+
+    size_t quals_start = 0;
+
+    // TODO: should bundle m_demangled into this object so we only ever set/reset the demangled name with the correct location info.
+    ///< Demangled string.
+    // ConstString demangled;
+  };
+  std::optional<DemangledInfo> GetDemangledNameInfo() const;
 
   /// Display demangled name get accessor.
   ///
@@ -280,6 +297,8 @@ private:
   ConstString m_mangled;           ///< The mangled version of the name
   mutable ConstString m_demangled; ///< Mutable so we can get it on demand with
                                    ///a const version of this object
+
+  mutable std::optional<DemangledInfo> m_demangled_info;
 };
 
 Stream &operator<<(Stream &s, const Mangled &obj);

@@ -276,6 +276,8 @@ public:
   void Encode(DataEncoder &encoder, ConstStringTable &strtab) const;
 
 private:
+  ConstString GetDemangledNameImpl(bool force) const;
+
   ///< The mangled version of the name.
   ConstString m_mangled;
 

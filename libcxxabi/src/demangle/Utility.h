@@ -24,6 +24,7 @@
 #include <cstring>
 #include <limits>
 #include <string_view>
+#include <optional>
 
 DEMANGLE_NAMESPACE_BEGIN
 
@@ -92,7 +93,25 @@ public:
   /// Use a counter so we can simply increment inside parentheses.
   unsigned GtIsGt = 1;
 
+  unsigned NestedFunctionEncoding = 0;
+
+  bool PrintingName = true;
+
+  struct CxxNamePartsInfo {
+    // [start, end)
+    std::pair<size_t, size_t> BasenameLocs = {0, 0};
+    // [start, end)
+    std::pair<size_t, size_t> ScopeLocs = {0, 0};
+    std::pair<size_t, size_t> FunctionQualifiersLocs;
+  };
+
+  CxxNamePartsInfo PartsInfo;
+
   bool isGtInsideTemplateArgs() const { return GtIsGt == 0; }
+
+  bool isInsideNestedFunctionEncoding() const { return NestedFunctionEncoding > 1; }
+
+  bool isPrintingName() const { return PrintingName; }
 
   void printOpen(char Open = '(') {
     GtIsGt++;

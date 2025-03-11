@@ -14,6 +14,7 @@
 #include "lldb/lldb-types.h"
 #include "lldb/Utility/ConstString.h"
 #include "llvm/ADT/StringRef.h"
+#include "llvm/Demangle/Utility.h"
 
 #include <cstddef>
 #include <memory>
@@ -275,6 +276,10 @@ public:
   ///   table offsets in the cache data.
   void Encode(DataEncoder &encoder, ConstStringTable &strtab) const;
 
+  using DemangledInfo = llvm::itanium_demangle::OutputBuffer::CxxNamePartsInfo;
+
+  const std::optional<DemangledInfo> & GetDemangledNameInfo();
+
 private:
   ConstString GetDemangledNameImpl(bool force) const;
 
@@ -284,6 +289,8 @@ private:
   ///< Mutable so we can get it on demand with
   ///< a const version of this object.
   mutable ConstString m_demangled;
+
+  std::optional<DemangledInfo> m_demangled_info;
 };
 
 Stream &operator<<(Stream &s, const Mangled &obj);

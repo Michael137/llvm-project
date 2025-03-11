@@ -114,3 +114,67 @@ TEST(ItaniumDemangle, HalfType) {
   ASSERT_NE(nullptr, Parser.parse());
   EXPECT_THAT(Parser.Types, testing::ElementsAre("_Float16", "A", "_Float16"));
 }
+
+struct DemanglingPartsTestCase {
+  const char *mangled;
+  itanium_demangle::OutputBuffer::CxxNamePartsInfo expected_parts;
+  llvm::StringRef basename;
+  llvm::StringRef scope;
+};
+
+DemanglingPartsTestCase g_demangling_parts_test_cases[] = {
+  // clang-format off
+  { "_ZNVKO3BarIN2ns3QuxIiEEE1CIPFi3FooIS_IiES6_EEE6methodIS6_EENS5_IT_SC_E5InnerIiEESD_SD_",
+    { .BasenameLocs = {92, 98}, .ScopeLocs = {36, 92}, .FunctionQualifiersLocs = { 158, 176 } },
+    .basename = "method",
+    .scope = "Bar<ns::Qux<int>>::C<int (*)(Foo<Bar<int>, Bar<int>>)>::"
+  },
+  { "_Z7getFuncIfEPFiiiET_",
+    { .BasenameLocs = {6, 13}, .ScopeLocs = {6, 6}, .FunctionQualifiersLocs = { 38, 38 } },
+    .basename = "getFunc",
+    .scope = ""
+  },
+  { "_ZN1f1b1c1gEv",
+    { .BasenameLocs = {9, 10}, .ScopeLocs = {0, 9}, .FunctionQualifiersLocs = { 12, 12 } },
+    .basename = "g",
+    .scope = "f::b::c::"
+  },
+  { "_ZN5test73fD1IiEEDTcmtlNS_1DEL_ZNS_1bEEEcvT__EES2_",
+    { .BasenameLocs = {45, 48}, .ScopeLocs = {38, 45}, .FunctionQualifiersLocs = { 58, 58 } },
+    .basename = "fD1",
+    .scope = "test7::"
+  }
+  // clang-format on
+};
+
+struct DemanglingPartsTestFixture : public ::testing::TestWithParam<DemanglingPartsTestCase> {};
+
+TEST_P(DemanglingPartsTestFixture, DemanglingParts) {
+  const auto &[mangled, parts, basename, scope] = GetParam();
+
+  ManglingParser<TestAllocator> Parser(mangled, mangled + ::strlen(mangled));
+
+  const auto * Root = Parser.parse();
+
+  ASSERT_NE(nullptr, Root);
+
+  OutputBuffer OB;
+  Root->print(OB);
+  auto demangled = toString(OB);
+
+  EXPECT_EQ(OB.PartsInfo.BasenameLocs, parts.BasenameLocs);
+  EXPECT_EQ(OB.PartsInfo.ScopeLocs, parts.ScopeLocs);
+  EXPECT_EQ(OB.PartsInfo.FunctionQualifiersLocs, parts.FunctionQualifiersLocs);
+
+  auto get_part = [&](const std::pair<size_t, size_t> &loc) {
+    return demangled.substr(loc.first, loc.second - loc.first);
+  };
+
+  EXPECT_EQ(get_part(OB.PartsInfo.BasenameLocs), basename);
+  EXPECT_EQ(get_part(OB.PartsInfo.ScopeLocs), scope);
+}
+
+INSTANTIATE_TEST_SUITE_P(
+        DemanglingPartsTests,
+        DemanglingPartsTestFixture,
+        ::testing::ValuesIn(g_demangling_parts_test_cases));

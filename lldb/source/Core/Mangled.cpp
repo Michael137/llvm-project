@@ -324,6 +324,13 @@ ConstString Mangled::GetDemangledNameImpl(bool force) const {
   return m_demangled;
 }
 
+const std::optional<Mangled::DemangledInfo> & Mangled::GetDemangledNameInfo() {
+  if (!m_demangled_info)
+    GetDemangledNameImpl(/*force=*/true);
+
+  return m_demangled_info;
+}
+
 ConstString Mangled::GetDisplayDemangledName() const {
   if (Language *lang = Language::FindPlugin(GuessLanguage()))
     return lang->GetDisplayDemangledName(*this);

@@ -507,7 +507,11 @@ public:
   std::string_view getName() const { return Name; }
   std::string_view getBaseName() const override { return Name; }
 
-  void printLeft(OutputBuffer &OB) const override { OB += Name; }
+  void printLeft(OutputBuffer &OB) const override {
+    OB += Name;
+    //if (!OB.isGtInsideTemplateArgs() && OB.isPrintingName() && !OB.isInsideNestedFunctionEncoding())
+    //  OB.PartsInfo.BasenameLocs.second = OB.getCurrentPosition();
+  }
 };
 
 class BitIntType final : public Node {
@@ -851,11 +855,13 @@ public:
   // by printing out the return types's left, then print our parameters, then
   // finally print right of the return type.
   void printLeft(OutputBuffer &OB) const override {
+    ScopedOverride<unsigned> Nested(OB.NestedFunctionEncoding, OB.NestedFunctionEncoding + 1);
     Ret->printLeft(OB);
     OB += " ";
   }
 
   void printRight(OutputBuffer &OB) const override {
+    ScopedOverride<unsigned> Nested(OB.NestedFunctionEncoding, OB.NestedFunctionEncoding + 1);
     OB.printOpen();
     Params.printWithComma(OB);
     OB.printClose();
@@ -976,15 +982,33 @@ public:
       if (!Ret->hasRHSComponent(OB))
         OB += " ";
     }
+
+    ScopedOverride<unsigned> Nested(OB.NestedFunctionEncoding, OB.NestedFunctionEncoding + 1);
+
+    // TODO: accounts for nested FunctionEncoding?
+    // - <local-name>
+    // - <expr-primary>
+    if (!OB.isInsideNestedFunctionEncoding())
+      OB.PartsInfo.ScopeLocs.first = OB.getCurrentPosition();
     Name->print(OB);
   }
 
   void printRight(OutputBuffer &OB) const override {
+    ScopedOverride<bool> Printing(OB.PrintingName, false);
+
+    // If nothing has set the end of the basename yet (for example when printing templates),
+    // then the beginning of the arguments is the end of the basename.
+    if (!OB.isInsideNestedFunctionEncoding() && OB.PartsInfo.BasenameLocs.second == 0)
+      OB.PartsInfo.BasenameLocs.second = OB.getCurrentPosition();
+
     OB.printOpen();
     Params.printWithComma(OB);
     OB.printClose();
     if (Ret)
       Ret->printRight(OB);
+
+    if (!OB.isInsideNestedFunctionEncoding())
+      OB.PartsInfo.FunctionQualifiersLocs.first = OB.getCurrentPosition();
 
     if (CVQuals & QualConst)
       OB += " const";
@@ -1004,6 +1028,13 @@ public:
     if (Requires != nullptr) {
       OB += " requires ";
       Requires->print(OB);
+    }
+
+    if (!OB.isInsideNestedFunctionEncoding()) {
+      if (OB.PartsInfo.ScopeLocs.first > OB.PartsInfo.ScopeLocs.second)
+        OB.PartsInfo.ScopeLocs.second = OB.PartsInfo.ScopeLocs.first;
+      OB.PartsInfo.BasenameLocs.first = OB.PartsInfo.ScopeLocs.second;
+      OB.PartsInfo.FunctionQualifiersLocs.second = OB.getCurrentPosition();
     }
   }
 };
@@ -1072,7 +1103,11 @@ struct NestedName : Node {
   void printLeft(OutputBuffer &OB) const override {
     Qual->print(OB);
     OB += "::";
+    if (OB.isPrintingName() && !OB.isInsideNestedFunctionEncoding() && !OB.isGtInsideTemplateArgs())
+      OB.PartsInfo.ScopeLocs.second = OB.getCurrentPosition();
     Name->print(OB);
+    if (OB.isPrintingName() && !OB.isInsideNestedFunctionEncoding() && !OB.isGtInsideTemplateArgs())
+      OB.PartsInfo.BasenameLocs.second = OB.getCurrentPosition();
   }
 };
 
@@ -1633,6 +1668,8 @@ struct NameWithTemplateArgs : Node {
 
   void printLeft(OutputBuffer &OB) const override {
     Name->print(OB);
+    if (!OB.isGtInsideTemplateArgs() && OB.isPrintingName() && !OB.isInsideNestedFunctionEncoding())
+      OB.PartsInfo.BasenameLocs.second = OB.getCurrentPosition();
     TemplateArgs->print(OB);
   }
 };

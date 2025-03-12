@@ -290,7 +290,7 @@ private:
   ///< a const version of this object.
   mutable ConstString m_demangled;
 
-  std::optional<DemangledInfo> m_demangled_info;
+  mutable std::optional<DemangledInfo> m_demangled_info;
 };
 
 Stream &operator<<(Stream &s, const Mangled &obj);

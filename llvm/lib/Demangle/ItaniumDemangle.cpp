@@ -540,6 +540,16 @@ char *ItaniumPartialDemangler::finishDemangle(char *Buf, size_t *N) const {
   return printNode(static_cast<Node *>(RootNode), Buf, N);
 }
 
+char *ItaniumPartialDemangler::finishDemangle(void *OB, size_t *N) const {
+  assert(RootNode != nullptr && "must call partialDemangle()");
+  OutputBuffer *Buf = static_cast<OutputBuffer*>(OB);
+  static_cast<Node *>(RootNode)->print(*Buf);
+  *Buf += '\0';
+  if (N != nullptr)
+    *N = Buf->getCurrentPosition();
+  return Buf->getBuffer();
+}
+
 bool ItaniumPartialDemangler::hasFunctionQualifiers() const {
   assert(RootNode != nullptr && "must call partialDemangle()");
   if (!isFunction())

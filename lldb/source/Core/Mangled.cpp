@@ -152,8 +152,9 @@ static char *GetMSVCDemangledStr(llvm::StringRef M) {
   return demangled_cstr;
 }
 
-static char *GetItaniumDemangledStr(const char *M) {
+static std::pair<char *, std::optional<Mangled::DemangledInfo>> GetItaniumDemangledStr(const char *M) {
   char *demangled_cstr = nullptr;
+  std::optional<Mangled::DemangledInfo> info;
 
   llvm::ItaniumPartialDemangler ipd;
   bool err = ipd.partialDemangle(M);
@@ -161,7 +162,10 @@ static char *GetItaniumDemangledStr(const char *M) {
     // Default buffer and size (will realloc in case it's too small).
     size_t demangled_size = 80;
     demangled_cstr = static_cast<char *>(std::malloc(demangled_size));
-    demangled_cstr = ipd.finishDemangle(demangled_cstr, &demangled_size);
+
+    llvm::itanium_demangle::OutputBuffer OB(demangled_cstr, demangled_size);
+    demangled_cstr = ipd.finishDemangle(&OB, &demangled_size);
+    info.emplace(OB.PartsInfo);
 
     assert(demangled_cstr &&
            "finishDemangle must always succeed if partialDemangle did");
@@ -176,7 +180,7 @@ static char *GetItaniumDemangledStr(const char *M) {
       LLDB_LOGF(log, "demangled itanium: %s -> error: failed to demangle", M);
   }
 
-  return demangled_cstr;
+  return { demangled_cstr, info };
 }
 
 static char *GetRustV0DemangledStr(llvm::StringRef M) {
@@ -292,7 +296,9 @@ ConstString Mangled::GetDemangledNameImpl(bool force) const {
     demangled_name = GetMSVCDemangledStr(m_mangled);
     break;
   case eManglingSchemeItanium: {
-    demangled_name = GetItaniumDemangledStr(m_mangled.GetCString());
+    auto [demangled, info] = GetItaniumDemangledStr(m_mangled.GetCString());
+    m_demangled_info = std::move(info);
+    demangled_name = demangled;
     break;
   }
   case eManglingSchemeRustV0:

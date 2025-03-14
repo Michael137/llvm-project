@@ -282,10 +282,10 @@ ConstString Mangled::GetDemangledNameImpl(bool force) const {
     return m_demangled;
 
   // Re-use previously demangled names.
-  if (!m_demangled.IsNull())
+  if (!force && !m_demangled.IsNull())
     return m_demangled;
 
-  if (m_mangled.GetMangledCounterpart(m_demangled) && !m_demangled.IsNull())
+  if (!force && m_mangled.GetMangledCounterpart(m_demangled) && !m_demangled.IsNull())
     return m_demangled;
 
   // We didn't already mangle this name, demangle it and if all goes well
@@ -330,7 +330,7 @@ ConstString Mangled::GetDemangledNameImpl(bool force) const {
   return m_demangled;
 }
 
-const std::optional<Mangled::DemangledInfo> & Mangled::GetDemangledNameInfo() {
+const std::optional<Mangled::DemangledInfo> & Mangled::GetDemangledNameInfo() const {
   if (!m_demangled_info)
     GetDemangledNameImpl(/*force=*/true);
 

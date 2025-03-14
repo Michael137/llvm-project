@@ -12,6 +12,7 @@
 
 #include "lldb/Target/Language.h"
 
+#include "lldb/Core/FormatEntity.h"
 #include "lldb/Core/PluginManager.h"
 #include "lldb/Interpreter/OptionValueProperties.h"
 #include "lldb/Symbol/SymbolFile.h"
@@ -513,7 +514,8 @@ bool Language::IsUninitializedReference(ValueObject &valobj) { return false; }
 bool Language::GetFunctionDisplayName(const SymbolContext *sc,
                                       const ExecutionContext *exe_ctx,
                                       FunctionNameRepresentation representation,
-                                      Stream &s) {
+                                      Stream &s,
+                                      const FormatEntity::Entry::HighlightSettings &) {
   return false;
 }
 

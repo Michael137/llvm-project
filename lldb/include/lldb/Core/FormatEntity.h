@@ -197,6 +197,16 @@ struct Entry {
     return true;
   }
 
+  struct HighlightSettings {
+    std::string color_variable;
+    std::string color_end;
+
+    enum class Kind : uint8_t {
+      None,
+      Basename,
+    } kind = Kind::None;
+  };
+
   std::string string;
   std::string printf_format;
   std::vector<Entry> children;
@@ -204,6 +214,7 @@ struct Entry {
   lldb::Format fmt = lldb::eFormatDefault;
   lldb::addr_t number = 0;
   bool deref = false;
+  HighlightSettings highlight;
 };
 
 bool Format(const Entry &entry, Stream &s, const SymbolContext *sc,

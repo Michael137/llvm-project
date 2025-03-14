@@ -507,7 +507,11 @@ public:
   std::string_view getName() const { return Name; }
   std::string_view getBaseName() const override { return Name; }
 
-  void printLeft(OutputBuffer &OB) const override { OB += Name; }
+  void printLeft(OutputBuffer &OB) const override {
+    OB += Name;
+    //if (!OB.isGtInsideTemplateArgs() && OB.isPrintingName() && !OB.isInsideNestedFunctionEncoding())
+    //  OB.PartsInfo.BasenameLocs.second = OB.getCurrentPosition();
+  }
 };
 
 class BitIntType final : public Node {
@@ -1099,9 +1103,11 @@ struct NestedName : Node {
   void printLeft(OutputBuffer &OB) const override {
     Qual->print(OB);
     OB += "::";
-    if (!OB.isGtInsideTemplateArgs())
+    if (OB.isPrintingName() && !OB.isInsideNestedFunctionEncoding() && !OB.isGtInsideTemplateArgs())
       OB.PartsInfo.ScopeLocs.second = OB.getCurrentPosition();
     Name->print(OB);
+    if (OB.isPrintingName() && !OB.isInsideNestedFunctionEncoding() && !OB.isGtInsideTemplateArgs())
+      OB.PartsInfo.BasenameLocs.second = OB.getCurrentPosition();
   }
 };
 

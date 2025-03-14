@@ -143,6 +143,16 @@ DemanglingPartsTestCase g_demangling_parts_test_cases[] = {
     { .BasenameLocs = {45, 48}, .ScopeLocs = {38, 45}, .FunctionQualifiersLocs = { 58, 58 } },
     .basename = "fD1",
     .scope = "test7::"
+  },
+  { "_ZN8nlohmann16json_abi_v3_11_310basic_jsonINSt3__13mapENS2_6vectorENS2_12basic_stringIcNS2_11char_traitsIcEENS2_9allocatorIcEEEEbxydS8_NS0_14adl_serializerENS4_IhNS8_IhEEEEvE5parseIRA29_KcEESE_OT_NS2_8functionIFbiNS0_6detail13parse_event_tERSE_EEEbb",
+    { .BasenameLocs = {687, 692}, .ScopeLocs = {343, 687}, .FunctionQualifiersLocs = { 1174, 1174 } },
+    .basename = "parse",
+    .scope = "nlohmann::json_abi_v3_11_3::basic_json<std::__1::map, std::__1::vector, std::__1::basic_string<char, std::__1::char_traits<char>, std::__1::allocator<char>>, bool, long long, unsigned long long, double, std::__1::allocator, nlohmann::json_abi_v3_11_3::adl_serializer, std::__1::vector<unsigned char, std::__1::allocator<unsigned char>>, void>::"
+  },
+  { "_ZN8nlohmann16json_abi_v3_11_310basic_jsonINSt3__13mapENS2_6vectorENS2_12basic_stringIcNS2_11char_traitsIcEENS2_9allocatorIcEEEEbxydS8_NS0_14adl_serializerENS4_IhNS8_IhEEEEvEC1EDn",
+    { .BasenameLocs = {344, 354}, .ScopeLocs = {0, 344}, .FunctionQualifiersLocs = { 370, 370 } },
+    .basename = "basic_json",
+    .scope = "nlohmann::json_abi_v3_11_3::basic_json<std::__1::map, std::__1::vector, std::__1::basic_string<char, std::__1::char_traits<char>, std::__1::allocator<char>>, bool, long long, unsigned long long, double, std::__1::allocator, nlohmann::json_abi_v3_11_3::adl_serializer, std::__1::vector<unsigned char, std::__1::allocator<unsigned char>>, void>::"
   }
   // clang-format on
 };

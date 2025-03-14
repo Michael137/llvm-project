@@ -729,3 +729,7 @@ ConstString Function::GetName() const {
 ConstString Function::GetNameNoArguments() const {
   return m_mangled.GetName(Mangled::ePreferDemangledWithoutArguments);
 }
+
+const std::optional<Mangled::DemangledInfo> &Function::GetDemangledNameInfo() const {
+  return m_mangled.GetDemangledNameInfo();
+}

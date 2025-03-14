@@ -278,7 +278,7 @@ public:
 
   using DemangledInfo = llvm::itanium_demangle::OutputBuffer::CxxNamePartsInfo;
 
-  const std::optional<DemangledInfo> & GetDemangledNameInfo();
+  const std::optional<DemangledInfo> & GetDemangledNameInfo() const;
 
 private:
   ConstString GetDemangledNameImpl(bool force) const;

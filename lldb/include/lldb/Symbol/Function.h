@@ -534,6 +534,8 @@ public:
 
   ConstString GetDisplayName() const;
 
+  const std::optional<Mangled::DemangledInfo> &GetDemangledNameInfo() const;
+
   const Mangled &GetMangled() const { return m_mangled; }
 
   /// Get the DeclContext for this function, if available.

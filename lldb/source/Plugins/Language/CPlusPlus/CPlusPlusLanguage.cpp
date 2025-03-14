@@ -19,6 +19,7 @@
 #include "llvm/ADT/StringRef.h"
 #include "llvm/Demangle/ItaniumDemangle.h"
 
+#include "lldb/Core/FormatEntity.h"
 #include "lldb/Core/Mangled.h"
 #include "lldb/Core/Module.h"
 #include "lldb/Core/PluginManager.h"
@@ -29,6 +30,7 @@
 #include "lldb/DataFormatters/VectorType.h"
 #include "lldb/Symbol/SymbolFile.h"
 #include "lldb/Symbol/VariableList.h"
+#include "lldb/Utility/AnsiTerminal.h"
 #include "lldb/Utility/ConstString.h"
 #include "lldb/Utility/LLDBLog.h"
 #include "lldb/Utility/Log.h"
@@ -174,11 +176,8 @@ static bool IsTrivialBasename(const llvm::StringRef &basename) {
   return idx == basename.size();
 }
 
-/// Writes out the function name in 'full_name' to 'out_stream'
-/// but replaces each argument type with the variable name
-/// and the corresponding pretty-printed value
 static bool PrettyPrintFunctionNameWithArgs(Stream &out_stream,
-                                            char const *full_name,
+                                            llvm::StringRef full_name,
                                             ExecutionContextScope *exe_scope,
                                             VariableList const &args) {
   CPlusPlusLanguage::MethodName cpp_method{ConstString(full_name)};
@@ -204,6 +203,36 @@ static bool PrettyPrintFunctionNameWithArgs(Stream &out_stream,
     out_stream.PutChar(' ');
     out_stream.PutCString(qualifiers);
   }
+
+  return true;
+}
+
+/// Writes out the function name in 'full_name' to 'out_stream'
+/// but replaces each argument type with the variable name
+/// and the corresponding pretty-printed value
+static bool PrettyPrintFunctionNameWithArgs(Stream &out_stream,
+                                            llvm::StringRef full_name,
+                                            ExecutionContextScope *exe_scope,
+                                            VariableList const &args,
+                                            const std::optional<Mangled::DemangledInfo> &demangled_info,
+                                            const FormatEntity::Entry::HighlightSettings &highlight) {
+  if (!demangled_info || highlight.kind == FormatEntity::Entry::HighlightSettings::Kind::None)
+    return PrettyPrintFunctionNameWithArgs(out_stream, full_name, exe_scope, args);
+
+  auto [base_start, base_end] = demangled_info.value().BasenameLocs;
+  if (base_start > 0)
+    out_stream.PutCString(full_name.substr(0, base_start));
+
+  out_stream.PutCString(highlight.color_variable);
+  out_stream.PutCString(full_name.substr(base_start, base_end - base_start));
+  out_stream.PutCString(highlight.color_end);
+
+  out_stream.PutChar('(');
+  FormatEntity::PrettyPrintFunctionArguments(out_stream, args, exe_scope);
+  out_stream.PutChar(')');
+
+  if (demangled_info->FunctionQualifiersLocs.first != demangled_info->FunctionQualifiersLocs.second)
+    out_stream.PutCString(full_name.substr(demangled_info->FunctionQualifiersLocs.first, demangled_info->FunctionQualifiersLocs.second - demangled_info->FunctionQualifiersLocs.first));
 
   return true;
 }
@@ -1699,7 +1728,8 @@ bool CPlusPlusLanguage::IsSourceFile(llvm::StringRef file_path) const {
 
 bool CPlusPlusLanguage::GetFunctionDisplayName(
     const SymbolContext *sc, const ExecutionContext *exe_ctx,
-    FunctionNameRepresentation representation, Stream &s) {
+    FunctionNameRepresentation representation, Stream &s,
+    const FormatEntity::Entry::HighlightSettings &highlight) {
   switch (representation) {
   case FunctionNameRepresentation::eNameWithArgs: {
     // Print the function name with arguments in it
@@ -1738,7 +1768,7 @@ bool CPlusPlusLanguage::GetFunctionDisplayName(
           variable_list_sp->AppendVariablesWithScope(eValueTypeVariableArgument,
                                                      args);
         if (args.GetSize() > 0) {
-          if (!PrettyPrintFunctionNameWithArgs(s, cstr, exe_scope, args))
+          if (!PrettyPrintFunctionNameWithArgs(s, cstr, exe_scope, args, sc->function->GetDemangledNameInfo(), highlight))
             return false;
         } else {
           s.PutCString(cstr);

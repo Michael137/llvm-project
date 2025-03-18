@@ -19,6 +19,9 @@
 #include "llvm/ADT/StringRef.h"
 #include "llvm/Demangle/ItaniumDemangle.h"
 
+#include "lldb/Core/Debugger.h"
+#include "lldb/Core/DemangledNameInfo.h"
+#include "lldb/Core/FormatEntity.h"
 #include "lldb/Core/Mangled.h"
 #include "lldb/Core/Module.h"
 #include "lldb/Core/PluginManager.h"
@@ -178,7 +181,7 @@ static bool IsTrivialBasename(const llvm::StringRef &basename) {
 /// but replaces each argument type with the variable name
 /// and the corresponding pretty-printed value
 static bool PrettyPrintFunctionNameWithArgs(Stream &out_stream,
-                                            char const *full_name,
+                                            llvm::StringRef full_name,
                                             ExecutionContextScope *exe_scope,
                                             VariableList const &args) {
   CPlusPlusLanguage::MethodName cpp_method{ConstString(full_name)};
@@ -204,6 +207,71 @@ static bool PrettyPrintFunctionNameWithArgs(Stream &out_stream,
     out_stream.PutChar(' ');
     out_stream.PutCString(qualifiers);
   }
+
+  return true;
+}
+
+static bool GetUseColor(ExecutionContextScope *exe_scope) {
+  if (!exe_scope)
+    return false;
+
+  auto target_sp = exe_scope->CalculateTarget();
+  if (!target_sp)
+    return false;
+
+  return target_sp->GetDebugger().GetUseColor();
+}
+
+static bool ShouldHighlightBasename(
+    ExecutionContextScope *exe_scope,
+    const FormatEntity::Entry::HighlightSettings &settings) {
+  if (!GetUseColor(exe_scope))
+    return false;
+
+  return settings.kind ==
+         FormatEntity::Entry::HighlightSettings::Kind::Basename;
+}
+
+/// If \c DemangledNameInfo is valid, we use it to print a function function
+/// name into \c out_stream (and if requested, highlight the basename).
+static bool PrettyPrintHighlightedBasenameWithArgs(
+    Stream &out_stream, llvm::StringRef full_name,
+    ExecutionContextScope *exe_scope, VariableList const &args,
+    const std::optional<DemangledNameInfo> &demangled_info,
+    const FormatEntity::Entry::HighlightSettings &settings) {
+  // If we didn't get sufficient information from the demangler, we fall back to
+  // parsing the and printing parts of the demangled name ourselves.
+  if (!demangled_info || !demangled_info->hasBasename())
+    return PrettyPrintFunctionNameWithArgs(out_stream, full_name, exe_scope,
+                                           args);
+
+  auto [base_start, base_end] = demangled_info->BasenameRange;
+
+  // Dump anything before the basename.
+  out_stream.PutCString(full_name.substr(0, base_start));
+
+  // Highlight the basename.
+  if (ShouldHighlightBasename(exe_scope, settings))
+    out_stream.PutCString(settings.prefix);
+
+  out_stream.PutCString(full_name.substr(base_start, base_end - base_start));
+
+  if (ShouldHighlightBasename(exe_scope, settings))
+    out_stream.PutCString(settings.suffix);
+
+  // Dump anything between the basename and the argument list.
+  if (demangled_info->ArgumentsRange.first > base_end)
+    out_stream.PutCString(full_name.substr(
+        base_end, demangled_info->ArgumentsRange.first - base_end));
+
+  // Dump arguments.
+  out_stream.PutChar('(');
+  FormatEntity::PrettyPrintFunctionArguments(out_stream, args, exe_scope);
+  out_stream.PutChar(')');
+
+  // Dump anything after the argument list.
+  out_stream.PutCString(
+      full_name.substr(demangled_info->ArgumentsRange.second));
 
   return true;
 }
@@ -1699,7 +1767,8 @@ bool CPlusPlusLanguage::IsSourceFile(llvm::StringRef file_path) const {
 
 bool CPlusPlusLanguage::GetFunctionDisplayName(
     const SymbolContext *sc, const ExecutionContext *exe_ctx,
-    FunctionNameRepresentation representation, Stream &s) {
+    FunctionNameRepresentation representation,
+    const FormatEntity::Entry::HighlightSettings &settings, Stream &s) {
   switch (representation) {
   case FunctionNameRepresentation::eNameWithArgs: {
     // Print the function name with arguments in it
@@ -1737,13 +1806,10 @@ bool CPlusPlusLanguage::GetFunctionDisplayName(
         if (variable_list_sp)
           variable_list_sp->AppendVariablesWithScope(eValueTypeVariableArgument,
                                                      args);
-        if (args.GetSize() > 0) {
-          if (!PrettyPrintFunctionNameWithArgs(s, cstr, exe_scope, args))
-            return false;
-        } else {
-          s.PutCString(cstr);
-        }
-        return true;
+
+        return PrettyPrintHighlightedBasenameWithArgs(
+            s, cstr, exe_scope, args, sc->function->GetDemangledInfo(),
+            settings);
       }
     } else if (sc->symbol) {
       const char *cstr = sc->symbol->GetName().AsCString(nullptr);

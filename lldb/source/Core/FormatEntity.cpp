@@ -1661,7 +1661,8 @@ bool FormatEntity::Format(const Entry &entry, Stream &s,
 
     if (language_plugin)
       language_plugin_handled = language_plugin->GetFunctionDisplayName(
-          sc, exe_ctx, Language::FunctionNameRepresentation::eName, ss);
+          sc, exe_ctx, Language::FunctionNameRepresentation::eName,
+          entry.highlight, ss);
 
     if (language_plugin_handled) {
       s << ss.GetString();
@@ -1697,7 +1698,7 @@ bool FormatEntity::Format(const Entry &entry, Stream &s,
     if (language_plugin)
       language_plugin_handled = language_plugin->GetFunctionDisplayName(
           sc, exe_ctx, Language::FunctionNameRepresentation::eNameWithNoArgs,
-          ss);
+          entry.highlight, ss);
 
     if (language_plugin_handled) {
       s << ss.GetString();
@@ -1731,7 +1732,8 @@ bool FormatEntity::Format(const Entry &entry, Stream &s,
 
     if (language_plugin)
       language_plugin_handled = language_plugin->GetFunctionDisplayName(
-          sc, exe_ctx, Language::FunctionNameRepresentation::eNameWithArgs, ss);
+          sc, exe_ctx, Language::FunctionNameRepresentation::eNameWithArgs,
+          entry.highlight, ss);
 
     if (language_plugin_handled) {
       s << ss.GetString();
@@ -2074,6 +2076,64 @@ static const Definition *FindEntry(const llvm::StringRef &format_str,
   return parent;
 }
 
+/// Parses a single highlighting format specifier.
+///
+/// Example syntax for such specifier:
+/// \code
+/// ${function.name-with-args:%highlight_basename(ansi.fg.green)}
+/// \endcode
+///
+/// In the above snippet, the `function.name-with-args` frame-format
+/// variable will have its basename highlighted in green.
+static llvm::Expected<Entry::HighlightSettings>
+ParseHighlightSettings(const Entry &entry) {
+  // FIXME: support other function.name-XXX types as well
+  if (entry.type != Entry::Type::FunctionNameWithArgs)
+    return llvm::createStringError(
+        "The 'highlight_basename' format can only be used on "
+        "${function.name-with-args}");
+
+  llvm::StringRef format = entry.printf_format;
+  if (!format.consume_front("highlight_"))
+    return llvm::createStringError(
+        "Expected 'highlight_' prefix not found in: %s.",
+        entry.printf_format.c_str());
+
+  Entry::HighlightSettings settings;
+  if (format.consume_front("basename")) {
+    settings.kind = Entry::HighlightSettings::Kind::Basename;
+  } else {
+    return llvm::createStringError(
+        "Unsupported highlight kind detected in: %s. "
+        "Currently supported: basename",
+        entry.printf_format.c_str());
+  }
+
+  llvm::SmallVector<llvm::StringRef, 1> matches;
+  // TODO: support ${ansi.XXX} syntax. ExtractVariableInfo needs
+  // to be adjusted to support nested '{}'.
+  llvm::Regex color_pattern{R"(^\(([a-z\.]+)\)$)"};
+  if (!color_pattern.match(format, &matches))
+    return llvm::createStringError(
+        "Couldn't find valid color variable in: %s. "
+        "Expected format: %%highlight_basename(ansi.some-color)",
+        entry.printf_format.c_str());
+
+  assert(matches.size() == 2);
+
+  std::string color_format = ("${" + matches[1] + "}").str();
+  std::string terminal_code = ansi::FormatAnsiTerminalCodes(color_format);
+  if (terminal_code.empty() || terminal_code == color_format)
+    return llvm::createStringError("Invalid color variable '%s' found in: %s",
+                                   color_format.c_str(),
+                                   entry.printf_format.c_str());
+
+  settings.prefix = std::move(terminal_code);
+  settings.suffix = ansi::FormatAnsiTerminalCodes("${ansi.normal}");
+
+  return settings;
+}
+
 static Status ParseInternal(llvm::StringRef &format, Entry &parent_entry,
                             uint32_t depth) {
   Status error;
@@ -2229,6 +2289,7 @@ static Status ParseInternal(llvm::StringRef &format, Entry &parent_entry,
         if (error.Fail())
           return error;
         bool verify_is_thread_id = false;
+        bool parse_highlight_settings = false;
         Entry entry;
         if (!variable_format.empty()) {
           entry.printf_format = variable_format.str();
@@ -2294,6 +2355,8 @@ static Status ParseInternal(llvm::StringRef &format, Entry &parent_entry,
                 clear_printf = true;
               } else if (entry.printf_format == "tid") {
                 verify_is_thread_id = true;
+              } else if (entry.printf_format.find("highlight_") == 0) {
+                parse_highlight_settings = true;
               } else {
                 error = Status::FromErrorStringWithFormat(
                     "invalid format: '%s'", entry.printf_format.c_str());
@@ -2334,6 +2397,14 @@ static Status ParseInternal(llvm::StringRef &format, Entry &parent_entry,
             error = Status::FromErrorString(
                 "the 'tid' format can only be used on "
                 "${thread.id} and ${thread.protocol_id}");
+          }
+        } else if (parse_highlight_settings) {
+          auto highlight_or_err = ParseHighlightSettings(entry);
+          if (highlight_or_err) {
+            entry.highlight = std::move(*highlight_or_err);
+            entry.printf_format.clear();
+          } else {
+            error = Status::FromError(highlight_or_err.takeError());
           }
         }
 

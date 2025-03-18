@@ -15,6 +15,7 @@
 #include "llvm/ADT/StringRef.h"
 
 #include "Plugins/Language/ClangCommon/ClangHighlighter.h"
+#include "lldb/Core/FormatEntity.h"
 #include "lldb/Target/Language.h"
 #include "lldb/Utility/ConstString.h"
 #include "lldb/lldb-private.h"
@@ -141,6 +142,7 @@ public:
   bool GetFunctionDisplayName(const SymbolContext *sc,
                               const ExecutionContext *exe_ctx,
                               FunctionNameRepresentation representation,
+                              const FormatEntity::Entry::HighlightSettings &,
                               Stream &s) override;
 
   static bool IsCPPMangledName(llvm::StringRef name);

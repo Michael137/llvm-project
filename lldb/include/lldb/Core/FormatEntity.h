@@ -199,6 +199,26 @@ struct Entry {
     return true;
   }
 
+  /// Describes how a function name should be highlighted.
+  struct HighlightSettings {
+    /// ANSI prefix that will be printed before the function name.
+    std::string prefix;
+
+    /// ANSI suffix that will be printed after the function name.
+    std::string suffix;
+
+    /// What kind of highlighting the user asked to perform.
+    enum class Kind : uint8_t {
+      ///< Don't highlight.
+      None,
+
+      ///< Highlight function basename
+      ///< (i.e., name without Scope and
+      ///< without template arguments).
+      Basename,
+    } kind = Kind::None;
+  };
+
   std::string string;
   std::string printf_format;
   std::vector<Entry> children;
@@ -206,6 +226,14 @@ struct Entry {
   lldb::Format fmt = lldb::eFormatDefault;
   lldb::addr_t number = 0;
   bool deref = false;
+
+  /// Set using the highlighting format specifiers to a
+  /// frame-format variable.
+  /// E.g.,
+  /// \code
+  /// ${function.name-with-args:%highlight_basename(ansi.fg.green)}
+  /// \endcode
+  HighlightSettings highlight;
 };
 
 bool Format(const Entry &entry, Stream &s, const SymbolContext *sc,

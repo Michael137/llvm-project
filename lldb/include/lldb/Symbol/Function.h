@@ -11,6 +11,7 @@
 
 #include "lldb/Core/AddressRange.h"
 #include "lldb/Core/Declaration.h"
+#include "lldb/Core/DemangledNameInfo.h"
 #include "lldb/Core/Mangled.h"
 #include "lldb/Expression/DWARFExpressionList.h"
 #include "lldb/Symbol/Block.h"
@@ -530,6 +531,9 @@ public:
   ConstString GetNameNoArguments() const;
 
   ConstString GetDisplayName() const;
+
+  /// Retrieve \c DemangledNameInfo of the demangled name held by this object.
+  const std::optional<DemangledNameInfo> &GetDemangledInfo() const;
 
   const Mangled &GetMangled() const { return m_mangled; }
 

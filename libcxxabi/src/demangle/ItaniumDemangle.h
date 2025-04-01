@@ -281,9 +281,9 @@ public:
   }
 
   void print(OutputBuffer &OB) const {
-    printLeft(OB);
+    OB.printLeft(*this);
     if (RHSComponentCache != Cache::No)
-      printRight(OB);
+      OB.printRight(*this);
   }
 
   // Print the "left" side of this Node into OutputBuffer.
@@ -964,6 +964,8 @@ public:
   FunctionRefQual getRefQual() const { return RefQual; }
   NodeArray getParams() const { return Params; }
   const Node *getReturnType() const { return Ret; }
+  const Node *getAttrs() const { return Attrs; }
+  const Node *getRequires() const { return Requires; }
 
   bool hasRHSComponentSlow(OutputBuffer &) const override { return true; }
   bool hasFunctionSlow(OutputBuffer &) const override { return true; }
@@ -6175,6 +6177,10 @@ struct ManglingParser : AbstractManglingParser<ManglingParser<Alloc>, Alloc> {
   using AbstractManglingParser<ManglingParser<Alloc>,
                                Alloc>::AbstractManglingParser;
 };
+
+inline void OutputBuffer::printLeft(const Node &N) { N.printLeft(*this); }
+
+inline void OutputBuffer::printRight(const Node &N) { N.printRight(*this); }
 
 DEMANGLE_NAMESPACE_END
 

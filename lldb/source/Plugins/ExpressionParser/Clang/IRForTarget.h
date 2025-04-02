@@ -80,11 +80,15 @@ public:
   /// \param[in] error_stream
   ///     If non-NULL, a stream on which errors can be printed.
   ///
+  /// \param[in] execution_policy
+  ///     The execution policy for any generated IR.
+  ///
   /// \param[in] func_name
   ///     The name of the function to prepare for execution in the target.
   IRForTarget(lldb_private::ClangExpressionDeclMap *decl_map, bool resolve_vars,
               lldb_private::IRExecutionUnit &execution_unit,
               lldb_private::Stream &error_stream,
+              lldb_private::ExecutionPolicy execution_policy,
               const char *func_name = "$__lldb_expr");
 
   /// Run this IR transformer on a single module
@@ -351,6 +355,8 @@ private:
   /// True if the function's result in the AST is a pointer (see comments in
   /// ASTResultSynthesizer::SynthesizeBodyResult)
   bool m_result_is_pointer = false;
+
+  lldb_private::ExecutionPolicy m_policy;
 
   class FunctionValueCache {
   public:

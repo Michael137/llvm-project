@@ -5084,9 +5084,9 @@ Process::RunThreadPlan(ExecutionContext &exe_ctx,
   // that frame into exe_ctx. This can happen when we run expressions from a
   // non-selected SBFrame, in which case we don't want some thread-plan
   // to overwrite the ExecutionContext frame.
-  StackID ctx_frame_id = exe_ctx.HasFrameScope()
+  StackID ctx_frame_id = /*exe_ctx.HasFrameScope()
                              ? exe_ctx.GetFrameRef().GetStackID()
-                             : selected_frame_sp->GetStackID();
+                             :*/ selected_frame_sp->GetStackID();
 
   // N.B. Running the target may unset the currently selected thread and frame.
   // We don't want to do that either, so we should arrange to reset them as

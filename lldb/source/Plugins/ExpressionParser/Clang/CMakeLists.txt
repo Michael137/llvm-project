@@ -22,6 +22,7 @@ add_lldb_library(lldbPluginExpressionParserClang
   ClangUtilityFunction.cpp
   CppModuleConfiguration.cpp
   CxxModuleHandler.cpp
+  InjectPointerSigningFixups.cpp
   IRForTarget.cpp
   IRDynamicChecks.cpp
   NameSearchContext.cpp

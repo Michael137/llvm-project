@@ -412,12 +412,8 @@ bool ItaniumPartialDemangler::partialDemangle(const char *MangledName) {
   return RootNode == nullptr;
 }
 
-struct TrackingOutputBuffer : public OutputBuffer {
-  using OutputBuffer::OutputBuffer;
-};
-
 static char *printNode(const Node *RootNode, char *Buf, size_t *N) {
-  TrackingOutputBuffer OB(Buf, N);
+  OutputBuffer OB(Buf, N);
   RootNode->print(OB);
   OB += '\0';
   if (N != nullptr)

@@ -160,7 +160,6 @@ static bool TagIsRecordType(dw_tag_t tag) {
   }
 }
 
-<<<<<<< HEAD
 /// Get the object parameter DIE if one exists, otherwise returns
 /// a default DWARFDIE. If \c containing_decl_ctx is not a valid
 /// C++ declaration context for class methods, assume no object

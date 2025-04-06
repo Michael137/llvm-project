@@ -1102,7 +1102,7 @@ TEST_F(TestTypeSystemClang, AddMethodToCXXRecordType_ParmVarDecls) {
       return_type, param_types.data(), /*num_params*/ param_types.size(),
       /*variadic=*/false, /*quals*/ 0U);
   m_ast->AddMethodToCXXRecordType(
-      t.GetOpaqueQualType(), "myFunc", nullptr, function_type,
+      t.GetOpaqueQualType(), "myFunc", nullopt, function_type,
       lldb::AccessType::eAccessPublic, is_virtual, is_static, is_inline,
       is_explicit, is_attr_used, is_artificial);
 

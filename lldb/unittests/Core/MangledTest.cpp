@@ -11,6 +11,7 @@
 #include "TestingSupport/SubsystemRAII.h"
 #include "TestingSupport/TestUtilities.h"
 
+#include "lldb/Core/DemangledNameInfo.h"
 #include "lldb/Core/Mangled.h"
 #include "lldb/Core/Module.h"
 #include "lldb/Core/ModuleSpec.h"
@@ -18,6 +19,7 @@
 #include "lldb/Host/HostInfo.h"
 #include "lldb/Symbol/SymbolContext.h"
 
+#include "llvm/Support/Compiler.h"
 #include "llvm/Support/FileUtilities.h"
 #include "llvm/Support/Path.h"
 #include "llvm/Support/Program.h"
@@ -318,4 +320,304 @@ Symbols:
   EXPECT_EQ(0, Count("_Z12undemangableEvx42", eFunctionNameTypeMethod));
   EXPECT_EQ(0, Count("undemangable", eFunctionNameTypeBase));
   EXPECT_EQ(0, Count("undemangable", eFunctionNameTypeMethod));
+}
+
+struct DemanglingPartsTestCase {
+  const char *mangled;
+  DemangledNameInfo expected_info;
+  std::string_view basename;
+  std::string_view scope;
+  std::string_view qualifiers = "";
+  bool valid_basename = true;
+};
+
+DemanglingPartsTestCase g_demangling_parts_test_cases[] = {
+    // clang-format off
+   { "_ZNVKO3BarIN2ns3QuxIiEEE1CIPFi3FooIS_IiES6_EEE6methodIS6_EENS5_IT_SC_E5InnerIiEESD_SD_",
+     { .BasenameRange = std::pair{92, 98}, .ScopeRange = std::pair{36, 92}, .ArgumentsRange = std::pair{ 108, 158 },
+       .QualifiersRange = std::pair{158, 176} },
+     .basename = "method",
+     .scope = "Bar<ns::Qux<int>>::C<int (*)(Foo<Bar<int>, Bar<int>>)>::"
+   },
+   { "_Z7getFuncIfEPFiiiET_",
+     { .BasenameRange = std::pair{6, 13}, .ScopeRange = std::pair{6, 6}, .ArgumentsRange = std::pair{ 20, 27 }, .QualifiersRange = std::pair{38, 38} },
+     .basename = "getFunc",
+     .scope = ""
+   },
+   { "_ZN1f1b1c1gEv",
+     { .BasenameRange = std::pair{9, 10}, .ScopeRange = std::pair{0, 9}, .ArgumentsRange = std::pair{ 10, 12 },
+       .QualifiersRange = std::pair{12, 12} },
+     .basename = "g",
+     .scope = "f::b::c::"
+   },
+   { "_ZN5test73fD1IiEEDTcmtlNS_1DEL_ZNS_1bEEEcvT__EES2_",
+     { .BasenameRange = std::pair{45, 48}, .ScopeRange = std::pair{38, 45}, .ArgumentsRange = std::pair{ 53, 58 },
+       .QualifiersRange = std::pair{58, 58} },
+     .basename = "fD1",
+     .scope = "test7::"
+   },
+   { "_ZN5test73fD1IiEEDTcmtlNS_1DEL_ZNS_1bINDT1cE1dEEEEEcvT__EES2_",
+     { .BasenameRange = std::pair{61, 64}, .ScopeRange = std::pair{54, 61}, .ArgumentsRange = std::pair{ 69, 79 },
+       .QualifiersRange = std::pair{79, 79} },
+     .basename = "fD1",
+     .scope = "test7::"
+   },
+   { "_ZN5test7INDT1cE1dINDT1cE1dEEEE3fD1INDT1cE1dINDT1cE1dEEEEEDTcmtlNS_1DEL_ZNS_1bINDT1cE1dEEEEEcvT__EES2_",
+     { .BasenameRange = std::pair{120, 123}, .ScopeRange = std::pair{81, 120}, .ArgumentsRange = std::pair{ 155, 168 },
+       .QualifiersRange = std::pair{168, 168} },
+     .basename = "fD1",
+     .scope = "test7<decltype(c)::d<decltype(c)::d>>::"
+   },
+   { "_ZN8nlohmann16json_abi_v3_11_310basic_jsonINSt3__13mapENS2_6vectorENS2_12basic_stringIcNS2_11char_traitsIcEENS2_9allocatorIcEEEEbxydS8_NS0_14adl_serializerENS4_IhNS8_IhEEEEvE5parseIRA29_KcEESE_OT_NS2_8functionIFbiNS0_6detail13parse_event_tERSE_EEEbb",
+     { .BasenameRange = std::pair{687, 692}, .ScopeRange = std::pair{343, 687}, .ArgumentsRange = std::pair{ 713, 1174 },
+       .QualifiersRange = std::pair{1174, 1174} },
+     .basename = "parse",
+     .scope = "nlohmann::json_abi_v3_11_3::basic_json<std::__1::map, std::__1::vector, std::__1::basic_string<char, std::__1::char_traits<char>, std::__1::allocator<char>>, bool, long long, unsigned long long, double, std::__1::allocator, nlohmann::json_abi_v3_11_3::adl_serializer, std::__1::vector<unsigned char, std::__1::allocator<unsigned char>>, void>::"
+   },
+   { "_ZN8nlohmann16json_abi_v3_11_310basic_jsonINSt3__13mapENS2_6vectorENS2_12basic_stringIcNS2_11char_traitsIcEENS2_9allocatorIcEEEEbxydS8_NS0_14adl_serializerENS4_IhNS8_IhEEEEvEC1EDn",
+     { .BasenameRange = std::pair{344, 354}, .ScopeRange = std::pair{0, 344}, .ArgumentsRange = std::pair{ 354, 370 },
+       .QualifiersRange = std::pair{370, 370} },
+     .basename = "basic_json",
+     .scope = "nlohmann::json_abi_v3_11_3::basic_json<std::__1::map, std::__1::vector, std::__1::basic_string<char, std::__1::char_traits<char>, std::__1::allocator<char>>, bool, long long, unsigned long long, double, std::__1::allocator, nlohmann::json_abi_v3_11_3::adl_serializer, std::__1::vector<unsigned char, std::__1::allocator<unsigned char>>, void>::"
+   },
+   { "_Z3fppIiEPFPFvvEiEf",
+     { .BasenameRange = std::pair{10, 13}, .ScopeRange = std::pair{10, 10}, .ArgumentsRange = std::pair{ 18, 25 }, .QualifiersRange = std::pair{34,34} },
+     .basename = "fpp",
+     .scope = ""
+   },
+   { "_Z3fppIiEPFPFvvEN2ns3FooIiEEEf",
+     { .BasenameRange = std::pair{10, 13}, .ScopeRange = std::pair{10, 10}, .ArgumentsRange = std::pair{ 18, 25 },
+       .QualifiersRange = std::pair{43, 43} },
+     .basename = "fpp",
+     .scope = ""
+   },
+   { "_Z3fppIiEPFPFvPFN2ns3FooIiEENS2_3BarIfE3QuxEEEPFS2_S2_EEf",
+     { .BasenameRange = std::pair{10, 13}, .ScopeRange = std::pair{10, 10}, .ArgumentsRange = std::pair{ 18, 25 },
+       .QualifiersRange = std::pair{108, 108} },
+     .basename = "fpp",
+     .scope = ""
+   },
+   { "_ZN2ns8HasFuncsINS_3FooINS1_IiE3BarIfE3QuxEEEE3fppIiEEPFPFvvEiEf",
+     { .BasenameRange = std::pair{64, 67}, .ScopeRange = std::pair{10, 64}, .ArgumentsRange = std::pair{ 72, 79 },
+       .QualifiersRange = std::pair{88, 88} },
+     .basename = "fpp",
+     .scope = "ns::HasFuncs<ns::Foo<ns::Foo<int>::Bar<float>::Qux>>::"
+   },
+   { "_ZN2ns8HasFuncsINS_3FooINS1_IiE3BarIfE3QuxEEEE3fppIiEEPFPFvvES2_Ef",
+     { .BasenameRange = std::pair{64, 67}, .ScopeRange = std::pair{10, 64}, .ArgumentsRange = std::pair{ 72, 79 },
+       .QualifiersRange = std::pair{97, 97} },
+     .basename = "fpp",
+     .scope = "ns::HasFuncs<ns::Foo<ns::Foo<int>::Bar<float>::Qux>>::"
+   },
+   { "_ZN2ns8HasFuncsINS_3FooINS1_IiE3BarIfE3QuxEEEE3fppIiEEPFPFvPFS2_S5_EEPFS2_S2_EEf",
+     { .BasenameRange = std::pair{64, 67}, .ScopeRange = std::pair{10, 64}, .ArgumentsRange = std::pair{ 72, 79 },
+       .QualifiersRange = std::pair{162, 162} },
+     .basename = "fpp",
+     .scope = "ns::HasFuncs<ns::Foo<ns::Foo<int>::Bar<float>::Qux>>::",
+   },
+   { "_ZNKO2ns3ns23Bar3fooIiEEPFPFNS0_3FooIiEEiENS3_IfEEEi",
+     { .BasenameRange = std::pair{37, 40}, .ScopeRange = std::pair{23, 37}, .ArgumentsRange = std::pair{ 45, 50 },
+       .QualifiersRange = std::pair{78, 87} },
+     .basename = "foo",
+     .scope = "ns::ns2::Bar::",
+     .qualifiers = " const &&",
+   },
+   // Not a function type.
+   { "_ZTV11ImageLoader",
+     { .BasenameRange = std::nullopt, .ScopeRange = std::nullopt, .ArgumentsRange = std::nullopt,
+       .QualifiersRange = std::nullopt },
+     .basename = "",
+     .scope = "",
+     .valid_basename = false
+   },
+   // Not a function type.
+   { "PKFvRiE",
+     { .BasenameRange = std::nullopt, .ScopeRange = std::nullopt, .ArgumentsRange = std::nullopt,
+       .QualifiersRange = std::nullopt },
+     .basename = "",
+     .scope = "",
+     .valid_basename = false
+   },
+   {
+    "_Z2f0IJEEv1XIXsZT_EJDpRT_EE",
+    { .BasenameRange = std::pair{5, 7}, .ScopeRange = std::pair{5, 5}, .ArgumentsRange = std::pair{ 9, 25 },
+      .QualifiersRange = std::pair{25, 25} },
+    .basename = "f0",
+    .scope = "",
+   },
+   {
+    "_Z2f3IJEEvDpPKT_",
+    { .BasenameRange = std::pair{5, 7}, .ScopeRange = std::pair{5, 5}, .ArgumentsRange = std::pair{ 9, 11 },
+      .QualifiersRange = std::pair{11, 11} },
+    .basename = "f3",
+    .scope = "",
+   },
+   {
+    "_ZNKSt3__110__function6__funcIZN4DLCL8DLFutureIP15AnalysenManagerE3setINS_8functionIFS5_vEEEJEEEvT_DpOT0_EUlvE_NS_9allocatorISF_EEFvvEE7__cloneEv",
+    { .BasenameRange = std::pair{336, 343}, .ScopeRange = std::pair{0, 336}, .ArgumentsRange = std::pair{ 343, 345 },
+      .QualifiersRange = std::pair{345, 351} },
+    .basename = "__clone",
+    .scope = "std::__1::__function::__func<void DLCL::DLFuture<AnalysenManager*>::set<std::__1::function<AnalysenManager* ()>>(std::__1::function<AnalysenManager* ()>)::'lambda'(), std::__1::allocator<void DLCL::DLFuture<AnalysenManager*>::set<std::__1::function<AnalysenManager* ()>>(std::__1::function<AnalysenManager* ()>)::'lambda'()>, void ()>::",
+    .qualifiers = " const",
+   },
+   {
+    "_ZNK3Ncr6Silver7Utility6detail12CallOnThreadIZ53-[DeploymentSetupController handleManualServerEntry:]E3$_5EclIJEEEDTclclL_ZNS2_4getTIS4_EERT_vEEspclsr3stdE7forwardIT_Efp_EEEDpOSA_",
+    { .BasenameRange = std::pair{275, 285}, .ScopeRange = std::pair{171, 275}, .ArgumentsRange = std::pair{287, 289},
+      .QualifiersRange = std::pair{289, 295} },
+    .basename = "operator()",
+    .scope = "Ncr::Silver::Utility::detail::CallOnThread<-[DeploymentSetupController handleManualServerEntry:]::$_5>::",
+    .qualifiers = " const",
+   }
+    // clang-format on
+};
+
+struct DemanglingPartsTestFixture
+    : public ::testing::TestWithParam<DemanglingPartsTestCase> {};
+
+namespace {
+class TestAllocator {
+  llvm::BumpPtrAllocator Alloc;
+
+public:
+  void reset() { Alloc.Reset(); }
+
+  template <typename T, typename... Args> T *makeNode(Args &&...args) {
+    return new (Alloc.Allocate(sizeof(T), alignof(T)))
+        T(std::forward<Args>(args)...);
+  }
+
+  void *allocateNodeArray(size_t sz) {
+    return Alloc.Allocate(sizeof(llvm::itanium_demangle::Node *) * sz,
+                          alignof(llvm::itanium_demangle::Node *));
+  }
+};
+} // namespace
+
+TEST_P(DemanglingPartsTestFixture, DemanglingParts) {
+  const auto &[mangled, info, basename, scope, qualifiers, valid_basename] =
+      GetParam();
+
+  llvm::itanium_demangle::ManglingParser<TestAllocator> Parser(
+      mangled, mangled + ::strlen(mangled));
+
+  const auto *Root = Parser.parse();
+
+  ASSERT_NE(nullptr, Root);
+
+  TrackingOutputBuffer OB;
+  Root->print(OB);
+  auto demangled = std::string_view(OB);
+
+  ASSERT_EQ(OB.NameInfo.hasBasename(), valid_basename);
+
+  EXPECT_EQ(OB.NameInfo.BasenameRange, info.BasenameRange);
+  EXPECT_EQ(OB.NameInfo.ScopeRange, info.ScopeRange);
+  EXPECT_EQ(OB.NameInfo.ArgumentsRange, info.ArgumentsRange);
+
+  auto get_part = [&](const std::optional<std::pair<size_t, size_t>> &loc)
+      -> std::string_view {
+    if (!loc)
+      return "";
+
+    return demangled.substr(loc->first, loc->second - loc->first);
+  };
+
+  EXPECT_EQ(get_part(OB.NameInfo.BasenameRange), basename);
+  EXPECT_EQ(get_part(OB.NameInfo.ScopeRange), scope);
+  EXPECT_EQ(get_part(OB.NameInfo.QualifiersRange), qualifiers);
+}
+
+TEST_P(DemanglingPartsTestFixture, DemanglingParts_BufferPosition) {
+  struct ModifyingTrackingOutputBuffer : public TrackingOutputBuffer {
+    void printRight(const llvm::itanium_demangle::Node &N) override {
+      TrackingOutputBuffer::printRight(N);
+
+      if (N.getKind() == llvm::itanium_demangle::Node::KFunctionEncoding) {
+        // Tests notifyInsertion
+        prepend("TEST_PREPEND");
+
+        // Tests notifyInsertion
+        insert(0, "TEST_INSERT", 11);
+      }
+    }
+  };
+
+  const auto &[mangled, info, basename, scope, qualifiers, has_basename] =
+      GetParam();
+
+  llvm::itanium_demangle::ManglingParser<TestAllocator> Parser(
+      mangled, mangled + ::strlen(mangled));
+
+  const auto *Root = Parser.parse();
+
+  ASSERT_NE(nullptr, Root);
+
+  ModifyingTrackingOutputBuffer OB;
+  Root->print(OB);
+  auto demangled = std::string_view(OB);
+
+  ASSERT_EQ(OB.NameInfo.hasBasename(), has_basename);
+
+  auto get_part = [&](const std::optional<std::pair<size_t, size_t>> &loc)
+      -> std::string_view {
+    if (!loc)
+      return "";
+
+    return demangled.substr(loc->first, loc->second - loc->first);
+  };
+
+  EXPECT_EQ(get_part(OB.NameInfo.BasenameRange), basename);
+  EXPECT_EQ(get_part(OB.NameInfo.ScopeRange), scope);
+  EXPECT_EQ(get_part(OB.NameInfo.QualifiersRange), qualifiers);
+}
+
+INSTANTIATE_TEST_SUITE_P(DemanglingPartsTests, DemanglingPartsTestFixture,
+                         ::testing::ValuesIn(g_demangling_parts_test_cases));
+
+TEST_F(DemanglingPartsTestFixture, DemanglingParts_NotifyPositionChanged) {
+  struct ModifyingTrackingOutputBuffer : public TrackingOutputBuffer {
+    void printLeft(const llvm::itanium_demangle::Node &N) override {
+      TrackingOutputBuffer::printLeft(N);
+
+      // Tests notifyDeletion by printing something into the names we just
+      // printed.
+      if (N.getKind() == llvm::itanium_demangle::Node::KNameType) {
+        setCurrentPosition(getCurrentPosition() - 2);
+        TrackingOutputBuffer::printLeft(N);
+      }
+    }
+
+    void printRight(const llvm::itanium_demangle::Node &N) override {
+      TrackingOutputBuffer::printRight(N);
+
+      // Tests notifyDeletion by truncating and overwriting part of the
+      // qualifiers.
+      if (N.getKind() == llvm::itanium_demangle::Node::KFunctionEncoding) {
+        setCurrentPosition(getCurrentPosition() - 2);
+        *this << 'X';
+      }
+    }
+  };
+
+  const char *mangled = "_ZNK1f1g1k3fooIiEEPKvi";
+
+  llvm::itanium_demangle::ManglingParser<TestAllocator> Parser(
+      mangled, mangled + ::strlen(mangled));
+
+  const auto *Root = Parser.parse();
+
+  ASSERT_NE(nullptr, Root);
+
+  ModifyingTrackingOutputBuffer OB;
+  Root->print(OB);
+
+  EXPECT_TRUE(OB.NameInfo.hasBasename());
+  EXPECT_EQ(OB.NameInfo.BasenameRange->first, 20U);
+  EXPECT_EQ(OB.NameInfo.BasenameRange->second, 24U);
+  EXPECT_EQ(OB.NameInfo.ScopeRange->first, 12U);
+  EXPECT_EQ(OB.NameInfo.ScopeRange->second, 20U);
+  EXPECT_EQ(OB.NameInfo.ArgumentsRange->first, 30U);
+  EXPECT_EQ(OB.NameInfo.ArgumentsRange->second, 36U);
+  EXPECT_EQ(OB.NameInfo.QualifiersRange->first, 36U);
+  EXPECT_EQ(OB.NameInfo.QualifiersRange->second, 40U);
 }

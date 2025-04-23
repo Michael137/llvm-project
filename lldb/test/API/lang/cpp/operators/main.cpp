@@ -174,6 +174,8 @@ int main(int argc, char **argv) {
   //% self.expect("expr (new struct C[1]); side_effect", endstr=" = 4\n")
   //% self.expect("expr delete c2; side_effect", endstr=" = 1\n")
   //% self.expect("expr delete[] c3; side_effect", endstr=" = 2\n")
+  //% self.expect("image lookup -n operator()", substrs=["C::operator()(int)"])
+  //% self.expect("image lookup -n C::operator()", substrs=["C::operator()(int)"])
   delete c2;
   delete[] c3;
   return 0;

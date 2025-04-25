@@ -244,20 +244,21 @@ static std::optional<std::string> MakeLLDBFuncAsmLabel(const DWARFDIE &die) {
   if (!module_sp)
     return label;
 
-  // TODO: module UID is only a Darwin concept (?)
+  // Module UID is only a Darwin concept (?)
   // If UUID is not available encode as pointer.
   // Maybe add character to signal whether this is a pointer
   // or UUID. Or maybe if it's not hex that implies a UUID?
   auto module_id = module_sp->GetUUID();
+  Module * module_ptr = nullptr;
   if (!module_id.IsValid())
-    return label;
+    module_ptr = module_sp.get();
 
   const auto die_id = die.GetID();
   if (die_id == LLDB_INVALID_UID)
     return label;
 
   return llvm::formatv("{0}:{1}:{2}:{3:x}", FunctionCallLabelPrefix,
-                       mangled ? mangled : "", module_id.GetAsString(), die_id)
+                       mangled ? mangled : "", module_ptr ? llvm::formatv("{0:x}", module_ptr).str() : module_id.GetAsString(), die_id)
       .str();
 }
 

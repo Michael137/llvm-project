@@ -6,6 +6,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "llvm/ADT/StringRef.h"
 #include "llvm/ExecutionEngine/ExecutionEngine.h"
 #include "llvm/ExecutionEngine/ObjectCache.h"
 #include "llvm/IR/Constants.h"
@@ -772,6 +773,23 @@ private:
   lldb::addr_t m_best_internal_load_address = LLDB_INVALID_ADDRESS;
 };
 
+static llvm::Expected<Module *> GetModulePtr(llvm::StringRef module, Target &target) {
+  uintptr_t module_ptr = 0;
+  if (module.starts_with("0x") && !module.consumeInteger(0, module_ptr)
+      && module_ptr != 0)
+    return reinterpret_cast<Module *>(module_ptr);
+
+  UUID module_uuid;
+  if (!module_uuid.SetFromStringRef(module) || !module_uuid.IsValid())
+    return llvm::createStringError("failed to create Module UUID from '%s'", module.data());
+
+  Module *found_module = target.GetImages().FindModule(module_uuid).get();
+  if (!found_module)
+    return llvm::createStringError("failed to find module with UUID '{0}'", module.data());
+
+  return found_module;
+}
+
 static lldb::addr_t
 ResolveFunctionCallLabel(llvm::StringRef label,
                          const lldb_private::SymbolContext &sc,
@@ -819,14 +837,15 @@ ResolveFunctionCallLabel(llvm::StringRef label,
   auto die = components[2];
 
   // TODO: module UID is only a Darwin concept (?)
-  UUID module_uuid;
-  if (!module_uuid.SetFromStringRef(module) || !module_uuid.IsValid()) {
-    LLDB_LOG(GetLog(LLDBLog::Expressions),
-             "Failed to resolve function label '{0}': failed to create Module "
-             "UUID from '{1}'.",
-             label, module);
+  auto found_module_or_err = GetModulePtr(module, *target);
+  if (!found_module_or_err) {
+    LLDB_LOG_ERROR(GetLog(LLDBLog::Expressions), found_module_or_err.takeError(),
+                   "Failed to resolve function label {1}: {0}",
+                   label);
     return LLDB_INVALID_ADDRESS;
   }
+
+  Module * found_module = *found_module_or_err;
 
   lldb::user_id_t die_id;
   if (die.consumeInteger(/*Radix=*/0, die_id)) {
@@ -836,16 +855,7 @@ ResolveFunctionCallLabel(llvm::StringRef label,
              label, components[2]);
     return LLDB_INVALID_ADDRESS;
   }
-
-  Module *found_module = target->GetImages().FindModule(module_uuid).get();
-  if (!found_module) {
-    LLDB_LOG(GetLog(LLDBLog::Expressions),
-             "Failed to resolve function label '{0}': failed to find module "
-             "with UUID '{1}'.",
-             label, module);
-    return LLDB_INVALID_ADDRESS;
-  }
-
+ 
   auto *symbol_file = found_module->GetSymbolFile();
   if (!symbol_file) {
     LLDB_LOG(GetLog(LLDBLog::Expressions),

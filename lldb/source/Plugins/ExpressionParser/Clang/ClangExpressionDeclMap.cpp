@@ -1021,35 +1021,35 @@ void ClangExpressionDeclMap::LookupInModulesDeclVendor(
   if (!modules_decl_vendor)
     return;
 
-  bool append = false;
-  uint32_t max_matches = 1;
   std::vector<clang::NamedDecl *> decls;
-
-  if (!modules_decl_vendor->FindDecls(name, append, max_matches, decls))
+  if (!modules_decl_vendor->FindDecls(
+          name, /*append=*/false,
+          /*max_matches=*/std::numeric_limits<uint32_t>::max(), decls))
     return;
 
   assert(!decls.empty() && "FindDecls returned true but no decls?");
-  clang::NamedDecl *const decl_from_modules = decls[0];
 
   LLDB_LOG(log,
-           "  CAS::FEVD Matching decl found for "
-           "\"{0}\" in the modules",
-           name);
+           "  CAS::FEVD {0} matching decls found for "
+           "\"{1}\" in the modules",
+           decls.size(), name);
 
-  clang::Decl *copied_decl = CopyDecl(decl_from_modules);
-  if (!copied_decl) {
-    LLDB_LOG(log, "  CAS::FEVD - Couldn't export a "
-                  "declaration from the modules");
-    return;
-  }
+  for (auto *decl : decls) {
+    clang::Decl *copied_decl = CopyDecl(decl);
+    if (!copied_decl) {
+      LLDB_LOG(log, "  CAS::FEVD - Couldn't export a "
+                    "declaration from the modules");
+      return;
+    }
 
-  if (auto copied_function = dyn_cast<clang::FunctionDecl>(copied_decl)) {
-    MaybeRegisterFunctionBody(copied_function);
+    if (auto copied_function = dyn_cast<clang::FunctionDecl>(copied_decl)) {
+      MaybeRegisterFunctionBody(copied_function);
 
-    context.AddNamedDecl(copied_function);
-  } else if (auto copied_var = dyn_cast<clang::VarDecl>(copied_decl)) {
-    context.AddNamedDecl(copied_var);
-    context.m_found_variable = true;
+      context.AddNamedDecl(copied_function);
+    } else if (auto copied_var = dyn_cast<clang::VarDecl>(copied_decl)) {
+      context.AddNamedDecl(copied_var);
+      context.m_found_variable = true;
+    }
   }
 }
 

@@ -429,7 +429,7 @@ private:
   ///
   /// \param[in] name
   ///     The name of the entities that need to be found.
-  void LookupInModulesDeclVendor(NameSearchContext &context, ConstString name);
+  bool LookupInModulesDeclVendor(NameSearchContext &context, ConstString name);
 
   /// Looks up a local variable.
   ///

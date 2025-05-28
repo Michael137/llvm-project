@@ -1009,48 +1009,52 @@ void ClangExpressionDeclMap::LookupLocalVarNamespace(
   name_context.m_found_local_vars_nsp = true;
 }
 
-void ClangExpressionDeclMap::LookupInModulesDeclVendor(
+bool ClangExpressionDeclMap::LookupInModulesDeclVendor(
     NameSearchContext &context, ConstString name) {
   Log *log = GetLog(LLDBLog::Expressions);
 
   if (!m_target)
-    return;
+    return false;
 
   std::shared_ptr<ClangModulesDeclVendor> modules_decl_vendor =
       GetClangModulesDeclVendor();
   if (!modules_decl_vendor)
-    return;
+    return false;
 
-  bool append = false;
-  uint32_t max_matches = 1;
   std::vector<clang::NamedDecl *> decls;
-
-  if (!modules_decl_vendor->FindDecls(name, append, max_matches, decls))
-    return;
+  if (!modules_decl_vendor->FindDecls(
+          name, /*append=*/false,
+          /*max_matches=*/std::numeric_limits<uint32_t>::max(), decls))
+    return false;
 
   assert(!decls.empty() && "FindDecls returned true but no decls?");
-  clang::NamedDecl *const decl_from_modules = decls[0];
 
   LLDB_LOG(log,
-           "  CAS::FEVD Matching decl found for "
-           "\"{0}\" in the modules",
-           name);
+           "  CAS::FEVD {0} matching decls found for "
+           "\"{1}\" in the modules",
+           decls.size(), name);
 
-  clang::Decl *copied_decl = CopyDecl(decl_from_modules);
-  if (!copied_decl) {
-    LLDB_LOG(log, "  CAS::FEVD - Couldn't export a "
-                  "declaration from the modules");
-    return;
+  bool added_function = false;
+  for (auto *decl : decls) {
+    clang::Decl *copied_decl = CopyDecl(decl);
+    if (!copied_decl) {
+      LLDB_LOG(log, "  CAS::FEVD - Couldn't export a "
+                    "declaration from the modules");
+      return false;
+    }
+
+    if (auto copied_function = dyn_cast<clang::FunctionDecl>(copied_decl)) {
+      MaybeRegisterFunctionBody(copied_function);
+
+      context.AddNamedDecl(copied_function);
+      added_function = true;
+    } else if (auto copied_var = dyn_cast<clang::VarDecl>(copied_decl)) {
+      context.AddNamedDecl(copied_var);
+      context.m_found_variable = true;
+    }
   }
 
-  if (auto copied_function = dyn_cast<clang::FunctionDecl>(copied_decl)) {
-    MaybeRegisterFunctionBody(copied_function);
-
-    context.AddNamedDecl(copied_function);
-  } else if (auto copied_var = dyn_cast<clang::VarDecl>(copied_decl)) {
-    context.AddNamedDecl(copied_var);
-    context.m_found_variable = true;
-  }
+  return added_function;
 }
 
 bool ClangExpressionDeclMap::LookupLocalVariable(
@@ -1223,15 +1227,6 @@ bool ClangExpressionDeclMap::LookupFunction(
 
   Target *target = m_parser_vars->m_exe_ctx.GetTargetPtr();
 
-  std::vector<clang::NamedDecl *> decls_from_modules;
-
-  if (target) {
-    if (std::shared_ptr<ClangModulesDeclVendor> decl_vendor =
-            GetClangModulesDeclVendor()) {
-      decl_vendor->FindDecls(name, false, UINT32_MAX, decls_from_modules);
-    }
-  }
-
   SymbolContextList sc_list;
   if (namespace_decl && module_sp) {
     ModuleFunctionSearchOptions function_options;
@@ -1310,19 +1305,6 @@ bool ClangExpressionDeclMap::LookupFunction(
           extern_symbol = symbol;
         else
           non_extern_symbol = symbol;
-      }
-    }
-
-    if (!found_function_with_type_info) {
-      for (clang::NamedDecl *decl : decls_from_modules) {
-        if (llvm::isa<clang::FunctionDecl>(decl)) {
-          clang::NamedDecl *copied_decl =
-              llvm::cast_or_null<FunctionDecl>(CopyDecl(decl));
-          if (copied_decl) {
-            context.AddNamedDecl(copied_decl);
-            found_function_with_type_info = true;
-          }
-        }
       }
     }
 
@@ -1434,8 +1416,8 @@ void ClangExpressionDeclMap::FindExternalVisibleDecls(
     }
   }
 
-  if (!LookupFunction(context, module_sp, name, namespace_decl))
-    LookupInModulesDeclVendor(context, name);
+  if (!LookupInModulesDeclVendor(context, name))
+    LookupFunction(context, module_sp, name, namespace_decl);
 
   if (target && !context.m_found_variable && !namespace_decl) {
     // We couldn't find a non-symbol variable for this.  Now we'll hunt for a

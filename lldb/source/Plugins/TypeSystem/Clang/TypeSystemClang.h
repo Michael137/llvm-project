@@ -473,6 +473,9 @@ public:
 
   // Function Types
 
+  clang::FunctionDecl *CreateFunctionDeclarationForTemplate(
+          clang::DeclContext* decl_ctx,
+          const TemplateParameterInfos &params);
   clang::FunctionDecl *CreateFunctionDeclaration(
       clang::DeclContext *decl_ctx, OptionalClangModuleID owning_module,
       llvm::StringRef name, const CompilerType &function_Type,

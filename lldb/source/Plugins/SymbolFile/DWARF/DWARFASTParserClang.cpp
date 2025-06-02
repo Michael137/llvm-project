@@ -1434,12 +1434,14 @@ DWARFASTParserClang::ParseSubroutine(const DWARFDIE &die,
 
         if (has_template_params) {
           TypeSystemClang::TemplateParameterInfos template_param_infos;
-          ParseTemplateParameterInfos(die, template_param_infos);
-          template_function_decl = m_ast.CreateFunctionDeclaration(
-              ignore_containing_context ? m_ast.GetTranslationUnitDecl()
-                                        : containing_decl_ctx,
-              GetOwningClangModule(die), attrs.name.GetStringRef(), clang_type,
-              attrs.storage, attrs.is_inline, /*asm_label=*/{});
+          const bool parsed = ParseTemplateParameterInfos(die, template_param_infos);
+          lldbassert(parsed);
+          //template_function_decl = m_ast.CreateFunctionDeclaration(
+          //    ignore_containing_context ? m_ast.GetTranslationUnitDecl()
+          //                              : containing_decl_ctx,
+          //    GetOwningClangModule(die), attrs.name.GetStringRef(), clang_type,
+          //    attrs.storage, attrs.is_inline);
+          template_function_decl = m_ast.CreateFunctionDeclarationForTemplate(containing_decl_ctx, template_param_infos);
           clang::FunctionTemplateDecl *func_template_decl =
               m_ast.CreateFunctionTemplateDecl(
                   containing_decl_ctx, GetOwningClangModule(die),

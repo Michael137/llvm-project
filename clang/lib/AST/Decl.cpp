@@ -3342,9 +3342,9 @@ bool FunctionDecl::isImmediateFunction() const {
         .getConstructor()
         ->isImmediateFunction();
 
-  if (FunctionDecl *P = getTemplateInstantiationPattern();
-      P && P->isImmediateFunction())
-    return true;
+  //if (FunctionDecl *P = getTemplateInstantiationPattern();
+  //    P && P->isImmediateFunction())
+  //  return true;
 
   if (const auto *MD = dyn_cast<CXXMethodDecl>(this);
       MD && MD->isLambdaStaticInvoker())

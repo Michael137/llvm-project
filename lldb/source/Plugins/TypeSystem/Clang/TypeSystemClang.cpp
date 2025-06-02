@@ -2154,6 +2154,35 @@ std::string TypeSystemClang::GetTypeNameForDecl(const NamedDecl *named_decl,
   return result;
 }
 
+FunctionDecl *TypeSystemClang::CreateFunctionDeclarationForTemplate(clang::DeclContext* decl_ctx, const TemplateParameterInfos &params) {
+  FunctionDecl *func_decl = nullptr;
+  ASTContext &ast = getASTContext();
+  if (!decl_ctx)
+    decl_ctx = ast.getTranslationUnitDecl();
+
+  const bool hasWrittenPrototype = true;
+  const bool isConstexprSpecified = false;
+
+  clang::DeclarationName declarationName =
+      GetDeclarationName(name, function_clang_type);
+  func_decl = FunctionDecl::CreateDeserialized(ast, GlobalDeclID());
+  func_decl->setDeclContext(decl_ctx);
+  func_decl->setDeclName(declarationName);
+  func_decl->setType(ClangUtil::GetQualType(function_clang_type));
+  func_decl->setStorageClass(storage);
+  func_decl->setInlineSpecified(is_inline);
+  func_decl->setHasWrittenPrototype(hasWrittenPrototype);
+  func_decl->setConstexprKind(isConstexprSpecified
+                                  ? ConstexprSpecKind::Constexpr
+                                  : ConstexprSpecKind::Unspecified);
+  SetOwningModule(func_decl, owning_module);
+  decl_ctx->addDecl(func_decl);
+
+  VerifyDecl(func_decl);
+
+  return func_decl;
+}
+
 FunctionDecl *TypeSystemClang::CreateFunctionDeclaration(
     clang::DeclContext *decl_ctx, OptionalClangModuleID owning_module,
     llvm::StringRef name, const CompilerType &function_clang_type,

@@ -1944,7 +1944,6 @@ bool CPlusPlusLanguage::GetFunctionDisplayName(
     return true;
   }
   case FunctionNameRepresentation::eNameWithNoArgs:
-  case FunctionNameRepresentation::eName:
     return false;
   }
 }

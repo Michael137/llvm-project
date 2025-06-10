@@ -84,7 +84,6 @@ struct Entry {
     FunctionID,
     FunctionDidChange,
     FunctionInitialFunction,
-    FunctionName,
     FunctionNameWithArgs,
     FunctionNameNoArgs,
     FunctionMangledName,

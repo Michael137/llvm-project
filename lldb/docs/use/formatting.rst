@@ -83,8 +83,6 @@ A complete list of currently supported format string variables is listed below:
 +---------------------------------------------------+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
 | ``frame.reg.NAME``                                | Access to any platform specific register by name (replace ``NAME`` with the name of the desired register).                                                                                                                                                                                  |
 +---------------------------------------------------+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
-| ``function.name``                                 | The name of the current function or symbol.                                                                                                                                                                                                                                                 |
-+---------------------------------------------------+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
 | ``function.name-with-args``                       | The name of the current function with arguments and values or the symbol name. The name will be displayed according to the current frame's language if possible.                                                                                                                            |
 +---------------------------------------------------+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
 | ``function.name-without-args``                    | The name of the current function without arguments and values (used to include a function name in-line in the ``disassembly-format``)                                                                                                                                                       |
@@ -232,13 +230,13 @@ can be displayed with the following format:
 
 ::
 
-   "frame #${frame.index}: ${frame.pc}{ ${module.file.basename}`${function.name}{${function.pc-offset}}}{ at ${line.file.basename}:${line.number}}\n"
+   "frame #${frame.index}: ${frame.pc}{ ${module.file.basename}`${function.name-with-args}{${function.pc-offset}}}{ at ${line.file.basename}:${line.number}}\n"
 
 This breaks down to:
 
 - Always print the frame index and frame PC: ``frame #${frame.index}: ${frame.pc}``,
 - only print the module followed by a tick if there is a valid module for the current frame: ``{ ${module.file.basename}`}``,
-- print the function name with optional offset: ``{${function.name}{${function.pc-offset}}}``,
+- print the function name with optional offset: ``{${function.name-with-args}{${function.pc-offset}}}``,
 - print the line info if it is available: ``{ at ${line.file.basename}:${line.number}}``,
 - then finish off with a newline: ``\n``.
 
@@ -283,7 +281,7 @@ information:
 
 ::
 
-   thread #${thread.index}: tid = ${thread.id}{, ${frame.pc}}{ ${module.file.basename}`${function.name}{${function.pc-offset}}}{, stop reason = ${thread.stop-reason}}{, name = ${thread.name}}{, queue = ${thread.queue}}\n
+   thread #${thread.index}: tid = ${thread.id}{, ${frame.pc}}{ ${module.file.basename}`${function.name-with-args}{${function.pc-offset}}}{, stop reason = ${thread.stop-reason}}{, name = ${thread.name}}{, queue = ${thread.queue}}\n
 
 
 We can see that all frame information is contained in scopes so that when the

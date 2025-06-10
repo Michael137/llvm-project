@@ -149,7 +149,6 @@ public:
   };
 
   enum class FunctionNameRepresentation {
-    eName,
     eNameWithArgs,
     eNameWithNoArgs
   };

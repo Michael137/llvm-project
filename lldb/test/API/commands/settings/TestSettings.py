@@ -188,9 +188,9 @@ class SettingsCommandTestCase(TestBase):
         self.assertTrue(m, "Bad settings string")
         self.format_string = m.group(1)
 
-        # Change the default format to print function.name rather than
+        # Change the default format to print function.name-without-args rather than
         # function.name-with-args
-        format_string = "frame #${frame.index}: ${frame.pc}{ ${module.file.basename}\\`${function.name}{${function.pc-offset}}}{ at ${line.file.fullpath}:${line.number}}{, lang=${language}}\n"
+        format_string = "frame #${frame.index}: ${frame.pc}{ ${module.file.basename}\\`${function.name-without-args}{${function.pc-offset}}}{ at ${line.file.fullpath}:${line.number}}{, lang=${language}}\n"
         self.runCmd("settings set frame-format %s" % format_string)
 
         # Immediately test the setting.

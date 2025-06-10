@@ -112,7 +112,6 @@ constexpr Definition g_frame_child_entries[] = {
 
 constexpr Definition g_function_child_entries[] = {
     Definition("id", EntryType::FunctionID),
-    Definition("name", EntryType::FunctionName),
     Definition("name-without-args", EntryType::FunctionNameNoArgs),
     Definition("name-with-args", EntryType::FunctionNameWithArgs),
     Definition("mangled-name", EntryType::FunctionMangledName),
@@ -383,7 +382,6 @@ const char *FormatEntity::Entry::TypeToCString(Type t) {
     ENUM_TO_CSTR(FunctionID);
     ENUM_TO_CSTR(FunctionDidChange);
     ENUM_TO_CSTR(FunctionInitialFunction);
-    ENUM_TO_CSTR(FunctionName);
     ENUM_TO_CSTR(FunctionNameWithArgs);
     ENUM_TO_CSTR(FunctionNameNoArgs);
     ENUM_TO_CSTR(FunctionMangledName);
@@ -1771,39 +1769,6 @@ bool FormatEntity::Format(const Entry &entry, Stream &s,
 
   case Entry::Type::FunctionInitialFunction:
     return initial_function;
-
-  case Entry::Type::FunctionName: {
-    if (!sc)
-      return false;
-
-    Language *language_plugin = nullptr;
-    bool language_plugin_handled = false;
-    StreamString ss;
-
-    if (sc->function)
-      language_plugin = Language::FindPlugin(sc->function->GetLanguage());
-    else if (sc->symbol)
-      language_plugin = Language::FindPlugin(sc->symbol->GetLanguage());
-
-    if (language_plugin)
-      language_plugin_handled = language_plugin->GetFunctionDisplayName(
-          *sc, exe_ctx, Language::FunctionNameRepresentation::eName, ss);
-
-    if (language_plugin_handled) {
-      s << ss.GetString();
-      return true;
-    }
-
-    const char *name = sc->GetPossiblyInlinedFunctionName()
-                           .GetName(Mangled::NamePreference::ePreferDemangled)
-                           .AsCString();
-    if (!name)
-      return false;
-
-    s.PutCString(name);
-
-    return true;
-  }
 
   case Entry::Type::FunctionNameNoArgs: {
     if (!sc)

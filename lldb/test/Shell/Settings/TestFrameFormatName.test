@@ -37,13 +37,6 @@ c
 # NAME_WITH_ARGS: frame inlined_foo(str="bar")
 q
 
-#--- name.input
-# RUN: %lldb -b -s %t/name.input %t.out | FileCheck %s --check-prefix=NAME
-settings set -f frame-format "frame ${function.name}\n"
-break set -n inlined_foo
-run
-# NAME: frame inlined_foo(char const*)
-
 #--- name_without_args.input
 # RUN: %lldb -b -s %t/name_without_args.input %t.out | FileCheck %s --check-prefix=NAME_WITHOUT_ARGS
 settings set -f frame-format "frame ${function.name-without-args}\n"

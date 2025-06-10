@@ -27,13 +27,13 @@ int main() {
 
 #--- commands.input
 
-settings set frame-format "frame '${function.name}{${function.is-inlined} (Inlined)}'\n"
+settings set frame-format "frame '${function.name-without-args}{${function.is-inlined} (Inlined)}'\n"
 breakpoint set -n inlined1
 run
 bt
 
 # CHECK:      (lldb) bt
-# CHECK:      frame '{{.*}}inlined1({{.*}}) (Inlined)'
-# CHECK-NEXT: frame '{{.*}}regular({{.*}})'
-# CHECK-NEXT: frame '{{.*}}inlined2({{.*}}) (Inlined)'
+# CHECK:      frame '{{.*}}inlined1 (Inlined)'
+# CHECK-NEXT: frame '{{.*}}regular'
+# CHECK-NEXT: frame '{{.*}}inlined2 (Inlined)'
 # CHECK-NEXT: frame 'main'

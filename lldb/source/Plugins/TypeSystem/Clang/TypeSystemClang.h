@@ -128,7 +128,8 @@ public:
   ///               certain characteristics of the ASTContext and its types
   ///               (e.g., whether certain primitive types exist or what their
   ///               signedness is).
-  explicit TypeSystemClang(llvm::StringRef name, llvm::Triple triple);
+  explicit TypeSystemClang(llvm::StringRef name, llvm::Triple triple,
+                           clang::Language target_language = clang::Language::ObjCXX);
 
   /// Constructs a TypeSystemClang that uses an existing ASTContext internally.
   /// Useful when having an existing ASTContext created by Clang.
@@ -1156,6 +1157,13 @@ public:
   GetDeclarationName(llvm::StringRef name,
                      const CompilerType &function_clang_type);
 
+  bool SupportsObjCQueries() const override {
+    if (auto * opts = GetLangOpts())
+      return opts->ObjC;
+
+    return false;
+  }
+
   clang::LangOptions *GetLangOpts() const {
     return m_language_options_up.get();
   }
@@ -1246,7 +1254,7 @@ private:
   TypeSystemClang(const TypeSystemClang &);
   const TypeSystemClang &operator=(const TypeSystemClang &);
   /// Creates the internal ASTContext.
-  void CreateASTContext();
+  void CreateASTContext(clang::Language target_language);
   void SetTargetTriple(llvm::StringRef target_triple);
 };
 

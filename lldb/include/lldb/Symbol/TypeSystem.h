@@ -209,6 +209,8 @@ public:
   // TypeSystems can support more than one language
   virtual bool SupportsLanguage(lldb::LanguageType language) = 0;
 
+  virtual bool SupportsObjCQueries() const = 0;
+
   static bool SupportsLanguageStatic(lldb::LanguageType language);
   // Type Completion
 

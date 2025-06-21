@@ -175,7 +175,7 @@ bool ValueObjectDynamicValue::UpdateValue() {
           *m_parent, m_use_dynamic, class_type_or_name, dynamic_address,
           value_type, local_buffer);
 
-    if (!found_dynamic_type) {
+    if (!found_dynamic_type && m_parent->GetCompilerType().GetTypeSystem()->SupportsObjCQueries()) {
       runtime = process->GetLanguageRuntime(lldb::eLanguageTypeObjC);
       if (runtime)
         found_dynamic_type = runtime->GetDynamicTypeAndAddress(

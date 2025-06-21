@@ -361,6 +361,24 @@ static void SetMemberOwningModule(clang::Decl *member,
     }
 }
 
+static clang::Language GetClangLanguageType(
+        lldb::LanguageType lang) {
+  if (lldb_private::Language::LanguageIsCPlusPlus(lang))
+    return clang::Language::CXX;
+
+  if (lldb_private::Language::LanguageIsC(lang))
+    return clang::Language::C;
+
+  if (lang == eLanguageTypeObjC)
+    return clang::Language::ObjC;
+
+  if (lang == eLanguageTypeObjC_plus_plus)
+    return clang::Language::ObjCXX;
+
+
+  return clang::Language::Unknown;
+}
+
 char TypeSystemClang::ID;
 
 bool TypeSystemClang::IsOperator(llvm::StringRef name,
@@ -461,11 +479,12 @@ TypeSystemClang::ConvertAccessTypeToAccessSpecifier(AccessType access) {
   return AS_none;
 }
 
-static void ParseLangArgs(LangOptions &Opts, ArchSpec arch) {
+static void ParseLangArgs(LangOptions &Opts, ArchSpec arch,
+                          clang::Language target_language) {
   // FIXME: Cleanup per-file based stuff.
 
   std::vector<std::string> Includes;
-  LangOptions::setLangDefaults(Opts, clang::Language::ObjCXX, arch.GetTriple(),
+  LangOptions::setLangDefaults(Opts, target_language, arch.GetTriple(),
                                Includes, clang::LangStandard::lang_gnucxx98);
 
   Opts.setValueVisibilityMode(DefaultVisibility);
@@ -495,13 +514,14 @@ static void ParseLangArgs(LangOptions &Opts, ArchSpec arch) {
 }
 
 TypeSystemClang::TypeSystemClang(llvm::StringRef name,
-                                 llvm::Triple target_triple) {
+                                 llvm::Triple target_triple,
+                                 clang::Language target_language) {
   m_display_name = name.str();
   if (!target_triple.str().empty())
     SetTargetTriple(target_triple.str());
   // The caller didn't pass an ASTContext so create a new one for this
   // TypeSystemClang.
-  CreateASTContext();
+  CreateASTContext(target_language);
 
   LogCreation();
 }
@@ -552,7 +572,7 @@ lldb::TypeSystemSP TypeSystemClang::CreateInstance(lldb::LanguageType language,
   if (module) {
     std::string ast_name =
         "ASTContext for '" + module->GetFileSpec().GetPath() + "'";
-    return std::make_shared<TypeSystemClang>(ast_name, triple);
+    return std::make_shared<TypeSystemClang>(ast_name, triple, GetClangLanguageType(language));
   } else if (target && target->IsValid())
     return std::make_shared<ScratchTypeSystemClang>(*target, triple);
   return lldb::TypeSystemSP();
@@ -662,12 +682,13 @@ private:
   Log *m_log;
 };
 
-void TypeSystemClang::CreateASTContext() {
+void TypeSystemClang::CreateASTContext(clang::Language target_language) {
   assert(!m_ast_up);
   m_ast_owned = true;
 
   m_language_options_up = std::make_unique<LangOptions>();
-  ParseLangArgs(*m_language_options_up, ArchSpec(GetTargetTriple()));
+  ParseLangArgs(*m_language_options_up, ArchSpec(GetTargetTriple()),
+                target_language);
 
   m_identifier_table_up =
       std::make_unique<IdentifierTable>(*m_language_options_up, nullptr);

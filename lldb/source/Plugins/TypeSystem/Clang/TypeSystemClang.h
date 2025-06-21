@@ -128,7 +128,8 @@ public:
   ///               certain characteristics of the ASTContext and its types
   ///               (e.g., whether certain primitive types exist or what their
   ///               signedness is).
-  explicit TypeSystemClang(llvm::StringRef name, llvm::Triple triple);
+  explicit TypeSystemClang(llvm::StringRef name, llvm::Triple triple,
+                           clang::Language target_language = clang::Language::ObjCXX);
 
   /// Constructs a TypeSystemClang that uses an existing ASTContext internally.
   /// Useful when having an existing ASTContext created by Clang.
@@ -1190,7 +1191,7 @@ private:
   ///
   /// Helper method that is used in \ref TypeSystemClang::TypeSystemClang
   /// on creation of a new instance.
-  void LogCreation() const;
+  void LogCreation(clang::Language language) const;
 
   llvm::Expected<uint64_t> GetObjCBitSize(clang::QualType qual_type,
                                           ExecutionContextScope *exe_scope);
@@ -1246,7 +1247,7 @@ private:
   TypeSystemClang(const TypeSystemClang &);
   const TypeSystemClang &operator=(const TypeSystemClang &);
   /// Creates the internal ASTContext.
-  void CreateASTContext();
+  void CreateASTContext(clang::Language target_language);
   void SetTargetTriple(llvm::StringRef target_triple);
 };
 

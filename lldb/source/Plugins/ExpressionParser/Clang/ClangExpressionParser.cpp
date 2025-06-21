@@ -882,6 +882,7 @@ ClangExpressionParser::ClangExpressionParser(
   builtin_context.initializeBuiltins(PP.getIdentifierTable(),
                                      m_compiler->getLangOpts());
 
+  // TODO: only this needs to be objc!
   m_compiler->createASTContext();
   clang::ASTContext &ast_context = m_compiler->getASTContext();
 

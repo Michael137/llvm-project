@@ -32,7 +32,8 @@ AppleObjCTypeEncodingParser::AppleObjCTypeEncodingParser(
 
   m_scratch_ast_ctx_sp = std::make_shared<TypeSystemClang>(
       "AppleObjCTypeEncodingParser ASTContext",
-      runtime.GetProcess()->GetTarget().GetArchitecture().GetTriple());
+      runtime.GetProcess()->GetTarget().GetArchitecture().GetTriple(),
+      clang::Language::ObjCXX);
 }
 
 std::string AppleObjCTypeEncodingParser::ReadStructName(StringLexer &type) {

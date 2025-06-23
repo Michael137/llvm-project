@@ -259,7 +259,7 @@ void FormatManager::GetPossibleMatches(
   }
 
   for (lldb::LanguageType language_type :
-       GetCandidateLanguages(valobj.GetObjectRuntimeLanguage())) {
+       GetCandidateLanguages(valobj.GetObjectRuntimeLanguage(), compiler_type)) {
     if (Language *language = Language::FindPlugin(language_type)) {
       for (const FormattersMatchCandidate& candidate :
            language->GetPossibleFormattersMatches(valobj, use_dynamic)) {
@@ -574,21 +574,19 @@ ConstString FormatManager::GetTypeForCache(ValueObject &valobj,
 }
 
 std::vector<lldb::LanguageType>
-FormatManager::GetCandidateLanguages(lldb::LanguageType lang_type) {
-  switch (lang_type) {
-  case lldb::eLanguageTypeC:
-  case lldb::eLanguageTypeC89:
-  case lldb::eLanguageTypeC99:
-  case lldb::eLanguageTypeC11:
-  case lldb::eLanguageTypeC_plus_plus:
-  case lldb::eLanguageTypeC_plus_plus_03:
-  case lldb::eLanguageTypeC_plus_plus_11:
-  case lldb::eLanguageTypeC_plus_plus_14:
-    return {lldb::eLanguageTypeC_plus_plus, lldb::eLanguageTypeObjC};
-  default:
-    return {lang_type};
+FormatManager::GetCandidateLanguages(lldb::LanguageType lang_type,
+                                     CompilerType type) {
+  std::vector<lldb::LanguageType> langs;
+  if (Language::LanguageIsC(lang_type)
+      || Language::LanguageIsCPlusPlus(lang_type)) {
+    langs.push_back(lldb::eLanguageTypeC_plus_plus);
+    if (type.GetTypeSystem()->SupportsObjCQueries())
+      langs.push_back(lldb::eLanguageTypeObjC);
+  } else {
+    langs.push_back(lang_type);
   }
-  llvm_unreachable("Fully covered switch");
+
+  return langs;
 }
 
 LanguageCategory *

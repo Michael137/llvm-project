@@ -172,7 +172,7 @@ public:
   LanguageCategory *GetCategoryForLanguage(lldb::LanguageType lang_type);
 
   static std::vector<lldb::LanguageType>
-  GetCandidateLanguages(lldb::LanguageType lang_type);
+  GetCandidateLanguages(lldb::LanguageType lang_type, CompilerType compiler_type);
 
 private:
   static void GetPossibleMatches(ValueObject &valobj,

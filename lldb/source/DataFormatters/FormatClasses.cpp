@@ -24,7 +24,8 @@ FormattersMatchData::FormattersMatchData(ValueObject &valobj,
       m_candidate_languages() {
   m_type_for_cache = FormatManager::GetTypeForCache(valobj, use_dynamic);
   m_candidate_languages =
-      FormatManager::GetCandidateLanguages(valobj.GetObjectRuntimeLanguage());
+      FormatManager::GetCandidateLanguages(valobj.GetObjectRuntimeLanguage(),
+                                           valobj.GetCompilerType());
 }
 
 FormattersMatchVector FormattersMatchData::GetMatchesVector() {

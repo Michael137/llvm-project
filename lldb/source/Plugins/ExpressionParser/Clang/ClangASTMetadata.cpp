@@ -7,6 +7,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "Plugins/ExpressionParser/Clang/ClangASTMetadata.h"
+#include "lldb/Target/Language.h"
 #include "lldb/Utility/Stream.h"
 
 using namespace lldb_private;
@@ -39,13 +40,27 @@ void ClangASTMetadata::Dump(Stream *s) {
     s->Printf("isa_ptr=0x%" PRIx64, isa_ptr);
   }
 
-  const char *obj_ptr_name = GetObjectPtrName();
-  if (obj_ptr_name) {
-    s->Printf("obj_ptr_name=\"%s\" ", obj_ptr_name);
-  }
-
   if (m_is_dynamic_cxx) {
     s->Printf("is_dynamic_cxx=%i ", m_is_dynamic_cxx);
   }
   s->EOL();
+}
+
+void ClangASTMetadata::SetObjectPtrLanguage(lldb::LanguageType lang) {
+  if (Language::LanguageIsObjC(lang))
+    m_object_ptr_language = 1;
+  else if (Language::LanguageIsCPlusPlus(lang))
+    m_object_ptr_language = 2;
+  else
+    m_object_ptr_language = 0;
+}
+
+lldb::LanguageType ClangASTMetadata::GetObjectPtrLanguage() const {
+  switch (m_object_ptr_language) {
+    case 0: return lldb::LanguageType::eLanguageTypeUnknown;
+    case 1: return lldb::LanguageType::eLanguageTypeObjC;
+    case 2: return lldb::LanguageType::eLanguageTypeC_plus_plus;
+  }
+
+  llvm_unreachable("Invalid m_object_ptr_language value");
 }

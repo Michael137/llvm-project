@@ -1617,3 +1617,10 @@ DWARF:
     EXPECT_EQ(param_die, ast_parser.GetObjectParameter(sub2, context_die));
   }
 }
+
+//TEST_F(DWARFASTParserClangTests, TestObjectPointer_Metadata_cpp) {
+//}
+//TEST_F(DWARFASTParserClangTests, TestObjectPointer_Metadata_objc) {
+//}
+//TEST_F(DWARFASTParserClangTests, TestObjectPointer_Metadata_unknown) {
+//}

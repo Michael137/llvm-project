@@ -20,7 +20,7 @@ class ClangASTMetadata {
 public:
   ClangASTMetadata()
       : m_user_id(0), m_union_is_user_id(false), m_union_is_isa_ptr(false),
-        m_has_object_ptr(false), m_is_self(false),
+        m_object_ptr_language(0),
         m_is_forcefully_completed(false) {
     SetIsDynamicCXXType(std::nullopt);
   }
@@ -55,37 +55,9 @@ public:
       return 0;
   }
 
-  void SetObjectPtrName(const char *name) {
-    m_has_object_ptr = true;
-    if (strcmp(name, "self") == 0)
-      m_is_self = true;
-    else if (strcmp(name, "this") == 0)
-      m_is_self = false;
-    else
-      m_has_object_ptr = false;
-  }
-
-  lldb::LanguageType GetObjectPtrLanguage() const {
-    if (m_has_object_ptr) {
-      if (m_is_self)
-        return lldb::eLanguageTypeObjC;
-      else
-        return lldb::eLanguageTypeC_plus_plus;
-    }
-    return lldb::eLanguageTypeUnknown;
-  }
-
-  const char *GetObjectPtrName() const {
-    if (m_has_object_ptr) {
-      if (m_is_self)
-        return "self";
-      else
-        return "this";
-    } else
-      return nullptr;
-  }
-
-  bool HasObjectPtr() const { return m_has_object_ptr; }
+  void SetObjectPtrLanguage(lldb::LanguageType lang);
+  lldb::LanguageType GetObjectPtrLanguage() const;
+  bool HasObjectPtr() const { return m_object_ptr_language > 0; }
 
   /// A type is "forcefully completed" if it was declared complete to satisfy an
   /// AST invariant (e.g. base classes must be complete types), but in fact we
@@ -104,8 +76,8 @@ private:
     uint64_t m_isa_ptr;
   };
 
-  unsigned m_union_is_user_id : 1, m_union_is_isa_ptr : 1, m_has_object_ptr : 1,
-      m_is_self : 1, m_is_dynamic_cxx : 2, m_is_forcefully_completed : 1;
+  unsigned m_union_is_user_id : 1, m_union_is_isa_ptr : 1,
+      m_object_ptr_language : 2, m_is_dynamic_cxx : 2, m_is_forcefully_completed : 1;
 };
 
 } // namespace lldb_private

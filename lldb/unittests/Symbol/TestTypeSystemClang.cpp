@@ -1116,3 +1116,29 @@ TEST_F(TestTypeSystemClang, AddMethodToCXXRecordType_ParmVarDecls) {
   EXPECT_EQ(method_it->getParamDecl(0)->getDeclContext(), *method_it);
   EXPECT_EQ(method_it->getParamDecl(1)->getDeclContext(), *method_it);
 }
+
+TEST_F(TestTypeSystemClang, ClangASTMetadata_ObjectPtrLanguage) {
+  // Tests GetObjectPtrLanguage/SetObjectPtrLanguage on ClangASTMetadata.
+
+  ClangASTMetadata metadata;
+  EXPECT_EQ(metadata.GetObjectPtrLanguage(), eLanguageTypeUnknown);
+  EXPECT_FALSE(metadata.HasObjectPtr());
+
+  metadata.SetObjectPtrLanguage(lldb::eLanguageTypeC_plus_plus_03);
+  EXPECT_EQ(metadata.GetObjectPtrLanguage(), eLanguageTypeC_plus_plus);
+  EXPECT_TRUE(metadata.HasObjectPtr());
+
+  metadata.SetObjectPtrLanguage(lldb::eLanguageTypeObjC_plus_plus);
+  EXPECT_EQ(metadata.GetObjectPtrLanguage(), eLanguageTypeObjC);
+  EXPECT_TRUE(metadata.HasObjectPtr());
+
+  metadata.SetObjectPtrLanguage(lldb::eLanguageTypeC_plus_plus_20);
+  EXPECT_EQ(metadata.GetObjectPtrLanguage(), eLanguageTypeC_plus_plus);
+
+  metadata.SetObjectPtrLanguage(lldb::eLanguageTypeObjC);
+  EXPECT_EQ(metadata.GetObjectPtrLanguage(), eLanguageTypeObjC);
+
+  metadata.SetObjectPtrLanguage(lldb::eLanguageTypeC);
+  EXPECT_EQ(metadata.GetObjectPtrLanguage(), eLanguageTypeUnknown);
+  EXPECT_FALSE(metadata.HasObjectPtr());
+}

@@ -218,7 +218,6 @@ void ClangUserExpression::ScanContext(ExecutionContext &exe_ctx, Status &err) {
     // ivars at present is by pretending that this is a method of a class in
     // whatever runtime the debug info says the object pointer belongs to.  Do
     // that here.
-
     if (std::optional<ClangASTMetadata> metadata =
             TypeSystemClang::DeclContextGetMetaData(decl_context,
                                                     function_decl);

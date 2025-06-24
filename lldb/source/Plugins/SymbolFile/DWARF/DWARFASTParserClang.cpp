@@ -36,6 +36,7 @@
 #include "lldb/Utility/LLDBAssert.h"
 #include "lldb/Utility/Log.h"
 #include "lldb/Utility/StreamString.h"
+#include "lldb/lldb-enumerations.h"
 
 #include "clang/AST/CXXInheritance.h"
 #include "clang/AST/DeclBase.h"
@@ -1130,7 +1131,6 @@ std::pair<bool, TypeSP> DWARFASTParserClang::ParseCXXMethod(
     const DWARFDIE &die, CompilerType clang_type,
     const ParsedDWARFTypeAttributes &attrs, const DWARFDIE &decl_ctx_die,
     const DWARFDIE &object_parameter, bool &ignore_containing_context) {
-  Log *log = GetLog(DWARFLog::TypeCompletion | DWARFLog::Lookups);
   SymbolFileDWARF *dwarf = die.GetDWARF();
   assert(dwarf);
 
@@ -1241,11 +1241,9 @@ std::pair<bool, TypeSP> DWARFASTParserClang::ParseCXXMethod(
     ClangASTMetadata metadata;
     metadata.SetUserID(die.GetID());
 
-    if (char const *object_pointer_name = object_parameter.GetName()) {
-      metadata.SetObjectPtrName(object_pointer_name);
-      LLDB_LOGF(log, "Setting object pointer name: %s on method object %p.\n",
-                object_pointer_name, static_cast<void *>(cxx_method_decl));
-    }
+    if (object_parameter.IsValid())
+      metadata.SetObjectPtrLanguage(lldb::LanguageType::eLanguageTypeC_plus_plus);
+
     m_ast.SetMetadata(cxx_method_decl, metadata);
   } else {
     ignore_containing_context = true;
@@ -1261,8 +1259,6 @@ std::pair<bool, TypeSP> DWARFASTParserClang::ParseCXXMethod(
 TypeSP
 DWARFASTParserClang::ParseSubroutine(const DWARFDIE &die,
                                      const ParsedDWARFTypeAttributes &attrs) {
-  Log *log = GetLog(DWARFLog::TypeCompletion | DWARFLog::Lookups);
-
   SymbolFileDWARF *dwarf = die.GetDWARF();
   const dw_tag_t tag = die.Tag();
 
@@ -1434,13 +1430,9 @@ DWARFASTParserClang::ParseSubroutine(const DWARFDIE &die,
           ClangASTMetadata metadata;
           metadata.SetUserID(die.GetID());
 
-          if (char const *object_pointer_name = object_parameter.GetName()) {
-            metadata.SetObjectPtrName(object_pointer_name);
-            LLDB_LOGF(log,
-                      "Setting object pointer name: %s on function "
-                      "object %p.",
-                      object_pointer_name, static_cast<void *>(function_decl));
-          }
+          if (object_parameter.IsValid())
+            metadata.SetObjectPtrLanguage(static_cast<LanguageType>(object_parameter.getLanguage().value_or(eLanguageTypeUnknown)));
+
           m_ast.SetMetadata(function_decl, metadata);
         }
       }

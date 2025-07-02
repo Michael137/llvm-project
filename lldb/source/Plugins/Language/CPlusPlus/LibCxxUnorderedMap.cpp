@@ -107,16 +107,17 @@ CompilerType lldb_private::formatters::LibcxxStdUnorderedMapSyntheticFrontEnd::
   if (isStdTemplate(element_type.GetTypeName(), "pair"))
     return element_type;
 
+  auto map_type = m_backend.GetCompilerType();
+  // if (map_type.IsPointerOrReferenceType())
+  //   map_type = map_type.GetPointeeType();
+
   // This synthetic provider is used for both unordered_(multi)map and
   // unordered_(multi)set. For older unordered_map layouts, the element type has
   // an additional type layer, an internal struct (`__hash_value_type`) that
   // wraps a std::pair. Peel away the internal wrapper type - whose structure is
   // of no value to users, to expose the std::pair. This matches the structure
   // returned by the std::map synthetic provider.
-  if (isUnorderedMap(m_backend.GetCompilerType()
-                         .GetNonReferenceType()
-                         .GetCanonicalType()
-                         .GetTypeName())) {
+  if (isUnorderedMap(map_type.GetCanonicalType().GetTypeName())) {
     std::string name;
     CompilerType field_type =
         element_type.GetFieldAtIndex(0, name, nullptr, nullptr, nullptr);

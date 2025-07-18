@@ -17,6 +17,7 @@ add_lldb_library(lldbPluginCPlusPlusLanguage PLUGIN
   GenericOptional.cpp
   LibCxx.cpp
   LibCxxAtomic.cpp
+  LibCxxFlatMap.cpp
   LibCxxInitializerList.cpp
   LibCxxList.cpp
   LibCxxMap.cpp

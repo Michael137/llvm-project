@@ -950,6 +950,12 @@ static void LoadLibCxxFormatters(lldb::TypeCategoryImplSP cpp_category_sp) {
       stl_synth_flags, true);
   AddCXXSynthetic(
       cpp_category_sp,
+      lldb_private::formatters::LibcxxStdFlatMapSyntheticFrontEndCreator,
+      "libc++ flat ordered associative containers synthetic children",
+      "^std::__[[:alnum:]]+::flat_(multi)?(map|set)<.+> >$",
+      stl_synth_flags, true);
+  AddCXXSynthetic(
+      cpp_category_sp,
       lldb_private::formatters::LibcxxInitializerListSyntheticFrontEndCreator,
       "libc++ std::initializer_list synthetic children",
       "^std::initializer_list<.+>$", stl_synth_flags, true);
@@ -1079,6 +1085,10 @@ static void LoadLibCxxFormatters(lldb::TypeCategoryImplSP cpp_category_sp) {
                 lldb_private::formatters::ContainerSizeSummaryProvider,
                 "libc++ std::multimap summary provider",
                 "^std::__[[:alnum:]]+::multimap<.+>$", stl_summary_flags, true);
+  AddCXXSummary(cpp_category_sp,
+                lldb_private::formatters::ContainerSizeSummaryProvider,
+                "libc++ flat map summary provider",
+                "^std::__[[:alnum:]]+::flat_(multi)?(map|set)<.+> >$", stl_summary_flags, true);
   AddCXXSummary(cpp_category_sp,
                 lldb_private::formatters::ContainerSizeSummaryProvider,
                 "libc++ std::unordered containers summary provider",

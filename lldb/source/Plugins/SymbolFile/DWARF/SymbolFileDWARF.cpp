@@ -2494,6 +2494,9 @@ llvm::Error SymbolFileDWARF::ResolveFunctionUID(SymbolContextList &sc_list,
       if (entry.GetAttributeValueAsUnsigned(llvm::dwarf::DW_AT_declaration, 0))
         return true;
 
+      // TODO: this doesn't work if the DIE we created the label with is in a type unit
+      // but the definition lives in the .debug_info section. When creating the label, can
+      // we encode the DIE in the .debug_info section?
       if (auto spec = entry.GetAttributeValueAsReferenceDIE(
               llvm::dwarf::DW_AT_specification);
           spec == die) {

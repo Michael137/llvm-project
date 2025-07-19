@@ -299,6 +299,10 @@ void ManualDWARFIndex::IndexUnitImpl(DWARFUnit &unit,
     case DW_TAG_inlined_subroutine:
     case DW_TAG_subprogram:
       if (has_address) {
+        // If we have a mangled name, then the DW_AT_name attribute is
+        // usually the method name without the class or any parameters
+        bool is_method = DWARFDIE(&unit, &die).IsMethod();
+
         if (name) {
           bool is_objc_method = false;
           if (cu_language == eLanguageTypeObjC ||
@@ -326,10 +330,6 @@ void ManualDWARFIndex::IndexUnitImpl(DWARFUnit &unit,
                                               ref);
             }
           }
-          // If we have a mangled name, then the DW_AT_name attribute is
-          // usually the method name without the class or any parameters
-          bool is_method = DWARFDIE(&unit, &die).IsMethod();
-
           if (is_method)
             set.function_methods.Insert(ConstString(name), ref);
           else
@@ -338,7 +338,11 @@ void ManualDWARFIndex::IndexUnitImpl(DWARFUnit &unit,
           if (!is_method && !mangled_cstr && !is_objc_method)
             set.function_fullnames.Insert(ConstString(name), ref);
         }
-        if (mangled_cstr) {
+
+        auto insert_mangled = [&](NameToDIE &index_set) {
+          if (!mangled_cstr)
+            return;
+
           // Make sure our mangled name isn't the same string table entry as
           // our name. If it starts with '_', then it is ok, else compare the
           // string to make sure it isn't the same and we don't end up with
@@ -346,9 +350,14 @@ void ManualDWARFIndex::IndexUnitImpl(DWARFUnit &unit,
           if (name && name != mangled_cstr &&
               ((mangled_cstr[0] == '_') ||
                (::strcmp(name, mangled_cstr) != 0))) {
-            set.function_fullnames.Insert(ConstString(mangled_cstr), ref);
+            index_set.Insert(ConstString(mangled_cstr), ref);
           }
-        }
+        };
+
+        if (is_method)
+          insert_mangled(set.function_methods);
+
+        insert_mangled(set.function_fullnames);
       }
       break;
 

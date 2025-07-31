@@ -256,7 +256,7 @@ void DebugNamesDWARFIndex::GetGlobalVariables(
 
 void DebugNamesDWARFIndex::GetCompleteObjCClass(
     ConstString class_name, bool must_be_implementation,
-    llvm::function_ref<bool(DWARFDIE die)> callback) {
+    llvm::function_ref<IterationAction(DWARFDIE die)> callback) {
   // Keep a list of incomplete types as fallback for when we don't find the
   // complete type.
   std::vector<DWARFDIE> incomplete_types;
@@ -282,7 +282,7 @@ void DebugNamesDWARFIndex::GetCompleteObjCClass(
   }
 
   for (DWARFDIE die : incomplete_types)
-    if (!callback(die))
+    if (callback(die) == IterationAction::Stop)
       return;
 
   m_fallback.GetCompleteObjCClass(class_name, must_be_implementation, callback);

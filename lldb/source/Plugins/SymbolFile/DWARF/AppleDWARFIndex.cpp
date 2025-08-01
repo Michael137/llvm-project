@@ -120,7 +120,7 @@ HasImplementationFlag(const llvm::AppleAcceleratorTable::Entry &entry) {
 
 void AppleDWARFIndex::SearchFor(const llvm::AppleAcceleratorTable &table,
                                 llvm::StringRef name,
-                                llvm::function_ref<bool(DWARFDIE die)> callback,
+                                llvm::function_ref<IterationAction(DWARFDIE die)> callback,
                                 std::optional<dw_tag_t> search_for_tag,
                                 std::optional<uint32_t> search_for_qualhash) {
   auto converted_cb = DIERefCallback(callback, name);
@@ -130,7 +130,7 @@ void AppleDWARFIndex::SearchFor(const llvm::AppleAcceleratorTable &table,
       continue;
     if (search_for_tag && !EntryHasMatchingTag(entry, *search_for_tag))
       continue;
-    if (!converted_cb(entry))
+    if (converted_cb(entry) == IterationAction::Stop)
       break;
   }
 }
@@ -139,7 +139,7 @@ void AppleDWARFIndex::GetGlobalVariables(
     ConstString basename, llvm::function_ref<IterationAction(DWARFDIE die)> callback) {
   if (!m_apple_names_up)
     return;
-  SearchFor(*m_apple_names_up, basename, IterationActionAdaptor(callback));
+  SearchFor(*m_apple_names_up, basename, callback);
 }
 
 void AppleDWARFIndex::GetGlobalVariables(
@@ -148,12 +148,12 @@ void AppleDWARFIndex::GetGlobalVariables(
   if (!m_apple_names_up)
     return;
 
-  DIERefCallbackImpl converted_cb = DIERefCallback(IterationActionAdaptor(callback), regex.GetText());
+  DIERefCallbackImpl converted_cb = DIERefCallback(callback, regex.GetText());
 
   for (const auto &entry : m_apple_names_up->entries())
     if (std::optional<llvm::StringRef> name = entry.readName();
         name && Mangled(*name).NameMatches(regex))
-      if (!converted_cb(entry.BaseEntry))
+      if (converted_cb(entry.BaseEntry) == IterationAction::Stop)
         return;
 }
 
@@ -169,10 +169,10 @@ void AppleDWARFIndex::GetGlobalVariables(
     return val.has_value() && *val >= lower_bound && *val < upper_bound;
   };
 
-  DIERefCallbackImpl converted_cb = DIERefCallback(IterationActionAdaptor(callback));
+  DIERefCallbackImpl converted_cb = DIERefCallback(callback);
   for (auto entry : m_apple_names_up->entries()) {
     if (is_in_range(entry.BaseEntry.getDIESectionOffset()))
-      if (!converted_cb(entry.BaseEntry))
+      if (converted_cb(entry.BaseEntry) == IterationAction::Stop)
         return;
   }
 }
@@ -182,7 +182,7 @@ void AppleDWARFIndex::GetObjCMethods(
     llvm::function_ref<IterationAction(DWARFDIE die)> callback) {
   if (!m_apple_objc_up)
     return;
-  SearchFor(*m_apple_objc_up, class_name, IterationActionAdaptor(callback));
+  SearchFor(*m_apple_objc_up, class_name, callback);
 }
 
 void AppleDWARFIndex::GetCompleteObjCClass(
@@ -193,7 +193,7 @@ void AppleDWARFIndex::GetCompleteObjCClass(
 
   llvm::SmallVector<DIERef> decl_dies;
   auto converted_cb =
-      DIERefCallback(IterationActionAdaptor(callback), class_name);
+      DIERefCallback(callback, class_name);
 
   for (const auto &entry : m_apple_types_up->equal_range(class_name)) {
     if (HasImplementationFlag(entry)) {
@@ -208,7 +208,7 @@ void AppleDWARFIndex::GetCompleteObjCClass(
   if (must_be_implementation)
     return;
   for (DIERef ref : decl_dies)
-    if (!converted_cb(ref))
+    if (converted_cb(ref) == IterationAction::Stop)
       return;
 }
 
@@ -217,7 +217,7 @@ void AppleDWARFIndex::GetTypes(
     llvm::function_ref<IterationAction(DWARFDIE die)> callback) {
   if (!m_apple_types_up)
     return;
-  SearchFor(*m_apple_types_up, name, IterationActionAdaptor(callback));
+  SearchFor(*m_apple_types_up, name, callback);
 }
 
 void AppleDWARFIndex::GetTypes(
@@ -241,7 +241,7 @@ void AppleDWARFIndex::GetTypes(
     if (log)
       m_module.LogMessage(log, "FindByNameAndTagAndQualifiedNameHash()");
     SearchFor(*m_apple_types_up, expected_name,
-              IterationActionAdaptor(callback), expected_tag,
+              callback, expected_tag,
               expected_qualname_hash);
     return;
   }
@@ -249,7 +249,7 @@ void AppleDWARFIndex::GetTypes(
   // Historically, if there are no tags, we also ignore qual_hash (why?)
   if (!entries_have_tag) {
     SearchFor(*m_apple_names_up, expected_name,
-              IterationActionAdaptor(callback));
+              callback);
     return;
   }
 
@@ -268,7 +268,7 @@ void AppleDWARFIndex::GetTypes(
   if (log)
     m_module.LogMessage(log, "FindByNameAndTag()");
   const dw_tag_t expected_tag = context[0].tag;
-  SearchFor(*m_apple_types_up, expected_name, IterationActionAdaptor(callback),
+  SearchFor(*m_apple_types_up, expected_name, callback,
             expected_tag);
 }
 
@@ -276,7 +276,7 @@ void AppleDWARFIndex::GetNamespaces(
     ConstString name, llvm::function_ref<IterationAction(DWARFDIE die)> callback) {
   if (!m_apple_namespaces_up)
     return;
-  SearchFor(*m_apple_namespaces_up, name, IterationActionAdaptor(callback));
+  SearchFor(*m_apple_namespaces_up, name, callback);
 }
 
 void AppleDWARFIndex::GetFunctions(

@@ -16,6 +16,7 @@
 #include "lldb/Utility/RegularExpression.h"
 #include "lldb/Utility/Stream.h"
 #include "lldb/Utility/StreamString.h"
+#include "lldb/lldb-private-enumerations.h"
 #include <optional>
 
 using namespace lldb;
@@ -32,25 +33,25 @@ void NameToDIE::Insert(ConstString name, const DIERef &die_ref) {
 }
 
 bool NameToDIE::Find(ConstString name,
-                     llvm::function_ref<bool(DIERef ref)> callback) const {
+                     llvm::function_ref<IterationAction(DIERef ref)> callback) const {
   for (const auto &entry : m_map.equal_range(name))
-    if (!callback(entry.value))
+    if (callback(entry.value) == IterationAction::Stop)
       return false;
   return true;
 }
 
 bool NameToDIE::Find(const RegularExpression &regex,
-                     llvm::function_ref<bool(DIERef ref)> callback) const {
+                     llvm::function_ref<IterationAction(DIERef ref)> callback) const {
   for (const auto &entry : m_map)
     if (regex.Execute(entry.cstring.GetCString())) {
-      if (!callback(entry.value))
+      if (callback(entry.value) == IterationAction::Stop)
         return false;
     }
   return true;
 }
 
 void NameToDIE::FindAllEntriesForUnit(
-    DWARFUnit &s_unit, llvm::function_ref<bool(DIERef ref)> callback) const {
+    DWARFUnit &s_unit, llvm::function_ref<IterationAction(DIERef ref)> callback) const {
   const DWARFUnit &ns_unit = s_unit.GetNonSkeletonUnit();
   const uint32_t size = m_map.GetSize();
   for (uint32_t i = 0; i < size; ++i) {
@@ -59,7 +60,7 @@ void NameToDIE::FindAllEntriesForUnit(
         ns_unit.GetDebugSection() == die_ref.section() &&
         ns_unit.GetOffset() <= die_ref.die_offset() &&
         die_ref.die_offset() < ns_unit.GetNextUnitOffset()) {
-      if (!callback(die_ref))
+      if (callback(die_ref) == IterationAction::Stop)
         return;
     }
   }

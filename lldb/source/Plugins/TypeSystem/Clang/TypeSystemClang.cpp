@@ -10,6 +10,8 @@
 
 #include "clang/AST/DeclBase.h"
 #include "clang/AST/ExprCXX.h"
+#include "clang/AST/TypeBase.h"
+#include "clang/Basic/Specifiers.h"
 #include "clang/Frontend/ASTConsumers.h"
 #include "llvm/ADT/ScopeExit.h"
 #include "llvm/Support/Casting.h"
@@ -2171,21 +2173,92 @@ FunctionDecl *TypeSystemClang::CreateFunctionDeclarationForTemplate(clang::DeclC
    *   `-CompoundStmt 0x55c6a33c9358 <col:23, col:24>
    */
 
-  FunctionDecl *func_decl = nullptr;
   ASTContext &ast = getASTContext();
   if (!decl_ctx)
     decl_ctx = ast.getTranslationUnitDecl();
 
   // TODO:
-  // create generic decl
   // create specialized decl
+  // create generic decl
   // create template decl
   // connect specialized and template decl
   // return specialized decl
+  clang::FunctionDecl *func_decl = nullptr;
+  {
+      CompilerType type = CreateFunctionType(
+          GetType(ast.VoidTy), {GetType(ast.IntTy)}, /*is_variadic=*/false,
+          /*type_quals=*/0, clang::CC_C,
+          RQ_None);
+
+      const bool hasWrittenPrototype = true;
+      const bool isConstexprSpecified = false;
+
+      clang::DeclarationName declarationName =
+          GetDeclarationName("func", type);
+      func_decl = FunctionDecl::CreateDeserialized(ast, GlobalDeclID());
+      func_decl->setDeclContext(decl_ctx);
+      func_decl->setDeclName(declarationName);
+      func_decl->setType(ClangUtil::GetQualType(type));
+      func_decl->setStorageClass(clang::SC_None);
+      func_decl->setInlineSpecified(false);
+      func_decl->setHasWrittenPrototype(hasWrittenPrototype);
+      func_decl->setConstexprKind(isConstexprSpecified
+                                      ? ConstexprSpecKind::Constexpr
+                                      : ConstexprSpecKind::Unspecified);
+
+      decl_ctx->addDecl(func_decl);
+
+      VerifyDecl(func_decl);
+
+      const clang::FunctionProtoType *prototype(
+          llvm::cast<clang::FunctionProtoType>(
+              ClangUtil::GetQualType(type).getTypePtr()));
+      const auto params = CreateParameterDeclarations(
+          func_decl, *prototype, {"x"});
+      func_decl->setParams(params);
+  }
+
+  clang::FunctionDecl *generic_func_decl = nullptr;
+  {
+      ;
+      CompilerType type = CreateFunctionType(
+          GetType(ast.VoidTy), {GetType(ast.getTemplateTypeParmType(/*Depth=*/0, /*Index=*/0, /*ParameterPack=*/false))}, /*is_variadic=*/false,
+          /*type_quals=*/0, clang::CC_C,
+          RQ_None);
+
+      const bool hasWrittenPrototype = true;
+      const bool isConstexprSpecified = false;
+
+      clang::DeclarationName declarationName =
+          GetDeclarationName("func", type);
+      func_decl = FunctionDecl::CreateDeserialized(ast, GlobalDeclID());
+      func_decl->setDeclContext(decl_ctx);
+      func_decl->setDeclName(declarationName);
+      func_decl->setType(ClangUtil::GetQualType(type));
+      func_decl->setStorageClass(clang::SC_None);
+      func_decl->setInlineSpecified(false);
+      func_decl->setHasWrittenPrototype(hasWrittenPrototype);
+      func_decl->setConstexprKind(isConstexprSpecified
+                                      ? ConstexprSpecKind::Constexpr
+                                      : ConstexprSpecKind::Unspecified);
+
+      decl_ctx->addDecl(func_decl);
+
+      VerifyDecl(func_decl);
+
+      const clang::FunctionProtoType *prototype(
+          llvm::cast<clang::FunctionProtoType>(
+              ClangUtil::GetQualType(type).getTypePtr()));
+      const auto params = CreateParameterDeclarations(
+          func_decl, *prototype, {"T"});
+      func_decl->setParams(params);
+  }
+      //clang::SubstTemplateTypeParmType
 
   //m_ast.CreateFunctionTemplateSpecializationInfo(
   //    template_function_decl, func_template_decl, template_param_infos);
 
+  __builtin_debugtrap();
   return nullptr;
 }
 

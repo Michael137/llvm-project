@@ -5,5 +5,5 @@ void func(int x = 10) {}
 
 int main() {
     func<int>();
-    return 0;
+    __builtin_debugtrap();
 }

@@ -2243,7 +2243,7 @@ FunctionDecl *TypeSystemClang::CreateFunctionDeclarationForTemplate(clang::DeclC
               ClangUtil::GetQualType(type).getTypePtr()));
       const auto params = CreateParameterDeclarations(
           func_decl, *prototype, {"T"});
-      func_decl->setParams(params);
+      generic_func_decl->setParams(params);
   }
       //clang::SubstTemplateTypeParmType
 

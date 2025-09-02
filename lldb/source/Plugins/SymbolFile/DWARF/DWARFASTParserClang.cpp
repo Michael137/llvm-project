@@ -1409,6 +1409,15 @@ DWARFASTParserClang::ParseSubroutine(const DWARFDIE &die,
         }
       }
 
+      if (llvm::StringRef(attrs.name).starts_with("func")) {
+          TypeSystemClang::TemplateParameterInfos template_param_infos;
+          const bool parsed = ParseTemplateParameterInfos(die, template_param_infos);
+          assert (parsed);
+          function_decl = m_ast.CreateFunctionDeclarationForTemplate(containing_decl_ctx, template_param_infos);
+          if (function_decl)
+            LinkDeclContextToDIE(function_decl, die);
+      }
+
       if (!function_decl) {
         char *name_buf = nullptr;
         llvm::StringRef name = attrs.name.GetStringRef();
@@ -1436,12 +1445,11 @@ DWARFASTParserClang::ParseSubroutine(const DWARFDIE &die,
           TypeSystemClang::TemplateParameterInfos template_param_infos;
           const bool parsed = ParseTemplateParameterInfos(die, template_param_infos);
           lldbassert(parsed);
-          //template_function_decl = m_ast.CreateFunctionDeclaration(
-          //    ignore_containing_context ? m_ast.GetTranslationUnitDecl()
-          //                              : containing_decl_ctx,
-          //    GetOwningClangModule(die), attrs.name.GetStringRef(), clang_type,
-          //    attrs.storage, attrs.is_inline);
-          template_function_decl = m_ast.CreateFunctionDeclarationForTemplate(containing_decl_ctx, template_param_infos);
+          template_function_decl = m_ast.CreateFunctionDeclaration(
+              ignore_containing_context ? m_ast.GetTranslationUnitDecl()
+                                        : containing_decl_ctx,
+              GetOwningClangModule(die), attrs.name.GetStringRef(), clang_type,
+              attrs.storage, attrs.is_inline, /*asm_label=*/{});
           clang::FunctionTemplateDecl *func_template_decl =
               m_ast.CreateFunctionTemplateDecl(
                   containing_decl_ctx, GetOwningClangModule(die),

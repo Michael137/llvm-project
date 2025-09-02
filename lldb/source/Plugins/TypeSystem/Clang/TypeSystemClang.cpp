@@ -2155,32 +2155,38 @@ std::string TypeSystemClang::GetTypeNameForDecl(const NamedDecl *named_decl,
 }
 
 FunctionDecl *TypeSystemClang::CreateFunctionDeclarationForTemplate(clang::DeclContext* decl_ctx, const TemplateParameterInfos &params) {
+  /* $ clang++ main.cpp -fsyntax-only -Xclang -ast-dump -Xclang -ast-dump-filter=func
+   * Dumping func:
+   * FunctionTemplateDecl 0x55c6a33c9238 <main.cpp:1:1, line:2:24> col:6 func
+   * |-TemplateTypeParmDecl 0x55c6a33c8fb8 <line:1:10, col:19> col:19 typename depth 0 index 0 T
+   * |-FunctionDecl 0x55c6a33c9190 <line:2:1, col:24> col:6 func 'void (int)'
+   * | |-ParmVarDecl 0x55c6a33c90a0 <col:11, col:19> col:15 x 'int' cinit
+   * | | `-IntegerLiteral 0x55c6a33c9108 <col:19> 'int' 10
+   * | `-CompoundStmt 0x55c6a33c9358 <col:23, col:24>
+   * `-FunctionDecl 0x55c6a33c96c0 <col:1, col:24> col:6 used func 'void (int)' implicit_instantiation
+   *   |-TemplateArgument type 'int'
+   *   | `-BuiltinType 0x55c6a337f1c0 'int'
+   *   |-ParmVarDecl 0x55c6a33c9630 <col:11, col:19> col:15 x 'int' cinit
+   *   | `-IntegerLiteral 0x55c6a33c9108 <col:19> 'int' 10
+   *   `-CompoundStmt 0x55c6a33c9358 <col:23, col:24>
+   */
+
   FunctionDecl *func_decl = nullptr;
   ASTContext &ast = getASTContext();
   if (!decl_ctx)
     decl_ctx = ast.getTranslationUnitDecl();
 
-  const bool hasWrittenPrototype = true;
-  const bool isConstexprSpecified = false;
+  // TODO:
+  // create generic decl
+  // create specialized decl
+  // create template decl
+  // connect specialized and template decl
+  // return specialized decl
 
-  clang::DeclarationName declarationName =
-      GetDeclarationName(name, function_clang_type);
-  func_decl = FunctionDecl::CreateDeserialized(ast, GlobalDeclID());
-  func_decl->setDeclContext(decl_ctx);
-  func_decl->setDeclName(declarationName);
-  func_decl->setType(ClangUtil::GetQualType(function_clang_type));
-  func_decl->setStorageClass(storage);
-  func_decl->setInlineSpecified(is_inline);
-  func_decl->setHasWrittenPrototype(hasWrittenPrototype);
-  func_decl->setConstexprKind(isConstexprSpecified
-                                  ? ConstexprSpecKind::Constexpr
-                                  : ConstexprSpecKind::Unspecified);
-  SetOwningModule(func_decl, owning_module);
-  decl_ctx->addDecl(func_decl);
+  //m_ast.CreateFunctionTemplateSpecializationInfo(
+  //    template_function_decl, func_template_decl, template_param_infos);
 
-  VerifyDecl(func_decl);
-
-  return func_decl;
+  return nullptr;
 }
 
 FunctionDecl *TypeSystemClang::CreateFunctionDeclaration(

@@ -2220,7 +2220,7 @@ FunctionDecl *TypeSystemClang::CreateFunctionDeclarationForTemplate(clang::DeclC
 
   clang::FunctionDecl *generic_func_decl = nullptr;
   {
-      ;
+      // TODO: what's this "type-parameter-0-0" param type? Check what type it has in Clang
       CompilerType type = CreateFunctionType(
           GetType(ast.VoidTy), {GetType(ast.getTemplateTypeParmType(/*Depth=*/0, /*Index=*/0, /*ParameterPack=*/false))}, /*is_variadic=*/false,
           /*type_quals=*/0, clang::CC_C,
@@ -2231,35 +2231,40 @@ FunctionDecl *TypeSystemClang::CreateFunctionDeclarationForTemplate(clang::DeclC
 
       clang::DeclarationName declarationName =
           GetDeclarationName("func", type);
-      func_decl = FunctionDecl::CreateDeserialized(ast, GlobalDeclID());
-      func_decl->setDeclContext(decl_ctx);
-      func_decl->setDeclName(declarationName);
-      func_decl->setType(ClangUtil::GetQualType(type));
-      func_decl->setStorageClass(clang::SC_None);
-      func_decl->setInlineSpecified(false);
-      func_decl->setHasWrittenPrototype(hasWrittenPrototype);
-      func_decl->setConstexprKind(isConstexprSpecified
+      generic_func_decl = FunctionDecl::CreateDeserialized(ast, GlobalDeclID());
+      generic_func_decl->setDeclContext(decl_ctx);
+      generic_func_decl->setDeclName(declarationName);
+      generic_func_decl->setType(ClangUtil::GetQualType(type));
+      generic_func_decl->setStorageClass(clang::SC_None);
+      generic_func_decl->setInlineSpecified(false);
+      generic_func_decl->setHasWrittenPrototype(hasWrittenPrototype);
+      generic_func_decl->setConstexprKind(isConstexprSpecified
                                       ? ConstexprSpecKind::Constexpr
                                       : ConstexprSpecKind::Unspecified);
 
-      decl_ctx->addDecl(func_decl);
+      decl_ctx->addDecl(generic_func_decl);
 
-      VerifyDecl(func_decl);
+      VerifyDecl(generic_func_decl);
 
       const clang::FunctionProtoType *prototype(
           llvm::cast<clang::FunctionProtoType>(
               ClangUtil::GetQualType(type).getTypePtr()));
       const auto params = CreateParameterDeclarations(
-          func_decl, *prototype, {"T"});
+          generic_func_decl, *prototype, {"T"});
       generic_func_decl->setParams(params);
+  }
+
+  clang::FunctionTemplateDecl *func_tmpl_decl = nullptr;
+  {
+      func_tmpl_decl = CreateFunctionTemplateDecl(decl_ctx, {}, generic_func_decl, params);
+      CreateFunctionTemplateSpecializationInfo(
+          func_decl, func_tmpl_decl, params);
+
   }
       //clang::SubstTemplateTypeParmType
 
-  //m_ast.CreateFunctionTemplateSpecializationInfo(
-  //    template_function_decl, func_template_decl, template_param_infos);
-
   __builtin_debugtrap();
-  return nullptr;
+  return func_decl;
 }
 
 FunctionDecl *TypeSystemClang::CreateFunctionDeclaration(

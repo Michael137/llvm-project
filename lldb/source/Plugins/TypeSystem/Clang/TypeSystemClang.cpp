@@ -2178,11 +2178,7 @@ FunctionDecl *TypeSystemClang::CreateFunctionDeclarationForTemplate(clang::DeclC
     decl_ctx = ast.getTranslationUnitDecl();
 
   // TODO:
-  // create specialized decl
-  // create generic decl
-  // create template decl
-  // connect specialized and template decl
-  // return specialized decl
+  //   fails when calling function without specifying template parameters
   clang::FunctionDecl *func_decl = nullptr;
   {
       CompilerType type = CreateFunctionType(
@@ -2220,9 +2216,12 @@ FunctionDecl *TypeSystemClang::CreateFunctionDeclarationForTemplate(clang::DeclC
 
   clang::FunctionDecl *generic_func_decl = nullptr;
   {
-      // TODO: what's this "type-parameter-0-0" param type? Check what type it has in Clang
+      auto *TTPDecl = TemplateTypeParmDecl::Create(
+              ast, decl_ctx, SourceLocation(), SourceLocation(), 0, 0,
+              &ast.Idents.get("T"), /*Typename=*/true, /*ParameterPack=*/false);
+      
       CompilerType type = CreateFunctionType(
-          GetType(ast.VoidTy), {GetType(ast.getTemplateTypeParmType(/*Depth=*/0, /*Index=*/0, /*ParameterPack=*/false))}, /*is_variadic=*/false,
+          GetType(ast.VoidTy), {GetType(ast.getTemplateTypeParmType(/*Depth=*/0, /*Index=*/0, /*ParameterPack=*/false, TTPDecl))}, /*is_variadic=*/false,
           /*type_quals=*/0, clang::CC_C,
           RQ_None);
 
@@ -2250,7 +2249,7 @@ FunctionDecl *TypeSystemClang::CreateFunctionDeclarationForTemplate(clang::DeclC
           llvm::cast<clang::FunctionProtoType>(
               ClangUtil::GetQualType(type).getTypePtr()));
       const auto params = CreateParameterDeclarations(
-          generic_func_decl, *prototype, {"T"});
+          generic_func_decl, *prototype, {"x"});
       generic_func_decl->setParams(params);
   }
 
@@ -2259,11 +2258,9 @@ FunctionDecl *TypeSystemClang::CreateFunctionDeclarationForTemplate(clang::DeclC
       func_tmpl_decl = CreateFunctionTemplateDecl(decl_ctx, {}, generic_func_decl, params);
       CreateFunctionTemplateSpecializationInfo(
           func_decl, func_tmpl_decl, params);
-
   }
       //clang::SubstTemplateTypeParmType
 
-  __builtin_debugtrap();
   return func_decl;
 }
 
@@ -7797,11 +7794,13 @@ TypeSystemClang::CreateParameterDeclarations(
     llvm::StringRef name =
         !parameter_names.empty() ? parameter_names[param_index] : "";
 
+    QualType param_type = prototype.getParamType(param_index);
     auto *param =
         CreateParameterDeclaration(func, /*owning_module=*/{}, name.data(),
-                                   GetType(prototype.getParamType(param_index)),
+                                   GetType(param_type),
                                    clang::SC_None, /*add_decl=*/false);
     assert(param);
+    param->setTypeSourceInfo(getASTContext().getTrivialTypeSourceInfo(param_type));
 
     params.push_back(param);
   }

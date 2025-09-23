@@ -1891,6 +1891,8 @@ DWARFASTParserClang::ParseStructureLikeDIE(const SymbolContext &sc,
 
   TypeSystemClang::TemplateParameterInfos template_param_infos;
   if (ParseTemplateParameterInfos(die, template_param_infos)) {
+    if (llvm::StringRef(attrs.name).starts_with("Foo"))
+      __builtin_debugtrap();
     clang::ClassTemplateDecl *class_template_decl =
         m_ast.ParseClassTemplateDecl(
             containing_decl_ctx, GetOwningClangModule(die), attrs.accessibility,

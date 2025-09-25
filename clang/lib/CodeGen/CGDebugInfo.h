@@ -398,6 +398,11 @@ private:
                            SmallVectorImpl<llvm::Metadata *> &E,
                            llvm::DICompositeType *RecordTy);
   llvm::StringRef GetLambdaCaptureName(const LambdaCapture &Capture);
+  std::pair<std::string, std::optional<size_t>>
+  GetLambdaCapturePackNameAndIndex(const LambdaCapture &Capture,
+                                   const LambdaCapture &NextCapture,
+                                   std::optional<size_t> CurrentPackIndex,
+                                   std::string CurrentCaptureName);
 
   /// If the C++ class has vtable info then insert appropriate debug
   /// info entry in EltTys vector.

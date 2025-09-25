@@ -1904,6 +1904,28 @@ CGDebugInfo::createInlinedSubprogram(StringRef FuncName,
   return SP;
 }
 
+std::pair<std::string, std::optional<size_t>>
+CGDebugInfo::GetLambdaCapturePackNameAndIndex(
+    const LambdaCapture &Capture, const LambdaCapture &NextCapture,
+    std::optional<size_t> CurrentPackIndex, std::string CurrentCaptureName) {
+  if (!NextCapture.capturesVariable())
+    return {};
+
+  if (CurrentCaptureName == GetLambdaCaptureName(NextCapture)) {
+    if (!CurrentPackIndex)
+      CurrentPackIndex = 0;
+
+    CurrentCaptureName += "#";
+    CurrentCaptureName += std::to_string(*CurrentPackIndex);
+
+    *CurrentPackIndex += 1;
+  } else {
+    CurrentPackIndex.reset();
+  }
+
+  return {std::move(CurrentCaptureName), CurrentPackIndex};
+}
+
 llvm::StringRef
 CGDebugInfo::GetLambdaCaptureName(const LambdaCapture &Capture) {
   if (Capture.capturesThis())
@@ -1925,6 +1947,7 @@ void CGDebugInfo::CollectRecordLambdaFields(
   // both concurrently.
   RecordDecl::field_iterator Field = CXXDecl->field_begin();
   unsigned fieldno = 0;
+  std::optional<size_t> CurrentPackIndex;
   for (CXXRecordDecl::capture_const_iterator I = CXXDecl->captures_begin(),
                                              E = CXXDecl->captures_end();
        I != E; ++I, ++Field, ++fieldno) {
@@ -1936,6 +1959,7 @@ void CGDebugInfo::CollectRecordLambdaFields(
 
     SourceLocation Loc;
     uint32_t Align = 0;
+    std::string CaptureName = GetLambdaCaptureName(Capture).str();
 
     if (Capture.capturesThis()) {
       // TODO: Need to handle 'this' in some way by probably renaming the
@@ -1950,13 +1974,26 @@ void CGDebugInfo::CollectRecordLambdaFields(
       assert(CaptureDecl && "Expected valid decl for captured variable.");
 
       Align = getDeclAlignIfRequired(CaptureDecl, CGM.getContext());
+
+      // If we are dealing with a capture pack, name the individual variables
+      // of the pack with a unique suffix so they can be distinguished by
+      // debug-info consumers.
+      const auto *NextCapture = I + 1;
+      if (NextCapture != E) {
+        auto NameAndIndex = GetLambdaCapturePackNameAndIndex(
+            Capture, *NextCapture, CurrentPackIndex, CaptureName);
+        if (!NameAndIndex.first.empty())
+          CaptureName = std::move(NameAndIndex.first);
+
+        CurrentPackIndex = std::move(NameAndIndex.second);
+      }
     }
 
     llvm::DIFile *VUnit = getOrCreateFile(Loc);
 
-    elements.push_back(createFieldType(
-        GetLambdaCaptureName(Capture), Field->getType(), Loc,
-        Field->getAccess(), FieldOffset, Align, VUnit, RecordTy, CXXDecl));
+    elements.push_back(createFieldType(std::move(CaptureName), Field->getType(),
+                                       Loc, Field->getAccess(), FieldOffset,
+                                       Align, VUnit, RecordTy, CXXDecl));
   }
 }
 

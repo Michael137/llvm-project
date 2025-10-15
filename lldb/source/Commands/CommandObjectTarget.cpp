@@ -1324,6 +1324,18 @@ static void DumpFullpath(Stream &strm, const FileSpec *file_spec_ptr,
     strm.Printf("%-*s", width, "");
 }
 
+static void DumpDebugInfoModulePath(
+        Stream &strm, Module &module) {
+  auto debug_info_filespec = module.GetSymbolFileFileSpec();
+  if (!debug_info_filespec)
+    return;
+
+  strm.Printf("Debug-info found in ");
+
+  DumpFullpath(strm, &debug_info_filespec, 0);
+  strm.Printf("\n");
+}
+
 static void DumpDirectory(Stream &strm, const FileSpec *file_spec_ptr,
                           uint32_t width) {
   if (file_spec_ptr) {
@@ -1668,6 +1680,7 @@ static size_t LookupFunctionInModule(CommandInterpreter &interpreter,
                   num_matches > 1 ? "es" : "");
       DumpFullpath(strm, &module->GetFileSpec(), 0);
       strm.PutCString(":\n");
+      DumpDebugInfoModulePath(strm, *module);
       DumpSymbolContextList(
           interpreter.GetExecutionContext().GetBestExecutionContextScope(),
           strm, sc_list, verbose, all_ranges);
@@ -1703,6 +1716,7 @@ static size_t LookupTypeInModule(Target *target,
                 num_matches > 1 ? "es" : "");
     DumpFullpath(strm, &module->GetFileSpec(), 0);
     strm.PutCString(":\n");
+    DumpDebugInfoModulePath(strm, *module);
     for (TypeSP type_sp : type_list.Types()) {
       if (!type_sp)
         continue;
@@ -1747,6 +1761,7 @@ static size_t LookupTypeHere(Target *target, CommandInterpreter &interpreter,
   strm.PutCString("Best match found in ");
   DumpFullpath(strm, &module.GetFileSpec(), 0);
   strm.PutCString(":\n");
+  DumpDebugInfoModulePath(strm, module);
 
   TypeSP type_sp(type_list.GetTypeAtIndex(0));
   if (type_sp) {

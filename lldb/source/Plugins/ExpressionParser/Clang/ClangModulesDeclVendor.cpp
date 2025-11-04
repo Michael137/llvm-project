@@ -361,6 +361,7 @@ bool ClangModulesDeclVendorImpl::AddModule(const SourceModule &module,
 
   diagnostic_consumer->ClearDiagnostics();
 
+  // TODO: this fails to find PlugInKit
   clang::Module *top_level_module = DoGetModule(clang_path.front(), false);
 
   if (!top_level_module) {
@@ -429,6 +430,7 @@ bool ClangModulesDeclVendorImpl::AddModulesForCompileUnit(
     Stream &error_stream) {
   if (LanguageSupportsClangModules(cu.GetLanguage())) {
     for (auto &imported_module : cu.GetImportedModules())
+      // TODO: should we short-circuit on error at all?
       if (!AddModule(imported_module, &exported_modules, error_stream))
         return false;
   }

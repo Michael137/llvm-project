@@ -379,6 +379,7 @@ static void SetupDeclVendor(ExecutionContext &exe_ctx, Target *target,
                                             error_stream))
     return;
 
+  // TODO: don't emit this as a note diagnostic. Just dump to log.
   // Failed to load some modules, so emit the error stream as a diagnostic.
   if (!error_stream.Empty()) {
     // The error stream already contains several Clang diagnostics that might

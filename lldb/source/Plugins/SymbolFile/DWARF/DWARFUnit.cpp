@@ -867,15 +867,25 @@ llvm::VersionTuple DWARFUnit::GetProducerVersion() {
   return m_producer_version;
 }
 
+llvm::dwarf::SourceLanguageName DWARFUnit::GetDWARFLanguageName() {
+  return static_cast<llvm::dwarf::SourceLanguageName>(GetSourceLanguage().name);
+}
+
 uint64_t DWARFUnit::GetDWARFLanguageType() {
+  return GetSourceLanguage().AsLanguageType();
+}
+
+lldb_private::SourceLanguage DWARFUnit::GetSourceLanguage() {
   if (m_language_type)
     return *m_language_type;
 
   const DWARFDebugInfoEntry *die = GetUnitDIEPtrOnly();
   if (!die)
-    m_language_type = 0;
-  else
-    m_language_type = die->GetAttributeValueAsUnsigned(this, DW_AT_language, 0);
+    m_language_type.emplace();
+  else {
+    m_language_type.emplace(static_cast<LanguageType>(
+        die->GetAttributeValueAsUnsigned(this, DW_AT_language, 0)));
+  }
   return *m_language_type;
 }
 

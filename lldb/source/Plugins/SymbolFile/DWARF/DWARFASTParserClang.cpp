@@ -3184,7 +3184,7 @@ bool DWARFASTParserClang::ParseChildMembers(
       break;
 
     case DW_TAG_variant_part:
-      if (die.GetCU()->GetDWARFLanguageType() == eLanguageTypeRust) {
+      if (die.GetCU()->GetDWARFLanguageName() == llvm::dwarf::DW_LNAME_Rust) {
         ParseRustVariantPart(die, parent_die, class_clang_type,
                              default_accessibility, layout_info);
       }

@@ -10,6 +10,7 @@
 #define LLDB_SOURCE_PLUGINS_SYMBOLFILE_DWARF_DWARFDIE_H
 
 #include "DWARFBaseDIE.h"
+#include "lldb/lldb-private-types.h"
 #include "llvm/ADT/SmallSet.h"
 #include "llvm/ADT/iterator_range.h"
 #include "llvm/DebugInfo/DWARF/DWARFAddressRange.h"

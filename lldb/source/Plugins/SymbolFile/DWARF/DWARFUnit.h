@@ -203,7 +203,10 @@ public:
 
   llvm::VersionTuple GetProducerVersion();
 
+  // TODO: deprecate this
   uint64_t GetDWARFLanguageType();
+
+  llvm::dwarf::SourceLanguageName GetDWARFLanguageName();
 
   bool GetIsOptimized();
 
@@ -350,7 +353,7 @@ protected:
   dw_addr_t m_base_addr = 0;
   DWARFProducer m_producer = eProducerInvalid;
   llvm::VersionTuple m_producer_version;
-  std::optional<uint64_t> m_language_type;
+  std::optional<lldb_private::SourceLanguage> m_language_type;
   LazyBool m_is_optimized = eLazyBoolCalculate;
   std::optional<FileSpec> m_comp_dir;
   std::optional<FileSpec> m_file_spec;
@@ -389,6 +392,8 @@ private:
 
   void ComputeCompDirAndGuessPathStyle();
   void ComputeAbsolutePath();
+
+  lldb_private::SourceLanguage GetSourceLanguage();
 
   DWARFUnit(const DWARFUnit &) = delete;
   const DWARFUnit &operator=(const DWARFUnit &) = delete;

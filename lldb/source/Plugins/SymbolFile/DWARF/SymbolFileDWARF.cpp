@@ -4587,7 +4587,7 @@ Status SymbolFileDWARF::CalculateFrameVariableError(StackFrame &frame) {
 
   // Don't return an error for assembly files as they typically don't have
   // varaible information.
-  if (dwarf_cu->GetDWARFLanguageType() == DW_LANG_Mips_Assembler)
+  if (dwarf_cu->GetDWARFLanguageName() == DW_LNAME_Assembly)
     return Status();
 
   // Check if this compile unit has any variable DIEs. If it doesn't then there

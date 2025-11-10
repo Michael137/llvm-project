@@ -2699,7 +2699,7 @@ Target::GetPersistentExpressionStateForLanguage(lldb::LanguageType language) {
 }
 
 UserExpression *Target::GetUserExpressionForLanguage(
-    llvm::StringRef expr, llvm::StringRef prefix, SourceLanguage language,
+    llvm::StringRef expr, llvm::StringRef prefix, LanguageVersionPair language,
     Expression::ResultType desired_type,
     const EvaluateExpressionOptions &options, ValueObject *ctx_obj,
     Status &error) {
@@ -4948,9 +4948,9 @@ void TargetProperties::SetStandardErrorPath(llvm::StringRef path) {
   SetPropertyAtIndex(idx, path);
 }
 
-SourceLanguage TargetProperties::GetLanguage() const {
+LanguageVersionPair TargetProperties::GetLanguage() const {
   const uint32_t idx = ePropertyLanguage;
-  return SourceLanguage{GetPropertyAtIndexAs<LanguageType>(idx, {})};
+  return LanguageVersionPair{GetPropertyAtIndexAs<LanguageType>(idx, {})};
 }
 
 llvm::StringRef TargetProperties::GetExpressionPrefixContents() {

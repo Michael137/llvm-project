@@ -1323,7 +1323,7 @@ public:
 
   UserExpression *GetUserExpression(llvm::StringRef expr,
                                     llvm::StringRef prefix,
-                                    SourceLanguage language,
+                                    LanguageVersionPair language,
                                     Expression::ResultType desired_type,
                                     const EvaluateExpressionOptions &options,
                                     ValueObject *ctx_obj) override;

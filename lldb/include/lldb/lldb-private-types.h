@@ -100,14 +100,14 @@ struct RegisterSet {
 };
 
 /// A type-erased pair of llvm::dwarf::SourceLanguageName and version.
-struct SourceLanguage {
-  SourceLanguage() = default;
-  explicit SourceLanguage(lldb::LanguageType language_type);
+struct LanguageVersionPair {
+  LanguageVersionPair() = default;
+  explicit LanguageVersionPair(lldb::LanguageType language_type);
 
-  SourceLanguage(uint16_t name, uint32_t version)
+  LanguageVersionPair(uint16_t name, uint32_t version)
       : name(name), version(version) {}
 
-  explicit SourceLanguage(
+  explicit LanguageVersionPair(
       std::optional<std::pair<uint16_t, uint32_t>> name_vers)
       : name(name_vers ? name_vers->first : 0),
         version(name_vers ? name_vers->second : 0) {}

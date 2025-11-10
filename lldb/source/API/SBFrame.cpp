@@ -929,7 +929,7 @@ SBValue SBFrame::EvaluateExpression(const char *expr) {
   options.SetUnwindOnError(true);
   options.SetIgnoreBreakpoints(true);
   Target *target = exe_ctx->GetTargetPtr();
-  SourceLanguage language = target->GetLanguage();
+  LanguageVersionPair language = target->GetLanguage();
   if (!language && frame)
     language = frame->GetLanguage();
   options.SetLanguage((SBSourceLanguageName)language.name, language.version);
@@ -954,7 +954,7 @@ SBFrame::EvaluateExpression(const char *expr,
 
   StackFrame *frame = exe_ctx->GetFramePtr();
   Target *target = exe_ctx->GetTargetPtr();
-  SourceLanguage language = target->GetLanguage();
+  LanguageVersionPair language = target->GetLanguage();
   if (!language && frame)
     language = frame->GetLanguage();
   options.SetLanguage((SBSourceLanguageName)language.name, language.version);
@@ -979,7 +979,7 @@ SBValue SBFrame::EvaluateExpression(const char *expr,
   options.SetIgnoreBreakpoints(true);
   StackFrame *frame = exe_ctx->GetFramePtr();
   Target *target = exe_ctx->GetTargetPtr();
-  SourceLanguage language = target->GetLanguage();
+  LanguageVersionPair language = target->GetLanguage();
   if (!language && frame)
     language = frame->GetLanguage();
   options.SetLanguage((SBSourceLanguageName)language.name, language.version);

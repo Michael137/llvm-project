@@ -272,7 +272,7 @@ const char *Language::GetNameForLanguageType(LanguageType language) {
 }
 
 llvm::StringRef Language::GetDisplayNameForLanguageType(LanguageType language) {
-  return SourceLanguage(language).GetDescription();
+  return LanguageVersionPair(language).GetDescription();
 }
 
 void Language::PrintSupportedLanguagesForExpressions(Stream &s,
@@ -548,7 +548,7 @@ Language::Language() = default;
 Language::~Language() = default;
 
 static std::optional<llvm::dwarf::SourceLanguage>
-ToDwarfSourceLanguage(lldb::LanguageType language_type) {
+ToDwarfLanguageVersionPair(lldb::LanguageType language_type) {
   if (language_type <= lldb::eLanguageTypeLastStandardLanguage)
     return static_cast<llvm::dwarf::SourceLanguage>(language_type);
 
@@ -560,9 +560,9 @@ ToDwarfSourceLanguage(lldb::LanguageType language_type) {
   }
 }
 
-SourceLanguage::SourceLanguage(lldb::LanguageType language_type) {
+LanguageVersionPair::LanguageVersionPair(lldb::LanguageType language_type) {
   std::optional<llvm::dwarf::SourceLanguage> dwarf_lang =
-      ToDwarfSourceLanguage(language_type);
+      ToDwarfLanguageVersionPair(language_type);
   if (!dwarf_lang)
     return;
 
@@ -573,23 +573,23 @@ SourceLanguage::SourceLanguage(lldb::LanguageType language_type) {
   version = lname->second;
 }
 
-lldb::LanguageType SourceLanguage::AsLanguageType() const {
+lldb::LanguageType LanguageVersionPair::AsLanguageType() const {
   if (auto lang = llvm::dwarf::toDW_LANG((llvm::dwarf::SourceLanguageName)name,
                                          version))
     return (lldb::LanguageType)*lang;
   return lldb::eLanguageTypeUnknown;
 }
 
-llvm::StringRef SourceLanguage::GetDescription() const {
+llvm::StringRef LanguageVersionPair::GetDescription() const {
   return llvm::dwarf::LanguageDescription(
       static_cast<llvm::dwarf::SourceLanguageName>(name), version);
 }
-bool SourceLanguage::IsC() const { return name == llvm::dwarf::DW_LNAME_C; }
+bool LanguageVersionPair::IsC() const { return name == llvm::dwarf::DW_LNAME_C; }
 
-bool SourceLanguage::IsObjC() const {
+bool LanguageVersionPair::IsObjC() const {
   return name == llvm::dwarf::DW_LNAME_ObjC;
 }
 
-bool SourceLanguage::IsCPlusPlus() const {
+bool LanguageVersionPair::IsCPlusPlus() const {
   return name == llvm::dwarf::DW_LNAME_C_plus_plus;
 }

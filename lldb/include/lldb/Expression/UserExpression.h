@@ -56,7 +56,7 @@ public:
   ///     If not eResultTypeAny, the type to use for the expression
   ///     result.
   UserExpression(ExecutionContextScope &exe_scope, llvm::StringRef expr,
-                 llvm::StringRef prefix, SourceLanguage language,
+                 llvm::StringRef prefix, LanguageVersionPair language,
                  ResultType desired_type,
                  const EvaluateExpressionOptions &options);
 
@@ -202,7 +202,7 @@ public:
   virtual bool IsParseCacheable() { return true; }
   /// Return the language that should be used when parsing.  To use the
   /// default, return eLanguageTypeUnknown.
-  SourceLanguage Language() const override { return m_language; }
+  LanguageVersionPair Language() const override { return m_language; }
 
   /// Return the desired result type of the function, or eResultTypeAny if
   /// indifferent.
@@ -323,7 +323,7 @@ protected:
   /// fixed text doesn't parse.
   std::string m_fixed_text;
   /// The language to use when parsing (unknown means use defaults).
-  SourceLanguage m_language;
+  LanguageVersionPair m_language;
   /// The type to coerce the expression's result to. If eResultTypeAny, inferred
   /// from the expression.
   ResultType m_desired_type;

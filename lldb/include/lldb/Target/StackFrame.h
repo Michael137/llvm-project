@@ -474,11 +474,11 @@ public:
   /// parsing expressions given the execution context.
   ///
   /// \return   The language of the frame if known.
-  SourceLanguage GetLanguage();
+  LanguageVersionPair GetLanguage();
 
   /// Similar to GetLanguage(), but is allowed to take a potentially incorrect
   /// guess if exact information is not available.
-  SourceLanguage GuessLanguage();
+  LanguageVersionPair GuessLanguage();
 
   /// Attempt to econstruct the ValueObject for a given raw address touched by
   /// the current instruction.  The ExpressionPath should indicate how to get

@@ -507,7 +507,7 @@ public:
   }
 
   virtual UserExpression *GetUserExpression(
-      llvm::StringRef expr, llvm::StringRef prefix, SourceLanguage language,
+      llvm::StringRef expr, llvm::StringRef prefix, LanguageVersionPair language,
       Expression::ResultType desired_type,
       const EvaluateExpressionOptions &options, ValueObject *ctx_obj) {
     return nullptr;

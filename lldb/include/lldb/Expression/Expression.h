@@ -49,7 +49,7 @@ public:
   virtual const char *FunctionName() = 0;
 
   /// Return the language that should be used when parsing.
-  virtual SourceLanguage Language() const { return {}; }
+  virtual LanguageVersionPair Language() const { return {}; }
 
   /// Return the Materializer that the parser should use when registering
   /// external values.

@@ -47,7 +47,7 @@ ClangDynamicCheckerFunctions::Install(DiagnosticManager &diagnostic_manager,
     ObjCLanguageRuntime *objc_language_runtime =
         ObjCLanguageRuntime::Get(*process);
 
-    SourceLanguage lang = process->GetTarget().GetLanguage();
+    LanguageVersionPair lang = process->GetTarget().GetLanguage();
     if (!lang)
       if (auto *frame = exe_ctx.GetFramePtr())
         lang = frame->GetLanguage();

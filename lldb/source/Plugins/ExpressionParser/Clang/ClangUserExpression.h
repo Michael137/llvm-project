@@ -122,7 +122,7 @@ public:
   ///     must be evaluated. For details see the comment to
   ///     `UserExpression::Evaluate`.
   ClangUserExpression(ExecutionContextScope &exe_scope, llvm::StringRef expr,
-                      llvm::StringRef prefix, SourceLanguage language,
+                      llvm::StringRef prefix, LanguageVersionPair language,
                       ResultType desired_type,
                       const EvaluateExpressionOptions &options,
                       ValueObject *ctx_obj);

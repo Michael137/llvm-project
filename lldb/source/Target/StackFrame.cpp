@@ -1278,7 +1278,7 @@ bool StackFrame::IsHidden() {
 
 StructuredData::ObjectSP StackFrame::GetLanguageSpecificData() {
   auto process_sp = CalculateProcess();
-  SourceLanguage language = GetLanguage();
+  LanguageVersionPair language = GetLanguage();
   if (!language)
     return {};
   if (auto runtime_sp =
@@ -1341,23 +1341,23 @@ const char *StackFrame::GetDisplayFunctionName() {
   return name;
 }
 
-SourceLanguage StackFrame::GetLanguage() {
+LanguageVersionPair StackFrame::GetLanguage() {
   CompileUnit *cu = GetSymbolContext(eSymbolContextCompUnit).comp_unit;
   if (cu)
-    return SourceLanguage{cu->GetLanguage()};
+    return LanguageVersionPair{cu->GetLanguage()};
   return {};
 }
 
-SourceLanguage StackFrame::GuessLanguage() {
-  SourceLanguage lang_type = GetLanguage();
+LanguageVersionPair StackFrame::GuessLanguage() {
+  LanguageVersionPair lang_type = GetLanguage();
 
   if (!lang_type) {
     SymbolContext sc =
         GetSymbolContext(eSymbolContextFunction | eSymbolContextSymbol);
     if (sc.function)
-      lang_type = SourceLanguage(sc.function->GetMangled().GuessLanguage());
+      lang_type = LanguageVersionPair(sc.function->GetMangled().GuessLanguage());
     else if (sc.symbol)
-      lang_type = SourceLanguage(sc.symbol->GetMangled().GuessLanguage());
+      lang_type = LanguageVersionPair(sc.symbol->GetMangled().GuessLanguage());
   }
 
   return lang_type;

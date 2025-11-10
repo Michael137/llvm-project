@@ -95,7 +95,7 @@ void CommandObjectDWIMPrint::DoExecute(StringRef command,
   StackFrame *frame = m_exe_ctx.GetFramePtr();
 
   // Either the language was explicitly specified, or we check the frame.
-  SourceLanguage language{m_expr_options.language};
+  LanguageVersionPair language{m_expr_options.language};
   if (!language && frame)
     language = frame->GuessLanguage();
 

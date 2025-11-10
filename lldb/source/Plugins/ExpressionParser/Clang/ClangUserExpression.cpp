@@ -64,7 +64,7 @@ char ClangUserExpression::ID;
 
 ClangUserExpression::ClangUserExpression(
     ExecutionContextScope &exe_scope, llvm::StringRef expr,
-    llvm::StringRef prefix, SourceLanguage language, ResultType desired_type,
+    llvm::StringRef prefix, LanguageVersionPair language, ResultType desired_type,
     const EvaluateExpressionOptions &options, ValueObject *ctx_obj)
     : LLVMUserExpression(exe_scope, expr, prefix, language, desired_type,
                          options),

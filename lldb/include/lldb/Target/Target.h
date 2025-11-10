@@ -216,7 +216,7 @@ public:
 
   bool GetBreakpointsConsultPlatformAvoidList();
 
-  SourceLanguage GetLanguage() const;
+  LanguageVersionPair GetLanguage() const;
 
   llvm::StringRef GetExpressionPrefixContents();
 
@@ -330,10 +330,10 @@ public:
     m_execution_policy = policy;
   }
 
-  SourceLanguage GetLanguage() const { return m_language; }
+  LanguageVersionPair GetLanguage() const { return m_language; }
 
   void SetLanguage(lldb::LanguageType language_type) {
-    m_language = SourceLanguage(language_type);
+    m_language = LanguageVersionPair(language_type);
   }
 
   void SetPreferredSymbolContexts(SymbolContextList contexts) {
@@ -348,7 +348,7 @@ public:
   /// defined by the DWARF 6 specification.
   /// WARNING: These codes may change until DWARF 6 is finalized.
   void SetLanguage(uint16_t name, uint32_t version) {
-    m_language = SourceLanguage(name, version);
+    m_language = LanguageVersionPair(name, version);
   }
 
   bool DoesCoerceToId() const { return m_coerce_to_id; }
@@ -482,7 +482,7 @@ public:
 
 private:
   ExecutionPolicy m_execution_policy = default_execution_policy;
-  SourceLanguage m_language;
+  LanguageVersionPair m_language;
   std::string m_prefix;
   bool m_coerce_to_id = false;
   bool m_unwind_on_error = true;
@@ -1230,7 +1230,7 @@ public:
 
   UserExpression *
   GetUserExpressionForLanguage(llvm::StringRef expr, llvm::StringRef prefix,
-                               SourceLanguage language,
+                               LanguageVersionPair language,
                                Expression::ResultType desired_type,
                                const EvaluateExpressionOptions &options,
                                ValueObject *ctx_obj, Status &error);

@@ -545,7 +545,7 @@ namespace llvm {
         DIScope *Scope, StringRef Name, DIFile *File, unsigned LineNumber,
         uint64_t SizeInBits, uint32_t AlignInBits, uint64_t OffsetInBits,
         DINode::DIFlags Flags, DIType *DerivedFrom, DINodeArray Elements,
-        unsigned RunTimeLang = 0, DIType *VTableHolder = nullptr,
+        DISourceLanguageName RunTimeLang = DISourceLanguageName{0}, DIType *VTableHolder = nullptr,
         MDNode *TemplateParms = nullptr, StringRef UniqueIdentifier = "");
 
     /// Create debugging information entry for a struct.
@@ -567,7 +567,7 @@ namespace llvm {
     LLVM_ABI DICompositeType *createStructType(
         DIScope *Scope, StringRef Name, DIFile *File, unsigned LineNumber,
         Metadata *SizeInBits, uint32_t AlignInBits, DINode::DIFlags Flags,
-        DIType *DerivedFrom, DINodeArray Elements, unsigned RunTimeLang = 0,
+        DIType *DerivedFrom, DINodeArray Elements, DISourceLanguageName RunTimeLang = DISourceLanguageName{0},
         DIType *VTableHolder = nullptr, StringRef UniqueIdentifier = "",
         DIType *Specification = nullptr, uint32_t NumExtraInhabitants = 0);
 
@@ -590,7 +590,7 @@ namespace llvm {
     LLVM_ABI DICompositeType *createStructType(
         DIScope *Scope, StringRef Name, DIFile *File, unsigned LineNumber,
         uint64_t SizeInBits, uint32_t AlignInBits, DINode::DIFlags Flags,
-        DIType *DerivedFrom, DINodeArray Elements, unsigned RunTimeLang = 0,
+        DIType *DerivedFrom, DINodeArray Elements, DISourceLanguageName RunTimeLang = DISourceLanguageName{0},
         DIType *VTableHolder = nullptr, StringRef UniqueIdentifier = "",
         DIType *Specification = nullptr, uint32_t NumExtraInhabitants = 0);
 
@@ -609,7 +609,7 @@ namespace llvm {
     createUnionType(DIScope *Scope, StringRef Name, DIFile *File,
                     unsigned LineNumber, uint64_t SizeInBits,
                     uint32_t AlignInBits, DINode::DIFlags Flags,
-                    DINodeArray Elements, unsigned RunTimeLang = 0,
+                    DINodeArray Elements, DISourceLanguageName RunTimeLang = DISourceLanguageName{0},
                     StringRef UniqueIdentifier = "");
 
     /// Create debugging information entry for a variant part.  A
@@ -754,7 +754,7 @@ namespace llvm {
     LLVM_ABI DICompositeType *createEnumerationType(
         DIScope *Scope, StringRef Name, DIFile *File, unsigned LineNumber,
         uint64_t SizeInBits, uint32_t AlignInBits, DINodeArray Elements,
-        DIType *UnderlyingType, unsigned RunTimeLang = 0,
+        DIType *UnderlyingType, DISourceLanguageName RunTimeLang = DISourceLanguageName{0},
         StringRef UniqueIdentifier = "", bool IsScoped = false,
         std::optional<uint32_t> EnumKind = std::nullopt);
     /// Create debugging information entry for a set.
@@ -814,7 +814,7 @@ namespace llvm {
     /// Create a permanent forward-declared type.
     LLVM_ABI DICompositeType *
     createForwardDecl(unsigned Tag, StringRef Name, DIScope *Scope, DIFile *F,
-                      unsigned Line, unsigned RuntimeLang = 0,
+                      unsigned Line, DISourceLanguageName RuntimeLang = DISourceLanguageName{0},
                       uint64_t SizeInBits = 0, uint32_t AlignInBits = 0,
                       StringRef UniqueIdentifier = "",
                       std::optional<uint32_t> EnumKind = std::nullopt);
@@ -822,7 +822,7 @@ namespace llvm {
     /// Create a temporary forward-declared type.
     LLVM_ABI DICompositeType *createReplaceableCompositeType(
         unsigned Tag, StringRef Name, DIScope *Scope, DIFile *F, unsigned Line,
-        unsigned RuntimeLang = 0, uint64_t SizeInBits = 0,
+        DISourceLanguageName RuntimeLang = DISourceLanguageName{0}, uint64_t SizeInBits = 0,
         uint32_t AlignInBits = 0, DINode::DIFlags Flags = DINode::FlagFwdDecl,
         StringRef UniqueIdentifier = "", DINodeArray Annotations = nullptr,
         std::optional<uint32_t> EnumKind = std::nullopt);

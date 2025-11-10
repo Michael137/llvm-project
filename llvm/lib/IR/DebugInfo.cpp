@@ -1395,7 +1395,7 @@ LLVMMetadataRef LLVMDIBuilderCreateUnionType(
   return wrap(unwrap(Builder)->createUnionType(
      unwrapDI<DIScope>(Scope), {Name, NameLen}, unwrapDI<DIFile>(File),
      LineNumber, SizeInBits, AlignInBits, map_from_llvmDIFlags(Flags),
-     Elts, RunTimeLang, {UniqueId, UniqueIdLen}));
+     Elts, DISourceLanguageName{static_cast<uint16_t>(RunTimeLang)}, {UniqueId, UniqueIdLen}));
 }
 
 
@@ -1452,7 +1452,7 @@ LLVMMetadataRef LLVMDIBuilderCreateStructType(
   return wrap(unwrap(Builder)->createStructType(
       unwrapDI<DIScope>(Scope), {Name, NameLen}, unwrapDI<DIFile>(File),
       LineNumber, SizeInBits, AlignInBits, map_from_llvmDIFlags(Flags),
-      unwrapDI<DIType>(DerivedFrom), Elts, RunTimeLang,
+      unwrapDI<DIType>(DerivedFrom), Elts, DISourceLanguageName{static_cast<uint16_t>(RunTimeLang)},
       unwrapDI<DIType>(VTableHolder), {UniqueId, UniqueIdLen}));
 }
 
@@ -1546,7 +1546,7 @@ LLVMDIBuilderCreateForwardDecl(
     const char *UniqueIdentifier, size_t UniqueIdentifierLen) {
   return wrap(unwrap(Builder)->createForwardDecl(
                   Tag, {Name, NameLen}, unwrapDI<DIScope>(Scope),
-                  unwrapDI<DIFile>(File), Line, RuntimeLang, SizeInBits,
+                  unwrapDI<DIFile>(File), Line, DISourceLanguageName{static_cast<uint16_t>(RuntimeLang)}, SizeInBits,
                   AlignInBits, {UniqueIdentifier, UniqueIdentifierLen}));
 }
 
@@ -1559,7 +1559,7 @@ LLVMDIBuilderCreateReplaceableCompositeType(
     size_t UniqueIdentifierLen) {
   return wrap(unwrap(Builder)->createReplaceableCompositeType(
                   Tag, {Name, NameLen}, unwrapDI<DIScope>(Scope),
-                  unwrapDI<DIFile>(File), Line, RuntimeLang, SizeInBits,
+                  unwrapDI<DIFile>(File), Line, DISourceLanguageName{static_cast<uint16_t>(RuntimeLang)}, SizeInBits,
                   AlignInBits, map_from_llvmDIFlags(Flags),
                   {UniqueIdentifier, UniqueIdentifierLen}));
 }
@@ -1626,7 +1626,7 @@ LLVMMetadataRef LLVMDIBuilderCreateClassType(LLVMDIBuilderRef Builder,
       unwrapDI<DIScope>(Scope), {Name, NameLen}, unwrapDI<DIFile>(File),
       LineNumber, SizeInBits, AlignInBits, OffsetInBits,
       map_from_llvmDIFlags(Flags), unwrapDI<DIType>(DerivedFrom), Elts,
-      /*RunTimeLang=*/0, unwrapDI<DIType>(VTableHolder),
+      /*RunTimeLang=*/DISourceLanguageName{0}, unwrapDI<DIType>(VTableHolder),
       unwrapDI<MDNode>(TemplateParamsNode),
       {UniqueIdentifier, UniqueIdentifierLen}));
 }

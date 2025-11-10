@@ -5798,6 +5798,7 @@ bool LLParser::parseDICompositeType(MDNode *&Result, bool IsDistinct) {
   if (enumKind.Val != dwarf::DW_APPLE_ENUM_KIND_invalid)
     EnumKind = enumKind.Val;
 
+  // TODO: we have no way to tell from just the IR whether the runtimeLang field is versioned or not!!! We'd have to introduce a runtimeLangName field...
   // If this has an identifier try to build an ODR type.
   if (identifier.Val)
     if (auto *CT = DICompositeType::buildODRType(

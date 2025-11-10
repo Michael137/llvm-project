@@ -111,7 +111,7 @@ public:
 
   DISourceLanguageName(uint16_t Lang, uint32_t Version)
       : Version(Version), Name(Lang), HasVersion(true) {};
-  DISourceLanguageName(uint16_t Lang)
+  explicit DISourceLanguageName(uint16_t Lang)
       : Version(0), Name(Lang), HasVersion(false) {};
 };
 

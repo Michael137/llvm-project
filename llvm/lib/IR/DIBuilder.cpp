@@ -462,7 +462,7 @@ DIDerivedType *DIBuilder::createVariantMemberType(DIScope *Scope,
   auto *V = DICompositeType::get(VMContext, dwarf::DW_TAG_variant, {}, nullptr,
                                  0, getNonCompileUnitScope(Scope), {},
                                  (uint64_t)0, 0, (uint64_t)0, DINode::FlagZero,
-                                 Elements, 0, {}, nullptr);
+                                 Elements, /*RuntimeLang=*/DISourceLanguageName{0}, {}, nullptr);
 
   trackIfUnresolved(V);
   return createVariantMemberType(Scope, {}, nullptr, 0, 0, 0, 0, Discriminant,
@@ -573,7 +573,7 @@ DICompositeType *DIBuilder::createClassType(
     DIScope *Context, StringRef Name, DIFile *File, unsigned LineNumber,
     uint64_t SizeInBits, uint32_t AlignInBits, uint64_t OffsetInBits,
     DINode::DIFlags Flags, DIType *DerivedFrom, DINodeArray Elements,
-    unsigned RunTimeLang, DIType *VTableHolder, MDNode *TemplateParams,
+    DISourceLanguageName RunTimeLang, DIType *VTableHolder, MDNode *TemplateParams,
     StringRef UniqueIdentifier) {
   assert((!Context || isa<DIScope>(Context)) &&
          "createClassType should be called with a valid Context");
@@ -590,7 +590,7 @@ DICompositeType *DIBuilder::createClassType(
 DICompositeType *DIBuilder::createStructType(
     DIScope *Context, StringRef Name, DIFile *File, unsigned LineNumber,
     Metadata *SizeInBits, uint32_t AlignInBits, DINode::DIFlags Flags,
-    DIType *DerivedFrom, DINodeArray Elements, unsigned RunTimeLang,
+    DIType *DerivedFrom, DINodeArray Elements, DISourceLanguageName RunTimeLang,
     DIType *VTableHolder, StringRef UniqueIdentifier, DIType *Specification,
     uint32_t NumExtraInhabitants) {
   auto *R = DICompositeType::get(
@@ -606,7 +606,7 @@ DICompositeType *DIBuilder::createStructType(
 DICompositeType *DIBuilder::createStructType(
     DIScope *Context, StringRef Name, DIFile *File, unsigned LineNumber,
     uint64_t SizeInBits, uint32_t AlignInBits, DINode::DIFlags Flags,
-    DIType *DerivedFrom, DINodeArray Elements, unsigned RunTimeLang,
+    DIType *DerivedFrom, DINodeArray Elements, DISourceLanguageName RunTimeLang,
     DIType *VTableHolder, StringRef UniqueIdentifier, DIType *Specification,
     uint32_t NumExtraInhabitants) {
   auto *R = DICompositeType::get(
@@ -622,7 +622,7 @@ DICompositeType *DIBuilder::createStructType(
 DICompositeType *DIBuilder::createUnionType(
     DIScope *Scope, StringRef Name, DIFile *File, unsigned LineNumber,
     uint64_t SizeInBits, uint32_t AlignInBits, DINode::DIFlags Flags,
-    DINodeArray Elements, unsigned RunTimeLang, StringRef UniqueIdentifier) {
+    DINodeArray Elements, DISourceLanguageName RunTimeLang, StringRef UniqueIdentifier) {
   auto *R = DICompositeType::get(
       VMContext, dwarf::DW_TAG_union_type, Name, File, LineNumber,
       getNonCompileUnitScope(Scope), nullptr, SizeInBits, AlignInBits, 0, Flags,
@@ -641,7 +641,7 @@ DIBuilder::createVariantPart(DIScope *Scope, StringRef Name, DIFile *File,
   auto *R = DICompositeType::get(
       VMContext, dwarf::DW_TAG_variant_part, Name, File, LineNumber,
       getNonCompileUnitScope(Scope), nullptr, SizeInBits, AlignInBits, 0, Flags,
-      Elements, 0, /*EnumKind=*/std::nullopt, nullptr, nullptr,
+      Elements, /*RuntimeLang=*/DISourceLanguageName{0}, /*EnumKind=*/std::nullopt, nullptr, nullptr,
       UniqueIdentifier, Discriminator);
   trackIfUnresolved(R);
   return R;
@@ -656,7 +656,7 @@ DISubroutineType *DIBuilder::createSubroutineType(DITypeRefArray ParameterTypes,
 DICompositeType *DIBuilder::createEnumerationType(
     DIScope *Scope, StringRef Name, DIFile *File, unsigned LineNumber,
     uint64_t SizeInBits, uint32_t AlignInBits, DINodeArray Elements,
-    DIType *UnderlyingType, unsigned RunTimeLang, StringRef UniqueIdentifier,
+    DIType *UnderlyingType, DISourceLanguageName RunTimeLang, StringRef UniqueIdentifier,
     bool IsScoped, std::optional<uint32_t> EnumKind) {
   auto *CTy = DICompositeType::get(
       VMContext, dwarf::DW_TAG_enumeration_type, Name, File, LineNumber,
@@ -701,7 +701,7 @@ DICompositeType *DIBuilder::createArrayType(
   auto *R = DICompositeType::get(
       VMContext, dwarf::DW_TAG_array_type, Name, File, LineNumber,
       getNonCompileUnitScope(Scope), Ty, Size, AlignInBits, 0, DINode::FlagZero,
-      Subscripts, 0, /*EnumKind=*/std::nullopt, nullptr, nullptr, "", nullptr,
+      Subscripts, /*RuntimeLang=*/DISourceLanguageName{0}, /*EnumKind=*/std::nullopt, nullptr, nullptr, "", nullptr,
       isa<DIExpression *>(DL) ? (Metadata *)cast<DIExpression *>(DL)
                               : (Metadata *)cast<DIVariable *>(DL),
       isa<DIExpression *>(AS) ? (Metadata *)cast<DIExpression *>(AS)
@@ -724,7 +724,7 @@ DICompositeType *DIBuilder::createVectorType(uint64_t Size,
       /*File=*/nullptr, /*Line=*/0, /*Scope=*/nullptr, /*BaseType=*/Ty,
       /*SizeInBits=*/Size, /*AlignInBits=*/AlignInBits, /*OffsetInBits=*/0,
       /*Flags=*/DINode::FlagVector, /*Elements=*/Subscripts,
-      /*RuntimeLang=*/0, /*EnumKind=*/std::nullopt, /*VTableHolder=*/nullptr,
+      /*RuntimeLang=*/DISourceLanguageName{0}, /*EnumKind=*/std::nullopt, /*VTableHolder=*/nullptr,
       /*TemplateParams=*/nullptr, /*Identifier=*/"",
       /*Discriminator=*/nullptr, /*DataLocation=*/nullptr,
       /*Associated=*/nullptr, /*Allocated=*/nullptr, /*Rank=*/nullptr,
@@ -777,7 +777,7 @@ DIBasicType *DIBuilder::createUnspecifiedParameter() { return nullptr; }
 
 DICompositeType *DIBuilder::createForwardDecl(
     unsigned Tag, StringRef Name, DIScope *Scope, DIFile *F, unsigned Line,
-    unsigned RuntimeLang, uint64_t SizeInBits, uint32_t AlignInBits,
+    DISourceLanguageName RuntimeLang, uint64_t SizeInBits, uint32_t AlignInBits,
     StringRef UniqueIdentifier, std::optional<uint32_t> EnumKind) {
   // FIXME: Define in terms of createReplaceableForwardDecl() by calling
   // replaceWithUniqued().
@@ -791,7 +791,7 @@ DICompositeType *DIBuilder::createForwardDecl(
 
 DICompositeType *DIBuilder::createReplaceableCompositeType(
     unsigned Tag, StringRef Name, DIScope *Scope, DIFile *F, unsigned Line,
-    unsigned RuntimeLang, uint64_t SizeInBits, uint32_t AlignInBits,
+    DISourceLanguageName RuntimeLang, uint64_t SizeInBits, uint32_t AlignInBits,
     DINode::DIFlags Flags, StringRef UniqueIdentifier, DINodeArray Annotations,
     std::optional<uint32_t> EnumKind) {
   auto *RetTy =

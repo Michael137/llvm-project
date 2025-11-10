@@ -1034,7 +1034,7 @@ DICompositeType *DICompositeType::getImpl(
     LLVMContext &Context, unsigned Tag, MDString *Name, Metadata *File,
     unsigned Line, Metadata *Scope, Metadata *BaseType, Metadata *SizeInBits,
     uint32_t AlignInBits, Metadata *OffsetInBits, DIFlags Flags,
-    Metadata *Elements, unsigned RuntimeLang, std::optional<uint32_t> EnumKind,
+    Metadata *Elements, DISourceLanguageName RuntimeLang, std::optional<uint32_t> EnumKind,
     Metadata *VTableHolder, Metadata *TemplateParams, MDString *Identifier,
     Metadata *Discriminator, Metadata *DataLocation, Metadata *Associated,
     Metadata *Allocated, Metadata *Rank, Metadata *Annotations,
@@ -1065,7 +1065,7 @@ DICompositeType *DICompositeType::buildODRType(
     Metadata *File, unsigned Line, Metadata *Scope, Metadata *BaseType,
     Metadata *SizeInBits, uint32_t AlignInBits, Metadata *OffsetInBits,
     Metadata *Specification, uint32_t NumExtraInhabitants, DIFlags Flags,
-    Metadata *Elements, unsigned RuntimeLang, std::optional<uint32_t> EnumKind,
+    Metadata *Elements, DISourceLanguageName RuntimeLang, std::optional<uint32_t> EnumKind,
     Metadata *VTableHolder, Metadata *TemplateParams, Metadata *Discriminator,
     Metadata *DataLocation, Metadata *Associated, Metadata *Allocated,
     Metadata *Rank, Metadata *Annotations, Metadata *BitStride) {
@@ -1109,7 +1109,7 @@ DICompositeType *DICompositeType::getODRType(
     Metadata *File, unsigned Line, Metadata *Scope, Metadata *BaseType,
     Metadata *SizeInBits, uint32_t AlignInBits, Metadata *OffsetInBits,
     Metadata *Specification, uint32_t NumExtraInhabitants, DIFlags Flags,
-    Metadata *Elements, unsigned RuntimeLang, std::optional<uint32_t> EnumKind,
+    Metadata *Elements, DISourceLanguageName RuntimeLang, std::optional<uint32_t> EnumKind,
     Metadata *VTableHolder, Metadata *TemplateParams, Metadata *Discriminator,
     Metadata *DataLocation, Metadata *Associated, Metadata *Allocated,
     Metadata *Rank, Metadata *Annotations, Metadata *BitStride) {

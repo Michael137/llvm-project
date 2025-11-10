@@ -779,7 +779,7 @@ template <> struct MDNodeKeyImpl<DICompositeType> {
   uint32_t AlignInBits;
   unsigned Flags;
   Metadata *Elements;
-  unsigned RuntimeLang;
+  DISourceLanguageName RuntimeLang;
   Metadata *VTableHolder;
   Metadata *TemplateParams;
   MDString *Identifier;
@@ -796,7 +796,7 @@ template <> struct MDNodeKeyImpl<DICompositeType> {
   MDNodeKeyImpl(unsigned Tag, MDString *Name, Metadata *File, unsigned Line,
                 Metadata *Scope, Metadata *BaseType, Metadata *SizeInBits,
                 uint32_t AlignInBits, Metadata *OffsetInBits, unsigned Flags,
-                Metadata *Elements, unsigned RuntimeLang,
+                Metadata *Elements, DISourceLanguageName RuntimeLang,
                 Metadata *VTableHolder, Metadata *TemplateParams,
                 MDString *Identifier, Metadata *Discriminator,
                 Metadata *DataLocation, Metadata *Associated,
@@ -837,7 +837,7 @@ template <> struct MDNodeKeyImpl<DICompositeType> {
            AlignInBits == RHS->getAlignInBits() &&
            OffsetInBits == RHS->getRawOffsetInBits() &&
            Flags == RHS->getFlags() && Elements == RHS->getRawElements() &&
-           RuntimeLang == RHS->getRuntimeLang() &&
+           RuntimeLang.getName() == RHS->getRuntimeLang().getName() &&
            VTableHolder == RHS->getRawVTableHolder() &&
            TemplateParams == RHS->getRawTemplateParams() &&
            Identifier == RHS->getRawIdentifier() &&

@@ -1628,11 +1628,11 @@ class DICompositeType : public DIType {
 
   static constexpr unsigned MY_FIRST_OPERAND = DIType::N_OPERANDS;
 
-  unsigned RuntimeLang;
+  DISourceLanguageName RuntimeLang;
   std::optional<uint32_t> EnumKind;
 
   DICompositeType(LLVMContext &C, StorageType Storage, unsigned Tag,
-                  unsigned Line, unsigned RuntimeLang, uint32_t AlignInBits,
+                  unsigned Line, DISourceLanguageName RuntimeLang, uint32_t AlignInBits,
                   uint32_t NumExtraInhabitants,
                   std::optional<uint32_t> EnumKind, DIFlags Flags,
                   ArrayRef<Metadata *> Ops)
@@ -1642,7 +1642,7 @@ class DICompositeType : public DIType {
   ~DICompositeType() = default;
 
   /// Change fields in place.
-  void mutate(unsigned Tag, unsigned Line, unsigned RuntimeLang,
+  void mutate(unsigned Tag, unsigned Line, DISourceLanguageName RuntimeLang,
               uint32_t AlignInBits, uint32_t NumExtraInhabitants,
               std::optional<uint32_t> EnumKind, DIFlags Flags) {
     assert(isDistinct() && "Only distinct nodes can mutate");
@@ -1657,7 +1657,7 @@ class DICompositeType : public DIType {
           unsigned Line, DIScope *Scope, DIType *BaseType, uint64_t SizeInBits,
           uint32_t AlignInBits, uint64_t OffsetInBits, DIType *Specification,
           uint32_t NumExtraInhabitants, DIFlags Flags, DINodeArray Elements,
-          unsigned RuntimeLang, std::optional<uint32_t> EnumKind,
+          DISourceLanguageName RuntimeLang, std::optional<uint32_t> EnumKind,
           DIType *VTableHolder, DITemplateParameterArray TemplateParams,
           StringRef Identifier, DIDerivedType *Discriminator,
           Metadata *DataLocation, Metadata *Associated, Metadata *Allocated,
@@ -1680,7 +1680,7 @@ class DICompositeType : public DIType {
   getImpl(LLVMContext &Context, unsigned Tag, MDString *Name, Metadata *File,
           unsigned Line, Metadata *Scope, Metadata *BaseType,
           uint64_t SizeInBits, uint32_t AlignInBits, uint64_t OffsetInBits,
-          DIFlags Flags, Metadata *Elements, unsigned RuntimeLang,
+          DIFlags Flags, Metadata *Elements, DISourceLanguageName RuntimeLang,
           std::optional<uint32_t> EnumKind, Metadata *VTableHolder,
           Metadata *TemplateParams, MDString *Identifier,
           Metadata *Discriminator, Metadata *DataLocation, Metadata *Associated,
@@ -1703,7 +1703,7 @@ class DICompositeType : public DIType {
           unsigned Line, DIScope *Scope, DIType *BaseType, Metadata *SizeInBits,
           uint32_t AlignInBits, Metadata *OffsetInBits, DIType *Specification,
           uint32_t NumExtraInhabitants, DIFlags Flags, DINodeArray Elements,
-          unsigned RuntimeLang, std::optional<uint32_t> EnumKind,
+          DISourceLanguageName RuntimeLang, std::optional<uint32_t> EnumKind,
           DIType *VTableHolder, DITemplateParameterArray TemplateParams,
           StringRef Identifier, DIDerivedType *Discriminator,
           Metadata *DataLocation, Metadata *Associated, Metadata *Allocated,
@@ -1721,7 +1721,7 @@ class DICompositeType : public DIType {
   getImpl(LLVMContext &Context, unsigned Tag, MDString *Name, Metadata *File,
           unsigned Line, Metadata *Scope, Metadata *BaseType,
           Metadata *SizeInBits, uint32_t AlignInBits, Metadata *OffsetInBits,
-          DIFlags Flags, Metadata *Elements, unsigned RuntimeLang,
+          DIFlags Flags, Metadata *Elements, DISourceLanguageName RuntimeLang,
           std::optional<uint32_t> EnumKind, Metadata *VTableHolder,
           Metadata *TemplateParams, MDString *Identifier,
           Metadata *Discriminator, Metadata *DataLocation, Metadata *Associated,
@@ -1747,7 +1747,7 @@ public:
       (unsigned Tag, StringRef Name, DIFile *File, unsigned Line,
        DIScope *Scope, DIType *BaseType, uint64_t SizeInBits,
        uint32_t AlignInBits, uint64_t OffsetInBits, DIFlags Flags,
-       DINodeArray Elements, unsigned RuntimeLang,
+       DINodeArray Elements, DISourceLanguageName RuntimeLang,
        std::optional<uint32_t> EnumKind, DIType *VTableHolder,
        DITemplateParameterArray TemplateParams = nullptr,
        StringRef Identifier = "", DIDerivedType *Discriminator = nullptr,
@@ -1765,7 +1765,7 @@ public:
       (unsigned Tag, MDString *Name, Metadata *File, unsigned Line,
        Metadata *Scope, Metadata *BaseType, uint64_t SizeInBits,
        uint32_t AlignInBits, uint64_t OffsetInBits, DIFlags Flags,
-       Metadata *Elements, unsigned RuntimeLang,
+       Metadata *Elements, DISourceLanguageName RuntimeLang,
        std::optional<uint32_t> EnumKind, Metadata *VTableHolder,
        Metadata *TemplateParams = nullptr, MDString *Identifier = nullptr,
        Metadata *Discriminator = nullptr, Metadata *DataLocation = nullptr,
@@ -1783,7 +1783,7 @@ public:
       (unsigned Tag, StringRef Name, DIFile *File, unsigned Line,
        DIScope *Scope, DIType *BaseType, Metadata *SizeInBits,
        uint32_t AlignInBits, Metadata *OffsetInBits, DIFlags Flags,
-       DINodeArray Elements, unsigned RuntimeLang,
+       DINodeArray Elements, DISourceLanguageName RuntimeLang,
        std::optional<uint32_t> EnumKind, DIType *VTableHolder,
        DITemplateParameterArray TemplateParams = nullptr,
        StringRef Identifier = "", DIDerivedType *Discriminator = nullptr,
@@ -1801,7 +1801,7 @@ public:
       (unsigned Tag, MDString *Name, Metadata *File, unsigned Line,
        Metadata *Scope, Metadata *BaseType, Metadata *SizeInBits,
        uint32_t AlignInBits, Metadata *OffsetInBits, DIFlags Flags,
-       Metadata *Elements, unsigned RuntimeLang,
+       Metadata *Elements, DISourceLanguageName RuntimeLang,
        std::optional<uint32_t> EnumKind, Metadata *VTableHolder,
        Metadata *TemplateParams = nullptr, MDString *Identifier = nullptr,
        Metadata *Discriminator = nullptr, Metadata *DataLocation = nullptr,
@@ -1830,7 +1830,7 @@ public:
              Metadata *BaseType, Metadata *SizeInBits, uint32_t AlignInBits,
              Metadata *OffsetInBits, Metadata *Specification,
              uint32_t NumExtraInhabitants, DIFlags Flags, Metadata *Elements,
-             unsigned RuntimeLang, std::optional<uint32_t> EnumKind,
+             DISourceLanguageName RuntimeLang, std::optional<uint32_t> EnumKind,
              Metadata *VTableHolder, Metadata *TemplateParams,
              Metadata *Discriminator, Metadata *DataLocation,
              Metadata *Associated, Metadata *Allocated, Metadata *Rank,
@@ -1853,7 +1853,7 @@ public:
                Metadata *BaseType, Metadata *SizeInBits, uint32_t AlignInBits,
                Metadata *OffsetInBits, Metadata *Specification,
                uint32_t NumExtraInhabitants, DIFlags Flags, Metadata *Elements,
-               unsigned RuntimeLang, std::optional<uint32_t> EnumKind,
+               DISourceLanguageName RuntimeLang, std::optional<uint32_t> EnumKind,
                Metadata *VTableHolder, Metadata *TemplateParams,
                Metadata *Discriminator, Metadata *DataLocation,
                Metadata *Associated, Metadata *Allocated, Metadata *Rank,
@@ -1872,7 +1872,7 @@ public:
   StringRef getIdentifier() const {
     return getStringOperand(MY_FIRST_OPERAND + 4);
   }
-  unsigned getRuntimeLang() const { return RuntimeLang; }
+  DISourceLanguageName getRuntimeLang() const { return RuntimeLang; }
   std::optional<uint32_t> getEnumKind() const { return EnumKind; }
 
   Metadata *getRawBaseType() const { return getOperand(MY_FIRST_OPERAND); }

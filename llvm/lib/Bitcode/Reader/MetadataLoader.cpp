@@ -1697,7 +1697,7 @@ Error MetadataLoader::MetadataLoaderImpl::parseOneMetadata(
     uint32_t NumExtraInhabitants = (Record.size() > 22) ? Record[22] : 0;
     DINode::DIFlags Flags = static_cast<DINode::DIFlags>(Record[10]);
     Metadata *Elements = nullptr;
-    unsigned RuntimeLang = Record[12];
+
     std::optional<uint32_t> EnumKind;
 
     Metadata *VTableHolder = nullptr;
@@ -1771,6 +1771,14 @@ Error MetadataLoader::MetadataLoaderImpl::parseOneMetadata(
       EnumKind = Record[24];
 
     Metadata *SizeInBits = getMetadataOrConstant(SizeIsMetadata, Record[7]);
+
+    const auto LangVersionMask = (uint64_t(1) << 63);
+    const bool HasVersionedLanguage = Record[12] & LangVersionMask;
+    DISourceLanguageName RuntimeLang =
+        HasVersionedLanguage
+            ? DISourceLanguageName(Record[12] & ~LangVersionMask,
+                                   0)
+            : DISourceLanguageName(Record[12]);
 
     DICompositeType *CT = nullptr;
     if (Identifier)

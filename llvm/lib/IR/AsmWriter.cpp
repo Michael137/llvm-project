@@ -2313,8 +2313,14 @@ static void writeDICompositeType(raw_ostream &Out, const DICompositeType *N,
   Printer.printInt("num_extra_inhabitants", N->getNumExtraInhabitants());
   Printer.printDIFlags("flags", N->getFlags());
   Printer.printMetadata("elements", N->getRawElements());
-  Printer.printDwarfEnum("runtimeLang", N->getRuntimeLang(),
-                         dwarf::LanguageString);
+
+  if (DISourceLanguageName Lang = N->getRuntimeLang();
+      Lang.hasVersionedName())
+    Printer.printDwarfEnum("runtimeLang", static_cast<llvm::dwarf::SourceLanguageName>(Lang.getName()),
+                           dwarf::SourceLanguageNameString);
+  else
+    Printer.printDwarfEnum("runtimeLang", Lang.getName(),
+                           dwarf::LanguageString);
   Printer.printMetadata("vtableHolder", N->getRawVTableHolder());
   Printer.printMetadata("templateParams", N->getRawTemplateParams());
   Printer.printString("identifier", N->getIdentifier());

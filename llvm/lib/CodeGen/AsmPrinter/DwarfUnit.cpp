@@ -38,6 +38,11 @@ using namespace llvm;
 
 #define DEBUG_TYPE "dwarfdebug"
 
+static bool IsSwiftSourceLanguage(DISourceLanguageName RLang) {
+    return RLang.hasVersionedName() ? RLang.getName() == dwarf::DW_LANG_Swift
+                                            : RLang.getName() == dwarf::DW_LNAME_Swift;
+}
+
 DIEDwarfExpression::DIEDwarfExpression(const AsmPrinter &AP,
                                        DwarfCompileUnit &CU, DIELoc &DIE)
     : DwarfExpression(AP.getDwarfVersion(), CU), AP(AP), OutDIE(DIE) {}
@@ -675,18 +680,18 @@ void DwarfUnit::updateAcceleratorTables(const DIScope *Context,
   if (auto *CT = dyn_cast<DICompositeType>(Ty)) {
     // A runtime language of 0 actually means C/C++ and that any
     // non-negative value is some version of Objective-C/C++.
-    if (CT->getRuntimeLang() == 0 || CT->isObjcClassComplete())
+    if (CT->getRuntimeLang().getName() == 0 || CT->isObjcClassComplete())
       Flags = dwarf::DW_FLAG_type_implementation;
   }
 
   DD->addAccelType(*this, CUNode->getNameTableKind(), Ty->getName(), TyDIE,
                    Flags);
 
-  if (auto *CT = dyn_cast<DICompositeType>(Ty))
-    if (Ty->getName() != CT->getIdentifier() &&
-        CT->getRuntimeLang() == dwarf::DW_LANG_Swift)
+  if (auto *CT = dyn_cast<DICompositeType>(Ty)) {
+    if (Ty->getName() != CT->getIdentifier() && IsSwiftSourceLanguage(CT->getRuntimeLang()))
       DD->addAccelType(*this, CUNode->getNameTableKind(), CT->getIdentifier(),
                        TyDIE, Flags);
+  }
 
   addGlobalType(Ty, TyDIE, Context);
 }
@@ -1195,7 +1200,7 @@ void DwarfUnit::constructTypeDIE(DIE &Buffer, const DICompositeType *CTy) {
     addString(Buffer, dwarf::DW_AT_name, Name);
 
   // For Swift, mangled names are put into DW_AT_linkage_name.
-  if (CTy->getRuntimeLang() == dwarf::DW_LANG_Swift && CTy->getRawIdentifier())
+  if (IsSwiftSourceLanguage(CTy->getRuntimeLang()) && CTy->getRawIdentifier())
     addString(Buffer, dwarf::DW_AT_linkage_name, CTy->getIdentifier());
 
   addAnnotation(Buffer, CTy->getAnnotations());
@@ -1238,10 +1243,10 @@ void DwarfUnit::constructTypeDIE(DIE &Buffer, const DICompositeType *CTy) {
       addSourceLine(Buffer, CTy);
 
     // No harm in adding the runtime language to the declaration.
-    unsigned RLang = CTy->getRuntimeLang();
-    if (RLang)
+    DISourceLanguageName RLang = CTy->getRuntimeLang();
+    if (RLang.getName() > 0)
       addUInt(Buffer, dwarf::DW_AT_APPLE_runtime_class, dwarf::DW_FORM_data1,
-              RLang);
+              RLang.getName());
 
     // Add align info if available.
     if (uint32_t AlignInBytes = CTy->getAlignInBytes())

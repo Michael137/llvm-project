@@ -10,6 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "clang/AST/Mangle.h"
 #include "clang/AST/ASTContext.h"
 #include "clang/AST/Attr.h"
 #include "clang/AST/Decl.h"
@@ -1519,8 +1520,10 @@ void TypePrinter::AppendScope(DeclContext *DC, raw_ostream &OS,
 
   // FIXME: Consider replacing this with NamedDecl::printNestedNameSpecifier,
   // which can also print names for function and method scopes.
-  if (DC->isFunctionOrMethod())
+  if (DC->isFunctionOrMethod()) {
+    dyn_cast<NamedDecl>(DC)->printNestedNameSpecifier(OS, Policy);
     return;
+  }
 
   if (Policy.Callbacks && Policy.Callbacks->isScopeVisible(DC))
     return;
@@ -1587,6 +1590,9 @@ void TypePrinter::printTagType(const TagType *T, raw_ostream &OS) {
       OS << ' ';
   }
 
+  if (isa<CXXRecordDecl>(D) && cast<CXXRecordDecl>(D)->isLambda())
+    assert (D);
+
   if (!Policy.FullyQualifiedName && !T->isCanonicalUnqualified()) {
     T->getQualifier().print(OS, Policy);
   } else if (!Policy.SuppressScope) {
@@ -1604,10 +1610,42 @@ void TypePrinter::printTagType(const TagType *T, raw_ostream &OS) {
   } else {
     // Make an unambiguous representation for anonymous types, e.g.
     //   (anonymous enum at /usr/include/string.h:120:9)
-    OS << (Policy.MSVCFormatting ? '`' : '(');
+    //OS << (Policy.MSVCFormatting ? '`' : '(');
 
-    if (isa<CXXRecordDecl>(D) && cast<CXXRecordDecl>(D)->isLambda()) {
-      OS << "lambda";
+    const auto *CXX = dyn_cast<CXXRecordDecl>(D);
+    if (CXX->isLambda()) {
+      if (Policy.LambdaPrintingMode) {
+        std::string str;
+        llvm::raw_string_ostream rso(str);
+        if (auto * FD = dyn_cast<FunctionDecl>(CXX->getDeclContext())) {
+          const FunctionProtoType *FT = nullptr;
+          if (FD->hasWrittenPrototype())
+            FT = dyn_cast<FunctionProtoType>(FD->getType()->castAs<FunctionType>());
+
+          OS << *FD << '(';
+          if (FT) {
+            unsigned NumParams = FD->getNumParams();
+            for (unsigned i = 0; i < NumParams; ++i) {
+              if (i)
+                OS << ", ";
+              OS << FD->getParamDecl(i)->getType().stream(Policy);
+            }
+
+            if (FT->isVariadic()) {
+              if (NumParams > 0)
+                OS << ", ";
+              OS << "...";
+            }
+          }
+          OS << ')';
+        }
+        OS << "::";
+
+        //AppendScope(D, OS, D->getDeclName()); // TODO: AppendScope on DeclContext doesn't work properly if we use printNestedNameSpecifier...because printNestedNameSpecifier prints the scope of the thing passed to it, which in our case is 'foo' (not the lambda). What we really want is AppendScope to support scopes that are functions/methods...but maybe printNestedNameSpecifier isn't the right tool?....Or should we replace AppendScope with printNestedNameSpecifier
+        std::unique_ptr<MangleContext> MC(D->getASTContext().createMangleContext());
+        OS << MC->getLambdaString(CXX);
+      } else
+        OS << "lambda";
       HasKindDecoration = true;
     } else if ((isa<RecordDecl>(D) && cast<RecordDecl>(D)->isAnonymousStructOrUnion())) {
       OS << "anonymous";
@@ -1644,7 +1682,7 @@ void TypePrinter::printTagType(const TagType *T, raw_ostream &OS) {
       }
     }
 
-    OS << (Policy.MSVCFormatting ? '\'' : ')');
+    //OS << (Policy.MSVCFormatting ? '\'' : ')');
   }
 
   // If this is a class template specialization, print the template

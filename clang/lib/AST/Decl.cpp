@@ -1769,6 +1769,7 @@ void NamedDecl::printNestedNameSpecifier(raw_ostream &OS,
       continue;
 
     Contexts.push_back(Ctx);
+    auto tmp = Contexts[0];
     NameInScope = ND->getDeclName();
   }
 

@@ -79,7 +79,7 @@ struct PrintingPolicy {
         PrintAsCanonical(false), PrintInjectedClassNameWithArguments(true),
         UsePreferredNames(true), AlwaysIncludeTypeForTemplateArgument(false),
         CleanUglifiedParameters(false), EntireContentsOfLargeArray(true),
-        UseEnumerators(true), UseHLSLTypes(LO.HLSL) {}
+        UseEnumerators(true), UseHLSLTypes(LO.HLSL), LambdaPrintingMode(false) {}
 
   /// Adjust this printing policy for cases where it's known that we're
   /// printing C++ code (for instance, if AST dumping reaches a C++-only
@@ -345,6 +345,13 @@ struct PrintingPolicy {
   /// sugared types when possible.
   LLVM_PREFERRED_TYPE(bool)
   unsigned UseHLSLTypes : 1;
+
+  // TODO:
+  // * print scopes for lambdas
+  // * print lambda numbering
+  // * add locations if AnonymousTagLocations specified
+  LLVM_PREFERRED_TYPE(bool)
+  unsigned LambdaPrintingMode : 1;
 
   /// Callbacks to use to allow the behavior of printing to be customized.
   const PrintingCallbacks *Callbacks = nullptr;

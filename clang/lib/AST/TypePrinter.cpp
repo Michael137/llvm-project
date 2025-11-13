@@ -1521,7 +1521,7 @@ void TypePrinter::AppendScope(DeclContext *DC, raw_ostream &OS,
   // FIXME: Consider replacing this with NamedDecl::printNestedNameSpecifier,
   // which can also print names for function and method scopes.
   if (DC->isFunctionOrMethod()) {
-    dyn_cast<NamedDecl>(DC)->printNestedNameSpecifier(OS, Policy);
+    //dyn_cast<NamedDecl>(DC)->printNestedNameSpecifier(OS, Policy);
     return;
   }
 
@@ -1618,6 +1618,8 @@ void TypePrinter::printTagType(const TagType *T, raw_ostream &OS) {
         std::string str;
         llvm::raw_string_ostream rso(str);
         if (auto * FD = dyn_cast<FunctionDecl>(CXX->getDeclContext())) {
+          // TODO: instead of this, have AppendScope also print using function scopes.
+          FD->printNestedNameSpecifier(OS, Policy);
           const FunctionProtoType *FT = nullptr;
           if (FD->hasWrittenPrototype())
             FT = dyn_cast<FunctionProtoType>(FD->getType()->castAs<FunctionType>());

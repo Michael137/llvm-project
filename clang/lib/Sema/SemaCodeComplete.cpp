@@ -2043,7 +2043,7 @@ static bool WantTypesInContext(SemaCodeCompletion::ParserCompletionContext CCC,
 static PrintingPolicy getCompletionPrintingPolicy(const ASTContext &Context,
                                                   const Preprocessor &PP) {
   PrintingPolicy Policy = Sema::getPrintingPolicy(Context, PP);
-  Policy.AnonymousTagLocations = false;
+  Policy.AnonymousTagStyle = PrintingPolicy::AnonymousTagStyle::Plain;
   Policy.SuppressStrongLifetime = true;
   Policy.SuppressUnwrittenScope = true;
   Policy.CleanUglifiedParameters = true;

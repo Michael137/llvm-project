@@ -315,14 +315,14 @@ TEST(TypePrinter, NestedNameSpecifiers) {
       Code, {}, varDecl(hasName("imem"), hasType(qualType().bind("id"))),
       "struct (unnamed)", [](PrintingPolicy &Policy) {
         Policy.FullyQualifiedName = true;
-        Policy.AnonymousTagLocations = false;
+        Policy.AnonymousTagStyle = PrintingPolicy::AnonymousTagStyle::Plain;
       }));
 
   ASSERT_TRUE(PrintedTypeMatches(
       Code, {}, varDecl(hasName("imem"), hasType(qualType().bind("id"))),
       "struct (unnamed)", [](PrintingPolicy &Policy) {
         Policy.FullyQualifiedName = false;
-        Policy.AnonymousTagLocations = false;
+        Policy.AnonymousTagStyle = PrintingPolicy::AnonymousTagStyle::Plain;
       }));
 
   // Further levels of nesting print the entire scope.
@@ -331,14 +331,14 @@ TEST(TypePrinter, NestedNameSpecifiers) {
       "union level1()::Inner::Inner(int)::(anonymous struct)::(unnamed)",
       [](PrintingPolicy &Policy) {
         Policy.FullyQualifiedName = true;
-        Policy.AnonymousTagLocations = false;
+        Policy.AnonymousTagStyle = PrintingPolicy::AnonymousTagStyle::Plain;
       }));
 
   ASSERT_TRUE(PrintedTypeMatches(
       Code, {}, fieldDecl(hasName("u"), hasType(qualType().bind("id"))),
       "union (unnamed)", [](PrintingPolicy &Policy) {
         Policy.FullyQualifiedName = false;
-        Policy.AnonymousTagLocations = false;
+        Policy.AnonymousTagStyle = PrintingPolicy::AnonymousTagStyle::Plain;
       }));
 }
 

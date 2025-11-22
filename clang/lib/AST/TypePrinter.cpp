@@ -1560,7 +1560,8 @@ void TypePrinter::printTagType(const TagType *T, raw_ostream &OS) {
       OS << "unnamed";
     }
 
-    if (Policy.AnonymousTagLocations) {
+    if (Policy.AnonymousTagStyle ==
+        PrintingPolicy::AnonymousTagStyle::SourceLocations) {
       // Suppress the redundant tag keyword if we just printed one.
       // We don't have to worry about ElaboratedTypes here because you can't
       // refer to an anonymous type with one.

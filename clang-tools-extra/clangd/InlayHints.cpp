@@ -390,8 +390,9 @@ public:
     MainFileBuf = Invalid ? StringRef{} : Buf;
 
     TypeHintPolicy.SuppressScope = true; // keep type names short
-    TypeHintPolicy.AnonymousTagLocations =
-        false; // do not print lambda locations
+    TypeHintPolicy.AnonymousTagStyle =
+        PrintingPolicy::AnonymousTagStyle::Plain; // do not print lambda
+                                                  // locations
 
     // Not setting PrintCanonicalTypes for "auto" allows
     // SuppressDefaultTemplateArgs (set by default) to have an effect.

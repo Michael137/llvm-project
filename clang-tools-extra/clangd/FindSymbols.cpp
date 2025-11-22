@@ -192,7 +192,7 @@ std::string getSymbolDetail(ASTContext &Ctx, const NamedDecl &ND) {
   PrintingPolicy P(Ctx.getPrintingPolicy());
   P.SuppressScope = true;
   P.SuppressUnwrittenScope = true;
-  P.AnonymousTagLocations = false;
+  P.AnonymousTagStyle = PrintingPolicy::AnonymousTagStyle::Plain;
   P.PolishForDeclaration = true;
   std::string Detail;
   llvm::raw_string_ostream OS(Detail);

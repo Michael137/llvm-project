@@ -492,7 +492,7 @@ struct BuiltinDumpStructGenerator {
   BuiltinDumpStructGenerator(Sema &S, CallExpr *TheCall)
       : S(S), TheCall(TheCall), ErrorTracker(S.getDiagnostics()),
         Policy(S.Context.getPrintingPolicy()) {
-    Policy.AnonymousTagLocations = false;
+    Policy.AnonymousTagStyle = PrintingPolicy::AnonymousTagStyle::Plain;
   }
 
   Expr *makeOpaqueValueExpr(Expr *Inner) {

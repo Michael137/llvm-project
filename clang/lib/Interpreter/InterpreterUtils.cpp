@@ -107,7 +107,7 @@ std::string GetFullTypeName(ASTContext &Ctx, QualType QT) {
   QualType FQT = TypeName::getFullyQualifiedType(QT, Ctx);
   PrintingPolicy Policy(Ctx.getPrintingPolicy());
   Policy.SuppressScope = false;
-  Policy.AnonymousTagLocations = false;
+  Policy.AnonymousTagStyle = PrintingPolicy::AnonymousTagStyle::Plain;
   return FQT.getAsString(Policy);
 }
 } // namespace clang

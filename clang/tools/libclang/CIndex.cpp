@@ -5654,7 +5654,8 @@ clang_PrintingPolicy_getProperty(CXPrintingPolicy Policy,
   case CXPrintingPolicy_ConstantArraySizeAsWritten:
     return P->ConstantArraySizeAsWritten;
   case CXPrintingPolicy_AnonymousTagLocations:
-    return P->AnonymousTagLocations;
+    return P->AnonymousTagStyle ==
+           PrintingPolicy::AnonymousTagStyle::SourceLocations;
   case CXPrintingPolicy_SuppressStrongLifetime:
     return P->SuppressStrongLifetime;
   case CXPrintingPolicy_SuppressLifetimeQualifiers:
@@ -5728,7 +5729,9 @@ void clang_PrintingPolicy_setProperty(CXPrintingPolicy Policy,
     P->ConstantArraySizeAsWritten = Value;
     return;
   case CXPrintingPolicy_AnonymousTagLocations:
-    P->AnonymousTagLocations = Value;
+    P->AnonymousTagStyle =
+        Value ? PrintingPolicy::AnonymousTagStyle::SourceLocations
+              : PrintingPolicy::AnonymousTagStyle::Plain;
     return;
   case CXPrintingPolicy_SuppressStrongLifetime:
     P->SuppressStrongLifetime = Value;

@@ -70,7 +70,7 @@ namespace clangd {
 namespace {
 
 PrintingPolicy getPrintingPolicy(PrintingPolicy Base) {
-  Base.AnonymousTagLocations = false;
+  Base.AnonymousTagStyle = PrintingPolicy::AnonymousTagStyle::Plain;
   Base.TerseOutput = true;
   Base.PolishForDeclaration = true;
   Base.ConstantsAsWritten = true;

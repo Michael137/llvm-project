@@ -216,7 +216,7 @@ std::string printQualifiedName(const NamedDecl &ND) {
   Policy.SuppressScope = true;
   // (unnamed struct), not (unnamed struct at /path/to/foo.cc:42:1).
   // In clangd, context is usually available and paths are mostly noise.
-  Policy.AnonymousTagLocations = false;
+  Policy.AnonymousTagStyle = PrintingPolicy::AnonymousTagStyle::Plain;
   ND.printQualifiedName(OS, Policy);
   assert(!StringRef(QName).starts_with("::"));
   return QName;

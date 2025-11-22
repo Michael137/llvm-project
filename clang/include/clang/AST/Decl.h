@@ -358,8 +358,8 @@ public:
   ///    when `printQualifiedName(D)` prints "A::B::i",
   ///    this function prints "A::B::".
   void printNestedNameSpecifier(raw_ostream &OS) const;
-  void printNestedNameSpecifier(raw_ostream &OS,
-                                const PrintingPolicy &Policy) const;
+  void printNestedNameSpecifier(raw_ostream &OS, const PrintingPolicy &Policy,
+                                bool ForceFullScope = false) const;
 
   // FIXME: Remove string version.
   std::string getQualifiedNameAsString() const;

@@ -65,6 +65,14 @@ struct PrintingPolicy {
     /// entity (e.g., "enum <anonymous at t.h:10:5>"). Otherwise, just prints
     /// "(anonymous)" for the name.
     SourceLocations,
+
+    /// Include full nested name specifiers and mangling number to form an
+    /// unambiguous name. E.g.,
+    /// \code{.cpp}
+    ///   // TODO: does the unnamed struct in the scope also have a mangling number?
+    ///   func()::(unnamed struct)::func2()::lambda1
+    /// \endcode
+    ScopedUnique,
   };
 
   /// Create a default printing policy for the specified language.

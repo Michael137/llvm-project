@@ -1711,8 +1711,8 @@ void NamedDecl::printQualifiedName(raw_ostream &OS,
   }
 }
 
-static bool shouldPrintContext(const DeclContext *Ctx, const PrintingPolicy &P,
-                               DeclarationName NameInScope) {
+static bool shouldPrintScope(const DeclContext *Ctx, PrintingPolicy P,
+                             DeclarationName NameInScope) {
   if (P.Callbacks && P.Callbacks->isScopeVisible(Ctx))
     return false;
 
@@ -1745,7 +1745,8 @@ void NamedDecl::printNestedNameSpecifier(raw_ostream &OS) const {
 }
 
 void NamedDecl::printNestedNameSpecifier(raw_ostream &OS,
-                                         const PrintingPolicy &P) const {
+                                         const PrintingPolicy &P,
+                                         bool ForceFullScope) const {
   const DeclContext *Ctx = getDeclContext();
 
   // For ObjC methods and properties, look through categories and use the
@@ -1762,7 +1763,7 @@ void NamedDecl::printNestedNameSpecifier(raw_ostream &OS,
       Ctx = CI;
   }
 
-  if (Ctx->isFunctionOrMethod())
+  if (Ctx->isFunctionOrMethod() && !ForceFullScope)
     return;
 
   using ContextsTy = SmallVector<const DeclContext *, 8>;
@@ -1770,8 +1771,9 @@ void NamedDecl::printNestedNameSpecifier(raw_ostream &OS,
 
   // Collect named contexts.
   DeclarationName NameInScope = getDeclName();
+
   for (; Ctx; Ctx = Ctx->getParent()) {
-    if (!shouldPrintContext(Ctx, P, NameInScope))
+    if (!ForceFullScope && !shouldPrintScope(Ctx, P, NameInScope))
       continue;
 
     // Skip non-named contexts such as linkage specifications and ExportDecls.
@@ -1800,9 +1802,34 @@ void NamedDecl::printNestedNameSpecifier(raw_ostream &OS,
     } else if (const auto *RD = dyn_cast<RecordDecl>(DC)) {
       if (TypedefNameDecl *TD = RD->getTypedefNameForAnonDecl())
         OS << *TD;
-      else if (!RD->getIdentifier())
-        OS << "(anonymous " << RD->getKindName() << ')';
-      else
+      else if (!RD->getIdentifier()) {
+        if (!ForceFullScope) {
+          OS << "(anonymous " << RD->getKindName() << ')';
+        } else {
+            bool HasKindDecoration = false;
+            OS << "(";
+            if (isa<CXXRecordDecl>(RD) && cast<CXXRecordDecl>(RD)->isLambda()) {
+              OS << "lambda";
+              HasKindDecoration = true;
+            } else if ((isa<RecordDecl>(RD) &&
+                        cast<RecordDecl>(RD)->isAnonymousStructOrUnion())) {
+              OS << "anonymous";
+            } else {
+              OS << "unnamed";
+            }
+
+            if (P.AnonymousTagStyle ==
+                PrintingPolicy::AnonymousTagStyle::ScopedUnique) {
+              if (const auto *CXX = llvm::dyn_cast<CXXRecordDecl>(RD);
+                  CXX && CXX->isLambda())
+                  OS << CXX->getLambdaManglingNumber();
+              else
+                  OS << RD->getASTContext().getManglingNumber(RD);
+            }
+
+            OS << ")";
+        }
+      } else
         OS << *RD;
     } else if (const auto *FD = dyn_cast<FunctionDecl>(DC)) {
       const FunctionProtoType *FT = nullptr;
@@ -1838,7 +1865,8 @@ void NamedDecl::printNestedNameSpecifier(raw_ostream &OS,
       else
         continue;
     } else {
-      OS << *cast<NamedDecl>(DC);
+      const auto *ND = cast<NamedDecl>(DC);
+      OS << *ND;
     }
     OS << "::";
   }

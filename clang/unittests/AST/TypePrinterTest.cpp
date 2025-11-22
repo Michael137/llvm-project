@@ -12,6 +12,7 @@
 
 #include "ASTPrint.h"
 #include "clang/AST/ASTContext.h"
+#include "clang/AST/PrettyPrinter.h"
 #include "clang/ASTMatchers/ASTMatchFinder.h"
 #include "clang/Tooling/Tooling.h"
 #include "llvm/ADT/SmallString.h"
@@ -357,6 +358,141 @@ TEST(TypePrinter, NestedNameSpecifiersTypedef) {
       Code, {}, fieldDecl(hasName("bar"), hasType(qualType().bind("id"))),
       "struct foo::(anonymous struct)::(unnamed)", [](PrintingPolicy &Policy) {
         Policy.FullyQualifiedName = true;
-        Policy.AnonymousTagLocations = false;
+        Policy.AnonymousTagStyle = PrintingPolicy::AnonymousTagStyle::Plain;
+      }));
+}
+
+TEST(TypePrinter, AnonymousTag_UniqueScoped) {
+  constexpr char Code[] = R"cpp(
+    void level1() {
+      struct Inner {
+        Inner(int) {
+          struct {
+            union {} u;
+            enum {} e;
+          } unnamed;
+        }
+      };
+    }
+  )cpp";
+
+  // Unnamed union
+  ASSERT_TRUE(PrintedTypeMatches(
+      Code, {}, fieldDecl(hasName("u"), hasType(qualType().bind("id"))), "union level1()::Inner::Inner(int)::(unnamed1)::(unnamed1)",
+      [](PrintingPolicy &Policy) {
+        Policy.AnonymousTagStyle =
+            PrintingPolicy::AnonymousTagStyle::ScopedUnique;
+      }));
+
+  // Unnamed enum
+  ASSERT_TRUE(PrintedTypeMatches(
+      Code, {}, fieldDecl(hasName("e"), hasType(qualType().bind("id"))), "enum level1()::Inner::Inner(int)::(unnamed1)::(unnamed2)",
+      [](PrintingPolicy &Policy) {
+        Policy.AnonymousTagStyle =
+            PrintingPolicy::AnonymousTagStyle::ScopedUnique;
+      }));
+
+  // TODO: lambdas in scope
+
+  // lambda
+  // ???
+
+  // Anonymous struct
+  // ???
+
+  // Anonymous union
+  // ???
+
+  // Anonymous enum
+  // ???
+}
+
+TEST(TypePrinter, AnonymousTag_UniqueScoped_Lambda) {
+  constexpr char Code[] = R"cpp(
+    //void level1() {
+    //  struct Inner {
+    //    Inner(int) {
+    //      struct { void method() {} } unnamed;
+    //      auto l = []{};
+    //      l();
+    //      auto *lp = &l;
+
+    //      auto l2 = [](int){};
+    //      l2(1);
+    //      auto *lp2 = &l2;
+    //    }
+    //  };
+    //}
+    template <typename T> void func() {}
+
+    void level1() {
+      struct Inner {
+        Inner(int) {
+          // $_0
+          union {
+            void method2() {
+              func<decltype([] {})>();
+            }
+          } first;
+          first.method2();
+    
+          // $_1
+          union {
+            void func() {}
+          } second;
+    
+          // Lambda numbering only assigned when type is not POD (has a method)?
+          union { int mem; } third;
+    
+          // $_0
+          struct {
+            union {
+              int umem;
+            } c;
+    
+            int smem;
+            void method() {
+              func<decltype([] {})>(); // -1
+              func<decltype([] {})>(); // 0
+              // void func<level1()::Inner::Inner(int)::$_0::method()::'lambda'()>()
+              func<decltype([] {})>(); // 1
+
+              struct {} f;
+              struct {} s;
+              struct {} d;
+              struct {} ft;
+
+              auto l01 = []{}; // 2
+              auto l02 = []{}; // 3
+              auto l03 = [](int){}; // 4
+              auto l04 = [](int){}; // 5
+              auto l0 = []{}; // 6
+              auto *lp0 = &l0;
+              auto l = []{}; // 7
+              auto *lp = &l;
+              auto l2 = []{};
+              auto *lp2 = &ft;
+            }
+          } imem;
+          imem.method();
+        }
+      };
+    
+      Inner i(5);
+    }
+  )cpp";
+  
+//   ASSERT_TRUE(PrintedTypeMatches(
+//      Code, {"-std=c++20"}, varDecl(hasName("lp"), hasType(qualType().bind("id"))), "level1()::Inner::Inner(int)::(lambda1) *",
+//      [](PrintingPolicy &Policy) {
+//        Policy.AnonymousTagStyle =
+//            PrintingPolicy::AnonymousTagStyle::ScopedUnique;
+//      }));
+
+   ASSERT_TRUE(PrintedTypeMatches(
+      Code, {"-std=c++20"}, varDecl(hasName("lp"), hasType(qualType().bind("id"))), "level1()::Inner::Inner(int)::(unnamed4)::method()::(lambda7) *",
+      [](PrintingPolicy &Policy) {
+        Policy.AnonymousTagStyle =
+            PrintingPolicy::AnonymousTagStyle::ScopedUnique;
       }));
 }

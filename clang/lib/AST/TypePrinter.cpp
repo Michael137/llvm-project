@@ -1524,6 +1524,15 @@ static void printAnonymousTag(const TagDecl *D, raw_ostream &OS,
   }
 
   if (Policy.AnonymousTagStyle ==
+      PrintingPolicy::AnonymousTagStyle::ScopedUnique) {
+    if (const auto *CXX = llvm::dyn_cast<CXXRecordDecl>(D);
+        CXX && CXX->isLambda())
+        OS << CXX->getLambdaManglingNumber();
+    else
+        OS << D->getASTContext().getManglingNumber(D);
+  }
+
+  if (Policy.AnonymousTagStyle ==
       PrintingPolicy::AnonymousTagStyle::SourceLocations) {
     // Suppress the redundant tag keyword if we just printed one.
     // We don't have to worry about ElaboratedTypes here because you can't
@@ -1582,20 +1591,29 @@ void TypePrinter::printTagType(const TagType *T, raw_ostream &OS) {
       OS << ' ';
   }
 
-  if (!Policy.FullyQualifiedName && !T->isCanonicalUnqualified()) {
+  const IdentifierInfo *II = D->getIdentifier();
+  const TypedefNameDecl *AnonTypedef = D->getTypedefNameForAnonDecl();
+  const bool PrintingUniqueAnonymousTag =
+      Policy.AnonymousTagStyle ==
+          PrintingPolicy::AnonymousTagStyle::ScopedUnique &&
+      !II && !AnonTypedef;
+
+  if (!Policy.FullyQualifiedName && !T->isCanonicalUnqualified() &&
+      !PrintingUniqueAnonymousTag) {
     T->getQualifier().print(OS, Policy);
-  } else if (!Policy.SuppressScope) {
+  } else if (!Policy.SuppressScope || PrintingUniqueAnonymousTag) {
     // Compute the full nested-name-specifier for this type.
     // In C, this will always be empty except when the type
     // being printed is anonymous within other Record.
-    D->printNestedNameSpecifier(OS, Policy);
+    D->printNestedNameSpecifier(OS, Policy,
+                                /*ForceFullScope=*/PrintingUniqueAnonymousTag);
   }
 
-  if (const IdentifierInfo *II = D->getIdentifier())
+  if (II)
     OS << II->getName();
-  else if (TypedefNameDecl *Typedef = D->getTypedefNameForAnonDecl()) {
-    assert(Typedef->getIdentifier() && "Typedef without identifier?");
-    OS << Typedef->getIdentifier()->getName();
+  else if (AnonTypedef) {
+    assert(AnonTypedef->getIdentifier() && "Typedef without identifier?");
+    OS << AnonTypedef->getIdentifier()->getName();
   } else
     printAnonymousTag(D, OS, Policy, HasKindDecoration);
 

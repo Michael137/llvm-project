@@ -1711,6 +1711,35 @@ void NamedDecl::printQualifiedName(raw_ostream &OS,
   }
 }
 
+static bool shouldPrintContext(const DeclContext *Ctx, const PrintingPolicy &P,
+                               DeclarationName NameInScope) {
+  if (P.Callbacks && P.Callbacks->isScopeVisible(Ctx))
+    return false;
+
+  // Suppress anonymous namespace if requested.
+  if (P.SuppressUnwrittenScope && isa<NamespaceDecl>(Ctx) &&
+      cast<NamespaceDecl>(Ctx)->isAnonymousNamespace())
+    return false;
+
+  // Suppress inline namespace if it doesn't make the result ambiguous.
+  if (Ctx->isInlineNamespace() && NameInScope) {
+    if (P.SuppressInlineNamespace ==
+            PrintingPolicy::SuppressInlineNamespaceMode::All ||
+        (P.SuppressInlineNamespace ==
+             PrintingPolicy::SuppressInlineNamespaceMode::Redundant &&
+         cast<NamespaceDecl>(Ctx)->isRedundantInlineQualifierFor(
+             NameInScope))) {
+      return false;
+    }
+  }
+
+  // Suppress transparent contexts like export or HLSLBufferDecl context
+  if (Ctx->isTransparentContext())
+    return false;
+
+  return true;
+}
+
 void NamedDecl::printNestedNameSpecifier(raw_ostream &OS) const {
   printNestedNameSpecifier(OS, getASTContext().getPrintingPolicy());
 }
@@ -1742,28 +1771,7 @@ void NamedDecl::printNestedNameSpecifier(raw_ostream &OS,
   // Collect named contexts.
   DeclarationName NameInScope = getDeclName();
   for (; Ctx; Ctx = Ctx->getParent()) {
-    if (P.Callbacks && P.Callbacks->isScopeVisible(Ctx))
-      continue;
-
-    // Suppress anonymous namespace if requested.
-    if (P.SuppressUnwrittenScope && isa<NamespaceDecl>(Ctx) &&
-        cast<NamespaceDecl>(Ctx)->isAnonymousNamespace())
-      continue;
-
-    // Suppress inline namespace if it doesn't make the result ambiguous.
-    if (Ctx->isInlineNamespace() && NameInScope) {
-      if (P.SuppressInlineNamespace ==
-              PrintingPolicy::SuppressInlineNamespaceMode::All ||
-          (P.SuppressInlineNamespace ==
-               PrintingPolicy::SuppressInlineNamespaceMode::Redundant &&
-           cast<NamespaceDecl>(Ctx)->isRedundantInlineQualifierFor(
-               NameInScope))) {
-        continue;
-      }
-    }
-
-    // Suppress transparent contexts like export or HLSLBufferDecl context
-    if (Ctx->isTransparentContext())
+    if (!shouldPrintContext(Ctx, P, NameInScope))
       continue;
 
     // Skip non-named contexts such as linkage specifications and ExportDecls.

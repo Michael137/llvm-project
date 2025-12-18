@@ -8,6 +8,7 @@
 
 #include "ClangASTSource.h"
 
+#include "ClangASTImporter.h"
 #include "ClangModulesDeclVendor.h"
 
 #include "lldb/Core/Module.h"
@@ -62,7 +63,9 @@ void ClangASTSource::InstallASTContext(TypeSystemClang &clang_ast_context) {
   m_ast_context = &clang_ast_context.getASTContext();
   m_clang_ast_context = &clang_ast_context;
   m_file_manager = &m_ast_context->getSourceManager().getFileManager();
-  m_ast_importer_sp->InstallMapCompleter(m_ast_context, *this);
+  m_ast_importer_sp->InstallMapCompleter(
+      m_ast_context, std::make_unique<ClangASTImporter::MapCompleter>(
+                         *m_clang_ast_context, *m_target));
 }
 
 ClangASTSource::~ClangASTSource() {
@@ -1355,80 +1358,6 @@ bool ClangASTSource::layoutRecordType(
   return m_ast_importer_sp->importRecordLayoutFromOrigin(
       record, size, alignment, field_offsets, base_offsets,
       virtual_base_offsets);
-}
-
-void ClangASTSource::CompleteNamespaceMap(
-    ClangASTImporter::NamespaceMapSP &namespace_map, ConstString name,
-    ClangASTImporter::NamespaceMapSP &parent_map) const {
-
-  Log *log = GetLog(LLDBLog::Expressions);
-
-  if (log) {
-    if (parent_map && parent_map->size())
-      LLDB_LOG(log,
-               "CompleteNamespaceMap on (ASTContext*){0:x} '{1}' Searching "
-               "for namespace {2} in namespace {3}",
-               m_ast_context, m_clang_ast_context->getDisplayName(), name,
-               parent_map->begin()->second.GetName());
-    else
-      LLDB_LOG(log,
-               "CompleteNamespaceMap on (ASTContext*){0} '{1}' Searching "
-               "for namespace {2}",
-               m_ast_context, m_clang_ast_context->getDisplayName(), name);
-  }
-
-  if (parent_map) {
-    for (ClangASTImporter::NamespaceMap::iterator i = parent_map->begin(),
-                                                  e = parent_map->end();
-         i != e; ++i) {
-      CompilerDeclContext found_namespace_decl;
-
-      lldb::ModuleSP module_sp = i->first;
-      CompilerDeclContext module_parent_namespace_decl = i->second;
-
-      SymbolFile *symbol_file = module_sp->GetSymbolFile();
-
-      if (!symbol_file)
-        continue;
-
-      found_namespace_decl =
-          symbol_file->FindNamespace(name, module_parent_namespace_decl);
-
-      if (!found_namespace_decl)
-        continue;
-
-      namespace_map->push_back(std::pair<lldb::ModuleSP, CompilerDeclContext>(
-          module_sp, found_namespace_decl));
-
-      LLDB_LOG(log, "  CMN Found namespace {0} in module {1}", name,
-               module_sp->GetFileSpec().GetFilename());
-    }
-  } else {
-    CompilerDeclContext null_namespace_decl;
-    for (lldb::ModuleSP image : m_target->GetImages().Modules()) {
-      if (!image)
-        continue;
-
-      CompilerDeclContext found_namespace_decl;
-
-      SymbolFile *symbol_file = image->GetSymbolFile();
-
-      if (!symbol_file)
-        continue;
-
-      found_namespace_decl =
-          symbol_file->FindNamespace(name, null_namespace_decl);
-
-      if (!found_namespace_decl)
-        continue;
-
-      namespace_map->push_back(std::pair<lldb::ModuleSP, CompilerDeclContext>(
-          image, found_namespace_decl));
-
-      LLDB_LOG(log, "  CMN[{0}] Found namespace {0} in module {1}", name,
-               image->GetFileSpec().GetFilename());
-    }
-  }
 }
 
 NamespaceDecl *ClangASTSource::AddNamespace(NameSearchContext &context) {

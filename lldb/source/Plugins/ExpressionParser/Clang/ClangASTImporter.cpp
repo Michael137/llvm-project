@@ -7,6 +7,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "lldb/Core/Module.h"
+#include "lldb/Symbol/SymbolFile.h"
 #include "lldb/Utility/LLDBAssert.h"
 #include "lldb/Utility/LLDBLog.h"
 #include "lldb/Utility/Log.h"
@@ -1042,8 +1043,6 @@ void ClangASTImporter::ForgetSource(clang::ASTContext *dst_ast,
   md->removeOriginsWithContext(src_ast);
 }
 
-ClangASTImporter::MapCompleter::~MapCompleter() = default;
-
 llvm::Expected<Decl *>
 ClangASTImporter::ASTImporterDelegate::ImportImpl(Decl *From) {
   // FIXME: The Minimal import mode of clang::ASTImporter does not correctly
@@ -1435,4 +1434,80 @@ void ClangASTImporter::ASTImporterDelegate::MarkDeclImported(Decl *from,
 clang::Decl *
 ClangASTImporter::ASTImporterDelegate::GetOriginalDecl(clang::Decl *To) {
   return m_main.GetDeclOrigin(To).decl;
+}
+
+void ClangASTImporter::MapCompleter::CompleteNamespaceMap(
+    ClangASTImporter::NamespaceMapSP &namespace_map, ConstString name,
+    ClangASTImporter::NamespaceMapSP &parent_map) const {
+
+  Log *log = GetLog(LLDBLog::Expressions);
+
+  clang::ASTContext &ast_context = m_clang_ast_context.getASTContext();
+
+  if (log) {
+    if (parent_map && parent_map->size())
+      LLDB_LOG(log,
+               "CompleteNamespaceMap on (ASTContext*){0:x} '{1}' Searching "
+               "for namespace {2} in namespace {3}",
+               &ast_context, m_clang_ast_context.getDisplayName(), name,
+               parent_map->begin()->second.GetName());
+    else
+      LLDB_LOG(log,
+               "CompleteNamespaceMap on (ASTContext*){0} '{1}' Searching "
+               "for namespace {2}",
+               &ast_context, m_clang_ast_context.getDisplayName(), name);
+  }
+
+  if (parent_map) {
+    for (ClangASTImporter::NamespaceMap::iterator i = parent_map->begin(),
+                                                  e = parent_map->end();
+         i != e; ++i) {
+      CompilerDeclContext found_namespace_decl;
+
+      lldb::ModuleSP module_sp = i->first;
+      CompilerDeclContext module_parent_namespace_decl = i->second;
+
+      SymbolFile *symbol_file = module_sp->GetSymbolFile();
+
+      if (!symbol_file)
+        continue;
+
+      found_namespace_decl =
+          symbol_file->FindNamespace(name, module_parent_namespace_decl);
+
+      if (!found_namespace_decl)
+        continue;
+
+      namespace_map->push_back(std::pair<lldb::ModuleSP, CompilerDeclContext>(
+          module_sp, found_namespace_decl));
+
+      LLDB_LOG(log, "  CMN Found namespace {0} in module {1}", name,
+               module_sp->GetFileSpec().GetFilename());
+    }
+  } else {
+    CompilerDeclContext null_namespace_decl;
+    for (lldb::ModuleSP image : m_target.GetImages().Modules()) {
+      if (!image)
+        continue;
+
+      CompilerDeclContext found_namespace_decl;
+
+      SymbolFile *symbol_file = image->GetSymbolFile();
+
+      if (!symbol_file)
+        continue;
+
+      found_namespace_decl =
+          symbol_file->FindNamespace(name, null_namespace_decl);
+
+      if (!found_namespace_decl)
+        continue;
+
+      namespace_map->push_back(std::pair<lldb::ModuleSP, CompilerDeclContext>(
+          image, found_namespace_decl));
+
+      LLDB_LOG(log, "  CMN[{0}] Found namespace {0} in module {1}", name,
+               image->GetFileSpec().GetFilename());
+    }
+  }
 }

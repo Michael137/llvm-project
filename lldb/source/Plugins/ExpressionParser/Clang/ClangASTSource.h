@@ -30,8 +30,7 @@ namespace lldb_private {
 /// knows the name it is looking for, but nothing else. The ExternalSemaSource
 /// class provides Decls (VarDecl, FunDecl, TypeDecl) to Clang for these
 /// names, consulting the ClangExpressionDeclMap to do the actual lookups.
-class ClangASTSource : public clang::ExternalASTSource,
-                       public ClangASTImporter::MapCompleter {
+class ClangASTSource : public clang::ExternalASTSource {
 public:
   /// Constructor
   ///
@@ -162,26 +161,6 @@ public:
   /// \param[in] Consumer
   ///     Unused.
   void StartTranslationUnit(clang::ASTConsumer *Consumer) override;
-
-  //
-  // APIs for NamespaceMapCompleter
-  //
-
-  /// Look up the modules containing a given namespace and put the appropriate
-  /// entries in the namespace map.
-  ///
-  /// \param[in] namespace_map
-  ///     The map to be completed.
-  ///
-  /// \param[in] name
-  ///     The name of the namespace to be found.
-  ///
-  /// \param[in] parent_map
-  ///     The map for the namespace's parent namespace, if there is
-  ///     one.
-  void CompleteNamespaceMap(
-      ClangASTImporter::NamespaceMapSP &namespace_map, ConstString name,
-      ClangASTImporter::NamespaceMapSP &parent_map) const override;
 
   //
   // Helper APIs

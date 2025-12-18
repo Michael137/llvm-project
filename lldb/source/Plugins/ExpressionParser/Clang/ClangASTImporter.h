@@ -213,16 +213,33 @@ public:
   //
 
   class MapCompleter {
-  public:
-    virtual ~MapCompleter();
+    TypeSystemClang &m_clang_ast_context;
+    Target &m_target;
 
-    virtual void CompleteNamespaceMap(NamespaceMapSP &namespace_map,
-                                      ConstString name,
-                                      NamespaceMapSP &parent_map) const = 0;
+  public:
+    MapCompleter(TypeSystemClang &ast, Target &target)
+        : m_clang_ast_context(ast), m_target(target) {}
+
+    /// Look up the modules containing a given namespace and put the appropriate
+    /// entries in the namespace map.
+    ///
+    /// \param[in] namespace_map
+    ///     The map to be completed.
+    ///
+    /// \param[in] name
+    ///     The name of the namespace to be found.
+    ///
+    /// \param[in] parent_map
+    ///     The map for the namespace's parent namespace, if there is
+    ///     one.
+    void
+    CompleteNamespaceMap(ClangASTImporter::NamespaceMapSP &namespace_map,
+                         ConstString name,
+                         ClangASTImporter::NamespaceMapSP &parent_map) const;
   };
 
   void InstallMapCompleter(clang::ASTContext *dst_ctx,
-                           MapCompleter &completer) {
+                           std::unique_ptr<MapCompleter> completer) {
     ASTContextMetadataSP context_md;
     ContextMetadataMap::iterator context_md_iter = m_metadata_map.find(dst_ctx);
 
@@ -233,7 +250,8 @@ public:
       context_md = context_md_iter->second;
     }
 
-    context_md->m_map_completer = &completer;
+    context_md->m_map_completer = std::move(completer);
+    ;
   }
 
   void ForgetDestination(clang::ASTContext *dst_ctx);
@@ -377,7 +395,7 @@ public:
     DelegateMap m_delegates;
 
     NamespaceMetaMap m_namespace_maps;
-    MapCompleter *m_map_completer = nullptr;
+    std::unique_ptr<MapCompleter> m_map_completer;
 
     /// Sets the DeclOrigin for the given Decl and overwrites any existing
     /// DeclOrigin.

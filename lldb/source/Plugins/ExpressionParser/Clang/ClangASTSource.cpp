@@ -167,6 +167,7 @@ bool ClangASTSource::FindExternalVisibleDeclsByName(
   }
 
   ConstString const_decl_name(decl_name.c_str());
+  llvm::errs() << const_decl_name.GetStringRef() << '\n';
 
   const char *uniqued_const_decl_name = const_decl_name.GetCString();
   if (m_active_lookups.find(uniqued_const_decl_name) !=
@@ -529,6 +530,14 @@ void ClangASTSource::FindExternalVisibleDecls(NameSearchContext &context) {
   }
 
   if (isa<NamespaceDecl>(context.m_decl_context)) {
+    // SPELUNK: This is for looking up 'name' inside of a namespace.
+    // SPELUNK: Relies on namespace maps existing for this m_decl_context..
+    // SPELUNK: Will use the namespace map registered for m_decl_context to
+    // SPELUNK: lookup the NameSearchContext's name in in it. If found, the
+    // SPELUNK: namespace/module pair is put into the context's namespace map.
+    //
+    // SPELUNK: if the namespace map is not empty after this, then it's the decl
+    // SPELUNK: that this lookup should return (via m_decls).
     LookupInNamespace(context);
   } else if (isa<ObjCInterfaceDecl>(context.m_decl_context)) {
     FindObjCPropertyAndIvarDecls(context);
@@ -540,14 +549,23 @@ void ClangASTSource::FindExternalVisibleDecls(NameSearchContext &context) {
 
     LLDB_LOG(log, "  CAS::FEVD Searching the root namespace");
 
+    // SPELUNK: this will fill out the namespace map for context
+    // SPELUNK: So we rely on FillNamespaceMap being called inside here
+    // SPELUNK: even for non-namespace entities. TODO: is there a better way? less side-effecty?
+    //
+    // SPELUNK: if the namespace map is not empty after this, then it's the decl
+    // SPELUNK: that this lookup should return (via m_decls).
     FindExternalVisibleDecls(context, lldb::ModuleSP(), namespace_decl);
   }
 
+  // SPELUNK: relies on above two calls to fill out context's namespace map.
   if (!context.m_namespace_map->empty()) {
     if (log && log->GetVerbose())
       LLDB_LOG(log, "  CAS::FEVD Registering namespace map {0:x} ({1} entries)",
                context.m_namespace_map.get(), context.m_namespace_map->size());
 
+    // SPELUNK: this registers the namespacemap and adds the found namespace_decl
+    // SPELUNK: into context.m_decls
     NamespaceDecl *clang_namespace_decl = AddNamespace(context);
 
     if (clang_namespace_decl)
@@ -644,6 +662,9 @@ void ClangASTSource::FindExternalVisibleDecls(
   }
 }
 
+// SPELUNK: fills namespace map of context with namespaces using context's name.
+// SPELUNK: for root namespace lookups, searches all symbol files.
+// SPELUNK: for targeted lookups, just uses that namespace and module.
 void ClangASTSource::FillNamespaceMap(
     NameSearchContext &context, lldb::ModuleSP module_sp,
     const CompilerDeclContext &namespace_decl) {

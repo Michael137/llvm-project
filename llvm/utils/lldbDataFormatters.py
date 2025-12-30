@@ -93,6 +93,12 @@ def __lldb_init_module(debugger, internal_dict):
         f"-F {__name__}.SmallBitVectorSummary "
         "llvm::SmallBitVector"
     )
+    # TODO: move to Clang
+    debugger.HandleCommand(
+        "type synthetic add -w llvm "
+        f"-l {__name__}.QualTypeSynthProvider "
+        "clang::QualType"
+    )
 
 
 # Pretty printer for llvm::SmallVector/llvm::SmallVectorImpl
@@ -510,3 +516,41 @@ def SmallBitVectorSummary(valobj, _):
     bits = smallRawBits & ((1 << (smallSize + 1)) - 1)
     # format `bits` in binary (b), with 0 padding, of width `smallSize`, and left aligned (>)
     return f"[{bits:0>{smallSize}b}]"
+
+class QualTypeSynthProvider:
+    def __init__(self, valobj, internal_dict):
+        self.valobj = valobj
+        self.update()
+
+    def num_children(self):
+        return 2
+
+    def get_child_index(self, name):
+        if name == "Type":
+            return 0
+        if name == "Quals":
+            return 1
+        return None
+
+    def get_child_at_index(self, index):
+        if index == 0:
+            # TODO: get dynamic type
+            return self.active_pointer.Clone("Type")
+        elif index == 1:
+            data = lldb.SBData()
+            data.SetDataFromUInt64Array([self.quals])
+            return self.valobj.CreateValueFromData(
+                "Quals",
+                data,
+                self.quals_type
+            )
+
+        return None
+
+    def update(self):
+        pointer_int_pair = self.valobj.GetChildMemberWithName("Value").GetSyntheticValue()
+        self.quals = pointer_int_pair.GetChildAtIndex(1).GetValueAsUnsigned()
+        self.quals_type = self.valobj.GetChildMemberWithName("Value").GetType().GetTemplateArgumentType(2)
+
+        pointer_union = pointer_int_pair.GetChildAtIndex(0).GetSyntheticValue()
+        self.active_pointer = pointer_union.GetChildAtIndex(0)

@@ -1836,8 +1836,17 @@ llvm::DIType *CGDebugInfo::CreateType(const FunctionType *Ty,
     EltTys.push_back(DBuilder.createUnspecifiedParameter());
   } else {
     Flags = getRefFlags(FPT);
-    for (const QualType &ParamType : FPT->param_types())
+    // TODO: more concrete type than DINode.
+    llvm::DINode *FormalParamPack = nullptr;
+    for (const QualType &ParamType : FPT->param_types()) {
+      if (auto *Subst = llvm::dyn_cast<SubstTemplateTypeParmType>(ParamType)) {
+        auto Idx = Subst->getPackIndex();
+        if (Idx && !FormalParamPack) {
+          FormalParamPack = DBuilder.createTemplateParameterPack(Unit, "test pack", nullptr, {});
+        }
+      }
       EltTys.push_back(getOrCreateType(ParamType, Unit));
+    }
     if (FPT->isVariadic())
       EltTys.push_back(DBuilder.createUnspecifiedParameter());
   }

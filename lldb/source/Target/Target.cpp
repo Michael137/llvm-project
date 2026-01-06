@@ -5066,12 +5066,6 @@ bool TargetProperties::GetUseFastStepping() const {
       idx, g_target_properties[idx].default_uint_value != 0);
 }
 
-bool TargetProperties::GetDisplayExpressionsInCrashlogs() const {
-  const uint32_t idx = ePropertyDisplayExpressionsInCrashlogs;
-  return GetPropertyAtIndexAs<bool>(
-      idx, g_target_properties[idx].default_uint_value != 0);
-}
-
 LoadScriptFromSymFile TargetProperties::GetLoadScriptFromSymbolFile() const {
   const uint32_t idx = ePropertyLoadScriptFromSymbolFile;
   return GetPropertyAtIndexAs<LoadScriptFromSymFile>(

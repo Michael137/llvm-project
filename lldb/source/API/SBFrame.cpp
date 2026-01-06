@@ -1048,17 +1048,7 @@ lldb::SBValue SBFrame::EvaluateExpression(const char *expr,
   if (!frame)
     return SBValue();
 
-  std::unique_ptr<llvm::PrettyStackTraceFormat> stack_trace;
   Target *target = exe_ctx->GetTargetPtr();
-  if (target->GetDisplayExpressionsInCrashlogs()) {
-    StreamString frame_description;
-    frame->DumpUsingSettingsFormat(&frame_description);
-    stack_trace = std::make_unique<llvm::PrettyStackTraceFormat>(
-        "SBFrame::EvaluateExpression (expr = \"%s\", fetch_dynamic_value "
-        "= %u) %s",
-        expr, options.GetFetchDynamicValue(), frame_description.GetData());
-  }
-
   ValueObjectSP expr_value_sp;
   target->EvaluateExpression(expr, frame, expr_value_sp, options.ref());
 

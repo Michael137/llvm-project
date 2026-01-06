@@ -188,9 +188,6 @@ let Definition = "target" in {
     DefaultEnumValue<"eMemoryModuleLoadLevelComplete">,
     EnumValues<"OptionEnumValues(g_memory_module_load_level_values)">,
     Desc<"Loading modules from memory can be slow as reading the symbol tables and other data can take a long time depending on your connection to the debug target. This setting helps users control how much information gets loaded when loading modules from memory.'complete' is the default value for this setting which will load all sections and symbols by reading them from memory (slowest, most accurate). 'partial' will load sections and attempt to find function bounds without downloading the symbol table (faster, still accurate, missing symbol names). 'minimal' is the fastest setting and will load section data with no symbols, but should rarely be used as stack frames in these memory regions will be inaccurate and not provide any context (fastest). ">;
-  def DisplayExpressionsInCrashlogs: Property<"display-expression-in-crashlogs", "Boolean">,
-    DefaultFalse,
-    Desc<"Expressions that crash will show up in crash logs if the host system supports executable specific crash log strings and this setting is set to true.">;
   def TrapHandlerNames: Property<"trap-handler-names", "Array">,
     Global,
     ElementType<"String">,

@@ -233,8 +233,6 @@ public:
 
   bool GetUseFastStepping() const;
 
-  bool GetDisplayExpressionsInCrashlogs() const;
-
   LoadScriptFromSymFile GetLoadScriptFromSymbolFile() const;
 
   LoadCWDlldbinitFile GetLoadCWDlldbinitFile() const;

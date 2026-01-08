@@ -1924,6 +1924,9 @@ bool Sema::IsSimplyAccessible(NamedDecl *Target, CXXRecordDecl *NamingClass,
                               QualType BaseType) {
   // Perform the C++ accessibility checks first.
   if (Target->isCXXClassMember() && NamingClass) {
+    if (!getLangOpts().AccessControl)
+      return true;
+
     if (!getLangOpts().CPlusPlus)
       return false;
     // The unprivileged access is AS_none as we don't know how the member was

@@ -1857,8 +1857,13 @@ llvm::DIType *CGDebugInfo::CreateType(const FunctionType *Ty,
     EltTys.push_back(DBuilder.createUnspecifiedParameter());
   } else {
     Flags = getRefFlags(FPT);
-    for (const QualType &ParamType : FPT->param_types())
+    for (const QualType &ParamType : FPT->param_types()) {
+      // TODO: for parameter pack call createTemplateParameterPack and add it as one of the `types` in a DISubroutineType
       EltTys.push_back(getOrCreateType(ParamType, Unit));
+      auto tmp = DBuilder.createTemplateParameterPack(TheCU, "test", nullptr, DBuilder.getOrCreateArray(EltTys));
+      tmp->dump();
+      EltTys.push_back(tmp);
+    }
     if (FPT->isVariadic())
       EltTys.push_back(DBuilder.createUnspecifiedParameter());
   }

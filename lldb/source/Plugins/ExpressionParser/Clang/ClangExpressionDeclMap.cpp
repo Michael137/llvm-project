@@ -850,35 +850,6 @@ void ClangExpressionDeclMap::LookUpLldbClass(NameSearchContext &context) {
     AddContextClassType(context, class_user_type);
     return;
   }
-
-  // This branch will get hit if we are executing code in the context of
-  // a function that claims to have an object pointer (through
-  // DW_AT_object_pointer?) but is not formally a method of the class.
-  // In that case, just look up the "this" variable in the current scope
-  // and use its type.
-  // FIXME: This code is formally correct, but clang doesn't currently
-  // emit DW_AT_object_pointer
-  // for C++ so it hasn't actually been tested.
-
-  VariableList *vars = frame->GetVariableList(false, nullptr);
-
-  lldb::VariableSP this_var = vars->FindVariable(ConstString("this"));
-
-  if (this_var && this_var->IsInScope(frame) &&
-      this_var->LocationIsValidForFrame(frame)) {
-    Type *this_type = this_var->GetType();
-
-    if (!this_type)
-      return;
-
-    TypeFromUser pointee_type =
-        this_type->GetForwardCompilerType().GetPointeeType();
-
-    LLDB_LOG(log, "  FEVD Adding type for $__lldb_class: {0}",
-             ClangUtil::GetQualType(pointee_type).getAsString());
-
-    AddContextClassType(context, pointee_type);
-  }
 }
 
 void ClangExpressionDeclMap::LookUpLldbObjCClass(NameSearchContext &context) {

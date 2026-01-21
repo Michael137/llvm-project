@@ -672,6 +672,11 @@ namespace llvm {
     createTemplateParameterPack(DIScope *Scope, StringRef Name, DIType *Ty,
                                 DINodeArray Val);
 
+    LLVM_ABI DIParameterPackType *
+    createParameterPackType(
+    unsigned Tag, StringRef Name, DIFile *File, unsigned LineNo, DIScope *Scope,
+    DINode::DIFlags Flags, DINodeArray Elements);
+
     /// Create debugging information entry for an array.
     /// \param Size         Array size.
     /// \param AlignInBits  Alignment.

@@ -2698,6 +2698,19 @@ static void writeDIImportedEntity(raw_ostream &Out, const DIImportedEntity *N,
   Out << ")";
 }
 
+static void writeDIParameterPackType(raw_ostream &Out, const DIParameterPackType *N,
+                                     AsmWriterContext &WriterCtx) {
+  Out << "!DIParameterPackType(";
+  MDFieldPrinter Printer(Out, WriterCtx);
+  Printer.printString("name", N->getName());
+  Printer.printMetadata("scope", N->getRawScope());
+  Printer.printMetadata("file", N->getRawFile());
+  Printer.printInt("line", N->getLine());
+  Printer.printDIFlags("flags", N->getFlags());
+  Printer.printMetadata("bias", N->getRawElements());
+  Out << ")";
+}
+
 static void writeMDNodeBodyInternal(raw_ostream &Out, const MDNode *Node,
                                     AsmWriterContext &Ctx) {
   if (Node->isDistinct())

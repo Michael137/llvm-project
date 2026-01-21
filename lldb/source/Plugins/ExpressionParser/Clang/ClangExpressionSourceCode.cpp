@@ -10,6 +10,7 @@
 
 #include "ClangExpressionUtil.h"
 
+#include "clang/AST/TypeBase.h"
 #include "clang/Basic/CharInfo.h"
 #include "clang/Basic/FileManager.h"
 #include "clang/Basic/SourceManager.h"
@@ -19,6 +20,7 @@
 
 #include "Plugins/ExpressionParser/Clang/ClangModulesDeclVendor.h"
 #include "Plugins/ExpressionParser/Clang/ClangPersistentVariables.h"
+#include "Plugins/TypeSystem/Clang//TypeSystemClang.h"
 #include "lldb/Symbol/Block.h"
 #include "lldb/Symbol/CompileUnit.h"
 #include "lldb/Symbol/DebugMacros.h"
@@ -406,6 +408,7 @@ bool ClangExpressionSourceCode::GetText(
     }
   }
 
+  clang::Qualifiers cv_quals;
   StreamString debug_macros_stream;
   StreamString lldb_local_var_decls;
   if (StackFrame *frame = exe_ctx.GetFramePtr()) {
@@ -425,6 +428,16 @@ bool ClangExpressionSourceCode::GetText(
         AddLocalVariableDecls(lldb_local_var_decls,
                               force_add_all_locals ? "" : m_body, frame);
       }
+
+    if (auto this_sp = frame->FindVariable(ConstString("this"))) {
+      cv_quals = clang::Qualifiers::fromCVRMask(
+          this_sp->GetCompilerType().GetPointeeType().GetTypeQualifiers());
+      if (auto this_this_sp = this_sp->GetChildMemberWithName("this"))
+        cv_quals =
+            clang::Qualifiers::fromCVRMask(this_this_sp->GetCompilerType()
+                                               .GetPointeeType()
+                                               .GetTypeQualifiers());
+    }
   }
 
   if (m_wrap) {
@@ -465,12 +478,13 @@ bool ClangExpressionSourceCode::GetText(
     case WrapKind::CppMemberFunction:
       wrap_stream.Printf("%s"
                          "void                                   \n"
-                         "$__lldb_class::%s(void *$__lldb_arg)   \n"
+                         "$__lldb_class::%s(void *$__lldb_arg) %s \n"
                          "{                                      \n"
                          "    %s;                                \n"
                          "%s"
                          "}                                      \n",
                          module_imports.c_str(), m_name.c_str(),
+                         cv_quals.getAsString().c_str(),
                          lldb_local_var_decls.GetData(), tagged_body.c_str());
       break;
     case WrapKind::ObjCInstanceMethod:

@@ -2662,6 +2662,21 @@ DIMacroFile *DIMacroFile::getImpl(LLVMContext &Context, unsigned MIType,
   DEFINE_GETIMPL_STORE(DIMacroFile, (MIType, Line), Ops);
 }
 
+DIParameterPackType::DIParameterPackType(LLVMContext &C, StorageType Storage,
+                               unsigned Tag, unsigned Line, DIFlags Flags, llvm::ArrayRef<Metadata *> Ops)
+    : DIType(C, DIParameterPackTypeKind, Storage, Tag, Line,
+             0, 0, Flags, Ops) {}
+
+DIParameterPackType *DIParameterPackType::getImpl(
+    LLVMContext &Context, unsigned Tag, MDString *Name, Metadata *File, unsigned Line,
+    Metadata *Scope, DIFlags Flags, Metadata *Elements, StorageType Storage,
+    bool ShouldCreate) {
+  assert(isCanonical(Name) && "Expected canonical MDString");
+  DEFINE_GETIMPL_LOOKUP(DIParameterPackType, (Name, File, Line, Scope, Flags, Elements));
+  Metadata *Ops[] = {File,     Scope,      Name,       Elements};
+  DEFINE_GETIMPL_STORE(DIParameterPackType, (Tag, Line, Flags), Ops);
+}
+
 DIArgList *DIArgList::get(LLVMContext &Context,
                           ArrayRef<ValueAsMetadata *> Args) {
   auto ExistingIt = Context.pImpl->DIArgLists.find_as(DIArgListKeyInfo(Args));

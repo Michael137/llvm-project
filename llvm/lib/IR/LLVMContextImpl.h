@@ -1487,6 +1487,36 @@ template <> struct MDNodeKeyImpl<DIMacroFile> {
   }
 };
 
+template <> struct MDNodeKeyImpl<DIParameterPackType> {
+  MDString *Name;
+  Metadata *File;
+  unsigned Line;
+  Metadata *Scope;
+  unsigned Flags;
+  Metadata *Elements;
+
+  MDNodeKeyImpl(MDString *Name, Metadata *File, unsigned Line, Metadata *Scope,
+                unsigned Flags, Metadata *Elements)
+      : Name(Name), File(File), Line(Line), Scope(Scope),
+        Flags(Flags), Elements(Elements) {}
+
+  MDNodeKeyImpl(const DIParameterPackType *N)
+      : Name(N->getRawName()), File(N->getRawFile()), Line(N->getLine()),
+        Scope(N->getRawScope()), Flags(N->getFlags()),
+        Elements(N->getRawElements()) {}
+
+  bool isKeyOf(const DIParameterPackType *RHS) const {
+    return Name == RHS->getRawName() && File == RHS->getRawFile() &&
+           Line == RHS->getLine() && Scope == RHS->getRawScope() &&
+           Flags == RHS->getFlags() &&
+           Elements == RHS->getRawElements();
+  }
+
+  unsigned getHashValue() const {
+    return hash_combine(Name, File, Line, Scope, Flags, Elements);
+  }
+};
+
 // DIArgLists are not MDNodes, but we still want to unique them in a DenseSet
 // based on a hash of their arguments.
 struct DIArgListKeyInfo {

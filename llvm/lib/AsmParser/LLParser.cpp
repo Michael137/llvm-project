@@ -6564,6 +6564,29 @@ bool LLParser::parseDIImportedEntity(MDNode *&Result, bool IsDistinct) {
   return false;
 }
 
+/// parseDIParameterPackType:
+///   ::= !DISubrangeType(name: "whatever", file: !0,
+///                      line: 7, scope: !1, flags: 0,
+///                      elements: !2)
+bool LLParser::parseDIParameterPackType(MDNode *&Result, bool IsDistinct) {
+#define VISIT_MD_FIELDS(OPTIONAL, REQUIRED)                                    \
+  OPTIONAL(tag, DwarfTagField, );                                             \
+  OPTIONAL(name, MDStringField, );                                             \
+  OPTIONAL(file, MDField, );                                                   \
+  OPTIONAL(line, LineField, );                                                 \
+  OPTIONAL(scope, MDField, );                                                  \
+  OPTIONAL(flags, DIFlagField, );                                              \
+  OPTIONAL(elements, MDField, );
+  PARSE_MD_FIELDS();
+#undef VISIT_MD_FIELDS
+
+  Result = GET_OR_DISTINCT(
+      DIParameterPackType, (Context, tag.Val, name.Val, file.Val, line.Val, scope.Val,
+                       flags.Val, elements.Val));
+
+  return false;
+}
+
 #undef PARSE_MD_FIELD
 #undef NOP_FIELD
 #undef REQUIRE_FIELD

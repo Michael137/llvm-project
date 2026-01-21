@@ -1877,6 +1877,12 @@ void Verifier::visitDIImportedEntity(const DIImportedEntity &N) {
           N.getRawEntity());
 }
 
+void Verifier::visitDIParameterPackType(const DIParameterPackType &N) {
+  CheckDI(N.getTag() == dwarf::DW_TAG_GNU_formal_parameter_pack, "invalid tag", &N);
+  CheckDI(!N.getRawElements() || isa<MDTuple>(N.getRawElements()),
+          "invalid elements", &N, N.getRawElements());
+}
+
 void Verifier::visitComdat(const Comdat &C) {
   // In COFF the Module is invalid if the GlobalValue has private linkage.
   // Entities with private linkage don't have entries in the symbol table.

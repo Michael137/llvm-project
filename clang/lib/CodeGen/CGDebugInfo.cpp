@@ -41,6 +41,7 @@
 #include "llvm/ADT/DenseSet.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/StringExtras.h"
+#include "llvm/BinaryFormat/Dwarf.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/DataLayout.h"
 #include "llvm/IR/DerivedTypes.h"
@@ -1860,13 +1861,13 @@ llvm::DIType *CGDebugInfo::CreateType(const FunctionType *Ty,
     for (const QualType &ParamType : FPT->param_types()) {
       // TODO: for parameter pack call createTemplateParameterPack and add it as one of the `types` in a DISubroutineType
       EltTys.push_back(getOrCreateType(ParamType, Unit));
-      auto tmp = DBuilder.createTemplateParameterPack(TheCU, "test", nullptr, DBuilder.getOrCreateArray(EltTys));
-      tmp->dump();
-      EltTys.push_back(tmp);
     }
     if (FPT->isVariadic())
       EltTys.push_back(DBuilder.createUnspecifiedParameter());
   }
+
+  auto tmp = DBuilder.createParameterPackType(llvm::dwarf::DW_TAG_GNU_formal_parameter_pack, "test pack", Unit, 0, TheCU, {}, DBuilder.getOrCreateTypeArray(EltTys));
+  tmp->dump();
 
   llvm::DITypeArray EltTypeArray = DBuilder.getOrCreateTypeArray(EltTys);
   llvm::DIType *F = DBuilder.createSubroutineType(

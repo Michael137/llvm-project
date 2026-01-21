@@ -1222,6 +1222,80 @@ public:
   }
 };
 
+
+// TODO:
+// * template parameter packs are DITemplateValueParameter : DITemplateParameter : DINode
+// * DISubroutineType has a DITypeRefArray (array of DIType : DINode) to represent return
+//   type+arguments
+// * Options:
+//   - DIParameterPack : DIType
+//     -- This would allow us adding it to DISubroutineType transparently
+//     -- Could cause an issue for template parameters which expect elements to
+//        be `DITemplateParameter`s
+//     -- They are not really DITypes?
+//   - DIParameterPack
+//     -- Collection of DW_TAG_XXX and name
+//     -- Can represent different kinds of packs
+//     -- Would need to adjust both DISubrangeType and DITemplateParameter
+//        to make it DIParameterPack-aware
+
+class DIParameterPackType : public DIType {
+private:
+  friend class LLVMContextImpl;
+  friend class MDNode;
+
+  static constexpr unsigned MY_FIRST_OPERAND = DIType::N_OPERANDS;
+
+  DIParameterPackType(LLVMContext &C, StorageType Storage, unsigned Tag, unsigned Line,
+                      DIFlags Flags, ArrayRef<Metadata *> Ops);
+
+  ~DIParameterPackType() = default;
+
+  // Stride should be DINodeArray pack elements
+  static DIParameterPackType *
+  getImpl(LLVMContext &Context, unsigned Tag, StringRef Name, DIFile *File, unsigned Line,
+          DIScope *Scope, DIFlags Flags, DINodeArray Elements,
+          StorageType Storage, bool ShouldCreate = true) {
+    return getImpl(Context, Tag, getCanonicalMDString(Context, Name), File, Line,
+                   Scope, Flags, Elements.get(), Storage, ShouldCreate);
+  }
+
+  LLVM_ABI static DIParameterPackType *
+  getImpl(LLVMContext &Context, unsigned Tag, MDString *Name, Metadata *File, unsigned Line,
+          Metadata *Scope, DIFlags Flags, Metadata *Elements,
+          StorageType Storage, bool ShouldCreate = true);
+
+  TempDIParameterPackType cloneImpl() const {
+    return getTemporary(getContext(), getTag(), getRawName(), getFile(), getLine(),
+                        getScope(), getFlags(), getRawElements());
+  }
+
+public:
+  DEFINE_MDNODE_GET(DIParameterPackType,
+                    (unsigned Tag, MDString * Name, Metadata *File, unsigned Line,
+                     Metadata *Scope, DIFlags Flags,
+                     Metadata *Elements),
+                    (Tag, Name, File, Line, Scope, Flags, Elements))
+  DEFINE_MDNODE_GET(DIParameterPackType,
+                    (unsigned Tag, StringRef Name, DIFile *File, unsigned Line,
+                     DIScope *Scope, DIFlags Flags,
+                     DINodeArray Elements),
+                    (Tag, Name, File, Line, Scope, Flags, Elements))
+
+  TempDIParameterPackType clone() const { return cloneImpl(); }
+
+  DINodeArray getElements() const {
+    return cast_or_null<MDTuple>(getRawElements());
+  }
+  Metadata *getRawElements() const {
+    return getOperand(MY_FIRST_OPERAND);
+  }
+
+  static bool classof(const Metadata *MD) {
+    return MD->getMetadataID() == DIParameterPackTypeKind;
+  }
+};
+
 /// Derived types.
 ///
 /// This includes qualified types, pointers, references, friends, typedefs, and

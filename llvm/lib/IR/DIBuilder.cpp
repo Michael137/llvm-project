@@ -17,7 +17,9 @@
 #include "llvm/BinaryFormat/Dwarf.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/DebugInfo.h"
+#include "llvm/IR/DebugInfoMetadata.h"
 #include "llvm/IR/IRBuilder.h"
+#include "llvm/IR/Metadata.h"
 #include "llvm/IR/Module.h"
 #include <optional>
 
@@ -586,6 +588,14 @@ DIBuilder::createTemplateParameterPack(DIScope *Context, StringRef Name,
   return createTemplateValueParameterHelper(
       VMContext, dwarf::DW_TAG_GNU_template_parameter_pack, Context, Name, Ty,
       false, Val.get());
+}
+
+DIParameterPackType *
+DIBuilder::createParameterPackType(
+    unsigned Tag, StringRef Name, DIFile *File, unsigned LineNo, DIScope *Scope,
+    DINode::DIFlags Flags, DINodeArray Elements) {
+  return DIParameterPackType::get(
+      VMContext, Tag, Name, File, LineNo, Scope, Flags, Elements);
 }
 
 DICompositeType *DIBuilder::createClassType(

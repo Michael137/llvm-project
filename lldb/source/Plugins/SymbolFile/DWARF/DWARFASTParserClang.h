@@ -484,11 +484,6 @@ private:
   /// \param[in] object_parameter The DIE of this subprogram's object parameter.
   ///                             May be an invalid DIE for C++ static methods.
   ///
-  /// \param[out] ignore_containing_context Will get set to true if the caller
-  ///             should treat this C++ method as-if it was not a C++ method.
-  ///             Currently used as a hack to work around templated C++ methods
-  ///             causing class definitions to mismatch between CUs.
-  ///
   /// \returns A pair of <bool, TypeSP>. The first element is 'true' on success.
   ///          The second element is non-null if we have previously parsed this
   ///          method (a null TypeSP does not indicate failure).
@@ -497,8 +492,7 @@ private:
                  lldb_private::CompilerType clang_type,
                  const ParsedDWARFTypeAttributes &attrs,
                  const lldb_private::plugin::dwarf::DWARFDIE &decl_ctx_die,
-                 const lldb_private::plugin::dwarf::DWARFDIE &object_parameter,
-                 bool &ignore_containing_context);
+                 const lldb_private::plugin::dwarf::DWARFDIE &object_parameter);
 
   lldb::TypeSP ParseArrayType(const lldb_private::plugin::dwarf::DWARFDIE &die,
                               const ParsedDWARFTypeAttributes &attrs);

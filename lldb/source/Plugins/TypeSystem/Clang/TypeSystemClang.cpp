@@ -10,6 +10,7 @@
 
 #include "clang/AST/DeclBase.h"
 #include "clang/AST/ExprCXX.h"
+#include "clang/Basic/Specifiers.h"
 #include "clang/Frontend/ASTConsumers.h"
 #include "llvm/ADT/ScopeExit.h"
 #include "llvm/Support/Casting.h"
@@ -2217,6 +2218,7 @@ FunctionDecl *TypeSystemClang::CreateFunctionDeclaration(
   SetOwningModule(func_decl, owning_module);
   decl_ctx->addDecl(func_decl);
 
+  func_decl->setAccess(clang::AS_public);
   VerifyDecl(func_decl);
 
   return func_decl;

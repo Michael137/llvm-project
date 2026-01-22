@@ -1172,7 +1172,7 @@ bool DWARFASTParserClang::ParseObjCMethod(
 std::pair<bool, TypeSP> DWARFASTParserClang::ParseCXXMethod(
     const DWARFDIE &die, CompilerType clang_type,
     const ParsedDWARFTypeAttributes &attrs, const DWARFDIE &decl_ctx_die,
-    const DWARFDIE &object_parameter, bool &ignore_containing_context) {
+    const DWARFDIE &object_parameter) {
   Log *log = GetLog(DWARFLog::TypeCompletion | DWARFLog::Lookups);
   SymbolFileDWARF *dwarf = die.GetDWARF();
   assert(dwarf);
@@ -1290,8 +1290,6 @@ std::pair<bool, TypeSP> DWARFASTParserClang::ParseCXXMethod(
                 object_pointer_name, static_cast<void *>(cxx_method_decl));
     }
     m_ast.SetMetadata(cxx_method_decl, metadata);
-  } else {
-    ignore_containing_context = true;
   }
 
   // Artificial methods are always handled even when we
@@ -1339,23 +1337,6 @@ DWARFASTParserClang::ParseSubroutine(const DWARFDIE &die,
                          function_param_names);
   }
 
-  bool is_cxx_method = DeclKindIsCXXClass(containing_decl_ctx->getDeclKind());
-  bool ignore_containing_context = false;
-  // Check for templatized class member functions. If we had any
-  // DW_TAG_template_type_parameter or DW_TAG_template_value_parameter
-  // the DW_TAG_subprogram DIE, then we can't let this become a method in
-  // a class. Why? Because templatized functions are only emitted if one
-  // of the templatized methods is used in the current compile unit and
-  // we will end up with classes that may or may not include these member
-  // functions and this means one class won't match another class
-  // definition and it affects our ability to use a class in the clang
-  // expression parser. So for the greater good, we currently must not
-  // allow any template member functions in a class definition.
-  if (is_cxx_method && has_template_params) {
-    ignore_containing_context = true;
-    is_cxx_method = false;
-  }
-
   clang::CallingConv calling_convention =
       ConvertDWARFCallingConventionToClang(attrs);
 
@@ -1376,10 +1357,10 @@ DWARFASTParserClang::ParseSubroutine(const DWARFDIE &die,
                                                    true)) {
         type_handled =
             ParseObjCMethod(*objc_method, die, clang_type, attrs, is_variadic);
-      } else if (is_cxx_method) {
+      } else if (DeclKindIsCXXClass(containing_decl_ctx->getDeclKind())) {
         auto [handled, type_sp] =
             ParseCXXMethod(die, clang_type, attrs, decl_ctx_die,
-                           object_parameter, ignore_containing_context);
+                           object_parameter);
         if (type_sp)
           return type_sp;
 
@@ -1420,9 +1401,7 @@ DWARFASTParserClang::ParseSubroutine(const DWARFDIE &die,
         }
 
         // We just have a function that isn't part of a class
-        function_decl = m_ast.CreateFunctionDeclaration(
-            ignore_containing_context ? m_ast.GetTranslationUnitDecl()
-                                      : containing_decl_ctx,
+        function_decl = m_ast.CreateFunctionDeclaration(containing_decl_ctx,
             GetOwningClangModule(die), name, clang_type, attrs.storage,
             attrs.is_inline, MakeLLDBFuncAsmLabel(die));
         std::free(name_buf);
@@ -1430,9 +1409,7 @@ DWARFASTParserClang::ParseSubroutine(const DWARFDIE &die,
         if (has_template_params) {
           TypeSystemClang::TemplateParameterInfos template_param_infos;
           ParseTemplateParameterInfos(die, template_param_infos);
-          template_function_decl = m_ast.CreateFunctionDeclaration(
-              ignore_containing_context ? m_ast.GetTranslationUnitDecl()
-                                        : containing_decl_ctx,
+          template_function_decl = m_ast.CreateFunctionDeclaration(containing_decl_ctx,
               GetOwningClangModule(die), attrs.name.GetStringRef(), clang_type,
               attrs.storage, attrs.is_inline, /*asm_label=*/{});
           clang::FunctionTemplateDecl *func_template_decl =

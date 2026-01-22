@@ -1308,8 +1308,6 @@ DWARFASTParserClang::ParseSubroutine(const DWARFDIE &die,
   const dw_tag_t tag = die.Tag();
 
   bool is_variadic = false;
-  bool has_template_params = false;
-
   CompilerType return_clang_type;
   Type *func_type = nullptr;
 
@@ -1331,11 +1329,13 @@ DWARFASTParserClang::ParseSubroutine(const DWARFDIE &die,
       GetClangDeclContextContainingDIE(die, &decl_ctx_die);
   assert(containing_decl_ctx);
 
+  TypeSystemClang::TemplateParameterInfos template_param_infos;
   if (die.HasChildren()) {
     ParseChildParameters(containing_decl_ctx, die, is_variadic,
-                         has_template_params, function_param_types,
+                         template_param_infos, function_param_types,
                          function_param_names);
   }
+  bool has_template_params = !template_param_infos.IsEmpty() || template_param_infos.hasParameterPack();
 
   clang::CallingConv calling_convention =
       ConvertDWARFCallingConventionToClang(attrs);
@@ -1414,8 +1414,6 @@ DWARFASTParserClang::ParseSubroutine(const DWARFDIE &die,
         std::free(name_buf);
 
         if (has_template_params) {
-          TypeSystemClang::TemplateParameterInfos template_param_infos;
-          ParseTemplateParameterInfos(die, template_param_infos);
           template_function_decl = m_ast.CreateFunctionDeclaration(containing_decl_ctx,
               GetOwningClangModule(die), attrs.name.GetStringRef(), clang_type,
               attrs.storage, attrs.is_inline, /*asm_label=*/{});
@@ -2437,7 +2435,6 @@ size_t DWARFASTParserClang::ParseChildEnumerators(
 ConstString
 DWARFASTParserClang::ConstructDemangledNameFromDWARF(const DWARFDIE &die) {
   bool is_variadic = false;
-  bool has_template_params = false;
   std::vector<CompilerType> param_types;
   llvm::SmallVector<llvm::StringRef> param_names;
   StreamString sstr;
@@ -2453,8 +2450,9 @@ DWARFASTParserClang::ConstructDemangledNameFromDWARF(const DWARFDIE &die) {
   const unsigned cv_quals =
       GetCXXMethodCVQuals(die, GetObjectParameter(die, decl_ctx_die));
 
+  TypeSystemClang::TemplateParameterInfos template_param_infos;
   ParseChildParameters(containing_decl_ctx, die, is_variadic,
-                       has_template_params, param_types, param_names);
+                       template_param_infos, param_types, param_names);
   sstr << "(";
   for (size_t i = 0; i < param_types.size(); i++) {
     if (i > 0)
@@ -3183,7 +3181,8 @@ bool DWARFASTParserClang::ParseChildMembers(
 
 void DWARFASTParserClang::ParseChildParameters(
     clang::DeclContext *containing_decl_ctx, const DWARFDIE &parent_die,
-    bool &is_variadic, bool &has_template_params,
+    bool &is_variadic,
+    TypeSystemClang::TemplateParameterInfos &template_param_infos,
     std::vector<CompilerType> &function_param_types,
     llvm::SmallVectorImpl<llvm::StringRef> &function_param_names) {
   if (!parent_die)
@@ -3213,12 +3212,9 @@ void DWARFASTParserClang::ParseChildParameters(
     case DW_TAG_template_type_parameter:
     case DW_TAG_template_value_parameter:
     case DW_TAG_GNU_template_parameter_pack:
-      // The one caller of this was never using the template_param_infos, and
-      // the local variable was taking up a large amount of stack space in
-      // SymbolFileDWARF::ParseType() so this was removed. If we ever need the
-      // template params back, we can add them back.
-      // ParseTemplateDIE (dwarf_cu, die, template_param_infos);
-      has_template_params = true;
+      // TODO: include the test-case in rdar://16431645
+      // TODO: reference commit: d20deac32d909425440a765879a11386bc5b60a7
+      ParseTemplateDIE(die, template_param_infos);
       break;
 
     default:

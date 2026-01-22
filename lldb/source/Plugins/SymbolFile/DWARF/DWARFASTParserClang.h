@@ -208,7 +208,9 @@ protected:
   void ParseChildParameters(
       clang::DeclContext *containing_decl_ctx,
       const lldb_private::plugin::dwarf::DWARFDIE &parent_die,
-      bool &is_variadic, bool &has_template_params,
+      bool &is_variadic,
+      lldb_private::TypeSystemClang::TemplateParameterInfos
+          &template_param_infos,
       std::vector<lldb_private::CompilerType> &function_param_types,
       llvm::SmallVectorImpl<llvm::StringRef> &function_param_names);
 

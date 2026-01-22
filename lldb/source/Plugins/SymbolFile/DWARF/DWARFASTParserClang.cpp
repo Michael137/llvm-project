@@ -1358,6 +1358,13 @@ DWARFASTParserClang::ParseSubroutine(const DWARFDIE &die,
         type_handled =
             ParseObjCMethod(*objc_method, die, clang_type, attrs, is_variadic);
       } else if (DeclKindIsCXXClass(containing_decl_ctx->getDeclKind())) {
+        // TODO:
+        // * parse template arguments earlier
+        // * pass them to CXXMethodDecl creation
+        // * In AddMethodToCXXRecordType attach template arguments to CXXMethodDecls (those become the instantiations)
+        // * For C++ methods, create FunctionTemplateDecl in ParseCXXMethod.
+        // * For C++ standalone functions create the FunctionTemplateDecl in a new helper.
+        // * Later these two flows can be consolidated
         auto [handled, type_sp] =
             ParseCXXMethod(die, clang_type, attrs, decl_ctx_die,
                            object_parameter);

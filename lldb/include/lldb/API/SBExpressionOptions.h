@@ -107,6 +107,10 @@ public:
   // Sets whether we will JIT an expression if it cannot be interpreted
   void SetAllowJIT(bool allow);
 
+  bool GetIgnoreConstContext();
+
+  void SetIgnoreConstContext(bool b = true);
+
 protected:
   lldb_private::EvaluateExpressionOptions *get() const;
 

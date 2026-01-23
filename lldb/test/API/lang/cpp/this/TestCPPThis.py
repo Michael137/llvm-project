@@ -46,6 +46,10 @@ class CPPThisTestCase(TestBase):
             ],
         )
 
+        self.expect(
+            "expression --ignore-const-context -- m_a = 2", startstr="(int) $1 = 2"
+        )
+
         self.expect("expression -- (int)getpid(); m_a", startstr="(const int) $2 = 2")
 
         self.runCmd("process continue")

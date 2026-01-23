@@ -82,7 +82,8 @@ public:
       bool keep_result_in_memory,
       Materializer::PersistentVariableDelegate *result_delegate,
       const lldb::TargetSP &target,
-      const std::shared_ptr<ClangASTImporter> &importer, ValueObject *ctx_obj);
+      const std::shared_ptr<ClangASTImporter> &importer, ValueObject *ctx_obj,
+      bool ignore_const_context);
 
   /// Destructor
   ~ClangExpressionDeclMap() override;
@@ -305,6 +306,8 @@ private:
                           ///evaluated in context of this object.
                           ///For details see the comment to
                           ///`UserExpression::Evaluate`.
+
+  bool m_ignore_const_context = false;
 
   /// The following values should not live beyond parsing
   class ParserVars {

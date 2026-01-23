@@ -256,6 +256,18 @@ void SBExpressionOptions::SetAllowJIT(bool allow) {
                                         : eExecutionPolicyNever);
 }
 
+bool SBExpressionOptions::GetIgnoreConstContext() {
+  LLDB_INSTRUMENT_VA(this);
+
+  return m_opaque_up->GetIgnoreConstContext();
+}
+
+void SBExpressionOptions::SetIgnoreConstContext(bool b) {
+  LLDB_INSTRUMENT_VA(this, b);
+
+  m_opaque_up->SetIgnoreConstContext(b);
+}
+
 EvaluateExpressionOptions *SBExpressionOptions::get() const {
   return m_opaque_up.get();
 }

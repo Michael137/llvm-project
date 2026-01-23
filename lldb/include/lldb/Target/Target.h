@@ -481,6 +481,10 @@ public:
 
   void SetIsForUtilityExpr(bool b) { m_running_utility_expression = b; }
 
+  bool GetIgnoreConstContext() const { return m_ignore_const_contexts; }
+
+  void SetIgnoreConstContext(bool val) { m_ignore_const_contexts = val; }
+
 private:
   ExecutionPolicy m_execution_policy = default_execution_policy;
   SourceLanguage m_language;
@@ -518,6 +522,8 @@ private:
   /// used for symbol/function lookup before any other context (except for
   /// the module corresponding to the current frame).
   SymbolContextList m_preferred_lookup_contexts;
+
+  bool m_ignore_const_contexts = false;
 };
 
 // Target

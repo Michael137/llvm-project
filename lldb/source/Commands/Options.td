@@ -778,6 +778,9 @@ let Command = "expression" in {
         Desc<"Persist expression result in a variable for subsequent use. "
              "Expression results will be labeled with $-prefixed variables, "
              "e.g. $0, $1, etc.">;
+  def ignore_const_context : Option<"ignore-const-context", "K">,
+                             Groups<[1, 2]>,
+                             Desc<"TODO">;
 }
 
 let Command = "frame diag" in {

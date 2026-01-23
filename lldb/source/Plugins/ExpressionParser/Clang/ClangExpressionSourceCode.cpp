@@ -342,9 +342,12 @@ void ClangExpressionSourceCode::AddLocalVariableDecls(StreamString &stream,
   }
 }
 
-bool ClangExpressionSourceCode::GetText(
-    std::string &text, ExecutionContext &exe_ctx, bool add_locals,
-    bool force_add_all_locals, llvm::ArrayRef<std::string> modules) const {
+bool ClangExpressionSourceCode::GetText(std::string &text,
+                                        ExecutionContext &exe_ctx,
+                                        bool add_locals,
+                                        bool force_add_all_locals,
+                                        llvm::ArrayRef<std::string> modules,
+                                        bool ignore_const_context) const {
   const char *target_specific_defines = "typedef signed char BOOL;\n";
   std::string module_macros;
   llvm::raw_string_ostream module_macros_stream(module_macros);
@@ -429,14 +432,16 @@ bool ClangExpressionSourceCode::GetText(
                               force_add_all_locals ? "" : m_body, frame);
       }
 
-    if (auto this_sp = frame->FindVariable(ConstString("this"))) {
-      cv_quals = clang::Qualifiers::fromCVRMask(
-          this_sp->GetCompilerType().GetPointeeType().GetTypeQualifiers());
-      if (auto this_this_sp = this_sp->GetChildMemberWithName("this"))
-        cv_quals =
-            clang::Qualifiers::fromCVRMask(this_this_sp->GetCompilerType()
-                                               .GetPointeeType()
-                                               .GetTypeQualifiers());
+    if (!ignore_const_context) {
+      if (auto this_sp = frame->FindVariable(ConstString("this"))) {
+        cv_quals = clang::Qualifiers::fromCVRMask(
+            this_sp->GetCompilerType().GetPointeeType().GetTypeQualifiers());
+        if (auto this_this_sp = this_sp->GetChildMemberWithName("this"))
+          cv_quals =
+              clang::Qualifiers::fromCVRMask(this_this_sp->GetCompilerType()
+                                                 .GetPointeeType()
+                                                 .GetTypeQualifiers());
+      }
     }
   }
 

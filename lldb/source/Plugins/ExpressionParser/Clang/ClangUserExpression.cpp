@@ -27,6 +27,7 @@
 #include "Plugins/TypeSystem/Clang/TypeSystemClang.h"
 #include "lldb/Core/Debugger.h"
 #include "lldb/Core/Module.h"
+#include "lldb/Expression/DiagnosticManager.h"
 #include "lldb/Expression/ExpressionSourceCode.h"
 #include "lldb/Expression/IRExecutionUnit.h"
 #include "lldb/Expression/IRInterpreter.h"
@@ -55,6 +56,7 @@
 #include "clang/AST/DeclCXX.h"
 #include "clang/AST/DeclObjC.h"
 
+#include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/ScopeExit.h"
 #include "llvm/BinaryFormat/Dwarf.h"
 
@@ -944,6 +946,42 @@ bool ClangUserExpression::AddArguments(ExecutionContext &exe_ctx,
 lldb::ExpressionVariableSP ClangUserExpression::GetResultAfterDematerialization(
     ExecutionContextScope *exe_scope) {
   return m_result_delegate.GetVariable();
+}
+
+void ClangUserExpression::FixupParseErrorDiagnostics(
+    DiagnosticManager &diagnostic_manager) const {
+  const bool is_fixable_cvr_error = llvm::any_of(
+      diagnostic_manager.Diagnostics(),
+      [](std::unique_ptr<Diagnostic> const &diag) {
+        switch (diag->GetCompilerID()) {
+        case clang::diag::err_member_function_call_bad_cvr:
+          return true;
+        case clang::diag::err_typecheck_assign_const:
+          return diag->GetDetail().message.find(
+                     "within const member function") != std::string::npos;
+        default:
+          return false;
+        }
+      });
+
+  // Nothing to report.
+  if (!is_fixable_cvr_error)
+    return;
+
+  // If the user already tried ignoring function qualifiers but
+  // the expression still failed, we don't want to suggest the hint again.
+  if (m_options.GetIgnoreConstContext()) {
+    // Hard to prove that we don't get here so don't emit a diagnostic n non-asserts builds.
+    // But we do want a signal in asserts builds.
+    assert (false && "IgnoreConstContexts didn't resolve compiler diagnostic.");
+    return;
+  }
+
+  diagnostic_manager.AddDiagnostic(
+      "Possibly trying to mutate object in a const context. Try "
+      "running the expression with: expression --ignore-const-context "
+      "-- <your expression>",
+      lldb::eSeverityInfo, eDiagnosticOriginLLDB);
 }
 
 char ClangUserExpression::ClangUserExpressionHelper::ID;

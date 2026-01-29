@@ -235,6 +235,19 @@ SymbolFileCommon::GetTypeSystemForLanguage(lldb::LanguageType language) {
   return type_system_or_err;
 }
 
+std::shared_ptr<DeclVendor>
+SymbolFileCommon::GetDeclVendor(Target &target) {
+  return m_objfile_sp->GetModule()->GetDeclVendor(target);
+
+  /*
+  if (type_system_or_err) {
+    if (auto ts = *type_system_or_err)
+      ts->SetSymbolFile(this);
+  }
+  return type_system_or_err;
+  */
+}
+
 uint64_t SymbolFileCommon::GetDebugInfoSize(bool load_all_debug_info) {
   if (!m_objfile_sp)
     return 0;

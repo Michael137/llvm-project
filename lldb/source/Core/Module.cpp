@@ -374,6 +374,22 @@ Module::GetTypeSystemForLanguage(LanguageType language) {
   return m_type_system_map.GetTypeSystemForLanguage(language, this, true);
 }
 
+std::shared_ptr<DeclVendor>
+Module::GetDeclVendor(Target &target) {
+  if (!m_decl_vendor) {
+    // TODO: this is hacky
+    auto ts_or_err = GetTypeSystemForLanguage(eLanguageTypeC_plus_plus);
+    if (!ts_or_err) {
+      llvm::consumeError(ts_or_err.takeError());
+      return nullptr;
+    }
+
+    m_decl_vendor = (*ts_or_err)->TEMPORARY_createClangDeclVendor(target);
+  }
+
+  return m_decl_vendor;
+}
+
 void Module::ForEachTypeSystem(
     llvm::function_ref<bool(lldb::TypeSystemSP)> callback) {
   m_type_system_map.ForEach(callback);

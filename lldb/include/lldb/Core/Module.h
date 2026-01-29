@@ -14,6 +14,7 @@
 #include "lldb/Core/ModuleSpec.h"
 #include "lldb/Symbol/ObjectFile.h"
 #include "lldb/Symbol/SymbolContextScope.h"
+#include "lldb/Symbol/DeclVendor.h"
 #include "lldb/Symbol/TypeSystem.h"
 #include "lldb/Target/PathMappingList.h"
 #include "lldb/Target/Statistics.h"
@@ -882,6 +883,9 @@ public:
     return m_symbol_locator_duration_map;
   }
 
+  std::shared_ptr<DeclVendor>
+  GetDeclVendor(Target &target);
+
   void ResetStatistics();
 
   /// \class LookupInfo Module.h "lldb/Core/Module.h"
@@ -1064,6 +1068,9 @@ protected:
   /// references to them
   TypeSystemMap m_type_system_map; ///< A map of any type systems associated
                                    /// with this module
+
+  std::shared_ptr<DeclVendor> m_decl_vendor;
+
   /// Module specific source remappings for when you have debug info for a
   /// module that doesn't match where the sources currently are.
   PathMappingList m_source_mappings =

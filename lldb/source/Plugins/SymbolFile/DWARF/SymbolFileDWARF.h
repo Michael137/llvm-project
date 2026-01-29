@@ -196,6 +196,9 @@ public:
   llvm::Expected<lldb::TypeSystemSP>
   GetTypeSystemForLanguage(lldb::LanguageType language) override;
 
+  std::shared_ptr<DeclVendor>
+  GetDeclVendor(Target &target) override;
+
   CompilerDeclContext FindNamespace(ConstString name,
                                     const CompilerDeclContext &parent_decl_ctx,
                                     bool only_root_namespaces) override;

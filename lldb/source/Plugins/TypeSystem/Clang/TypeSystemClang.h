@@ -196,6 +196,8 @@ public:
 
   static bool GetCompleteDecl(clang::ASTContext *ast, clang::Decl *decl);
 
+  std::shared_ptr<DeclVendor> TEMPORARY_createClangDeclVendor(Target &target) override;
+
   void SetMetadataAsUserID(const clang::Decl *decl, lldb::user_id_t user_id);
   void SetMetadataAsUserID(const clang::Type *type, lldb::user_id_t user_id);
 

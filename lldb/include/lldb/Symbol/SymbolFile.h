@@ -42,6 +42,8 @@
 
 namespace lldb_private {
 
+class Target;
+
 /// Provides public interface for all SymbolFiles. Any protected
 /// virtual members should go into SymbolFileCommon; most SymbolFile
 /// implementations should inherit from SymbolFileCommon to override
@@ -354,6 +356,9 @@ public:
   virtual llvm::Expected<lldb::TypeSystemSP>
   GetTypeSystemForLanguage(lldb::LanguageType language) = 0;
 
+  virtual std::shared_ptr<DeclVendor>
+  GetDeclVendor(Target &target) = 0;
+
   /// Finds a namespace of name \ref name and whose parent
   /// context is \ref parent_decl_ctx.
   ///
@@ -584,6 +589,9 @@ public:
 
   llvm::Expected<lldb::TypeSystemSP>
   GetTypeSystemForLanguage(lldb::LanguageType language) override;
+
+  std::shared_ptr<DeclVendor>
+  GetDeclVendor(Target &target) override;
 
   void Dump(Stream &s) override;
 

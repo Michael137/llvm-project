@@ -22,6 +22,7 @@
 #include "llvm/Support/Error.h"
 #include "llvm/Support/JSON.h"
 
+#include "lldb/Symbol/DeclVendor.h"
 #include "lldb/Core/PluginInterface.h"
 #include "lldb/Expression/Expression.h"
 #include "lldb/Symbol/CompilerDecl.h"
@@ -164,6 +165,8 @@ public:
 
   virtual bool IsFloatingPointType(lldb::opaque_compiler_type_t type,
                                    bool &is_complex) = 0;
+
+  virtual std::shared_ptr<DeclVendor> TEMPORARY_createClangDeclVendor(Target &) = 0;
 
   virtual bool IsFunctionType(lldb::opaque_compiler_type_t type) = 0;
 

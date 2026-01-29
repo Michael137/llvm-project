@@ -9944,3 +9944,7 @@ void TypeSystemClang::LogCreation() const {
     LLDB_LOG(log, "Created new TypeSystem for (ASTContext*){0:x} '{1}'",
              &getASTContext(), getDisplayName());
 }
+
+std::shared_ptr<DeclVendor> TypeSystemClang::TEMPORARY_createClangDeclVendor(Target &target) {
+  return std::shared_ptr<DeclVendor>(ClangModulesDeclVendor::Create(target));
+}

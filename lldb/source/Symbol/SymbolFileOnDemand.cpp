@@ -464,6 +464,15 @@ SymbolFileOnDemand::GetTypeSystemForLanguage(LanguageType language) {
   return m_sym_file_impl->GetTypeSystemForLanguage(language);
 }
 
+std::shared_ptr<DeclVendor>
+SymbolFileOnDemand::GetDeclVendor(Target &target) {
+  if (!m_debug_info_enabled)
+      return nullptr;
+
+  return m_sym_file_impl->GetDeclVendor(target);
+}
+
+
 CompilerDeclContext
 SymbolFileOnDemand::FindNamespace(ConstString name,
                                   const CompilerDeclContext &parent_decl_ctx,

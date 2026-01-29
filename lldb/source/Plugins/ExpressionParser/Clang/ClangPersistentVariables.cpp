@@ -119,10 +119,10 @@ ClangPersistentVariables::GetClangASTImporter() {
 
 std::shared_ptr<ClangModulesDeclVendor>
 ClangPersistentVariables::GetClangModulesDeclVendor() {
-  if (!m_modules_decl_vendor_sp) {
-    m_modules_decl_vendor_sp.reset(
-        ClangModulesDeclVendor::Create(*m_target_sp));
-  }
+  //if (!m_modules_decl_vendor_sp) {
+  //  m_modules_decl_vendor_sp.reset(
+  //      ClangModulesDeclVendor::Create(*m_target_sp));
+  //}
   return m_modules_decl_vendor_sp;
 }
 

@@ -522,6 +522,14 @@ SymbolFileDWARF::GetTypeSystemForLanguage(LanguageType language) {
   return SymbolFileCommon::GetTypeSystemForLanguage(language);
 }
 
+std::shared_ptr<DeclVendor>
+SymbolFileDWARF::GetDeclVendor(Target &target) {
+  if (SymbolFileDWARFDebugMap *debug_map_symfile = GetDebugMapSymfile())
+    return debug_map_symfile->GetDeclVendor(target);
+
+  return SymbolFileCommon::GetDeclVendor(target);
+}
+
 void SymbolFileDWARF::InitializeObject() {
   Log *log = GetLog(DWARFLog::DebugInfo);
 

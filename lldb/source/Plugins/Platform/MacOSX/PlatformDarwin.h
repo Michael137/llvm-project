@@ -67,7 +67,7 @@ public:
   Status ResolveSymbolFile(Target &target, const ModuleSpec &sym_spec,
                            FileSpec &sym_file) override;
 
-  FileSpecList
+  std::pair<FileSpecList, bool>
   LocateExecutableScriptingResources(Target *target, Module &module,
                                      Stream &feedback_stream) override;
 

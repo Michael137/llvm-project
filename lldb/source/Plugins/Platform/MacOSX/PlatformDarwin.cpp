@@ -200,6 +200,68 @@ PlatformDarwin::PutFile(const lldb_private::FileSpec &source,
   return PlatformPOSIX::PutFile(source, destination, uid, gid);
 }
 
+static FileSpecList LocateExecutableScriptingResourcesFromSafePaths(
+    Stream &feedback_stream, const Target &target, FileSpec module_spec,
+    const FileSpec &symfile_spec) {
+
+  FileSpecList paths = target.TargetProperties::GetSafeLoadPaths();
+
+  FileSpecList file_list;
+  for (auto path : paths) {
+    if (llvm::StringRef(path.GetPath()).starts_with("$SDK_ROOT")) {
+      auto sdk_path_or_err =
+          HostInfo::GetSDKRoot(HostInfo::SDKOptions{XcodeSDK::GetAnyMacOS()});
+      if (!sdk_path_or_err) {
+        Log *log = GetLog(LLDBLog::Platform);
+        LLDB_LOG_ERROR(log, sdk_path_or_err.takeError(),
+                       "Error while searching for Xcode SDK: {0}");
+        continue;
+      }
+
+      FileSpec fspec(*sdk_path_or_err);
+
+      if (!fspec)
+        continue;
+
+      if (!FileSystem::Instance().Exists(fspec))
+        continue;
+
+      // TODO: find a cleaner way to do this
+      auto current_path = path.GetPath();
+      auto current_path_ref = llvm::StringRef(current_path);
+      current_path_ref.consume_front("$SDK_ROOT");
+      fspec.AppendPathComponent(current_path_ref);
+      path = fspec;
+    }
+
+    // TODO: we want to be able to specify
+    // $SDK_ROOT/usr/share/lldb/<module-name> as a safe path. Should we try with
+    // and without module in the name?
+    path.AppendPathComponent(
+        module_spec.GetFileNameStrippingExtension().GetStringRef());
+
+    if (!FileSystem::Instance().Exists(path))
+      continue;
+
+    // TODO: share the Python "reserved identifier in filename" warning code
+    // with LocateExecutableScriptingResourcesFromDSYM
+
+    std::error_code ec;
+    llvm::vfs::directory_iterator entry =
+        FileSystem::Instance().DirBegin(path.GetPath(), ec);
+    for (; entry != llvm::vfs::directory_iterator() && !ec;
+         entry.increment(ec)) {
+      if (entry->type() != llvm::sys::fs::file_type::regular_file)
+        continue;
+
+      if (entry->path().ends_with(".py"))
+        file_list.AppendIfUnique(FileSpec(entry->path()));
+    }
+  }
+
+  return file_list;
+}
+
 static FileSpecList LocateExecutableScriptingResourcesFromDSYM(
     Stream &feedback_stream, FileSpec module_spec, const Target &target,
     const FileSpec &symfile_spec) {
@@ -291,8 +353,10 @@ static FileSpecList LocateExecutableScriptingResourcesFromDSYM(
   return file_list;
 }
 
-FileSpecList PlatformDarwin::LocateExecutableScriptingResources(
-    Target *target, Module &module, Stream &feedback_stream) {
+std::pair<FileSpecList, bool>
+PlatformDarwin::LocateExecutableScriptingResources(Target *target,
+                                                   Module &module,
+                                                   Stream &feedback_stream) {
   if (!target)
     return {};
 
@@ -321,14 +385,19 @@ FileSpecList PlatformDarwin::LocateExecutableScriptingResources(
     return {};
 
   const FileSpec &symfile_spec = objfile->GetFileSpec();
-  if (symfile_spec &&
-      llvm::StringRef(symfile_spec.GetPath())
+  if (!symfile_spec)
+    return {};
+
+  if (llvm::StringRef(symfile_spec.GetPath())
           .contains_insensitive(".dSYM/Contents/Resources/DWARF") &&
       FileSystem::Instance().Exists(symfile_spec))
-    return LocateExecutableScriptingResourcesFromDSYM(
-        feedback_stream, module_spec, *target, symfile_spec);
+    return {LocateExecutableScriptingResourcesFromDSYM(
+                feedback_stream, module_spec, *target, symfile_spec),
+            false};
 
-  return {};
+  return {LocateExecutableScriptingResourcesFromSafePaths(
+              feedback_stream, *target, module_spec, symfile_spec),
+          true};
 }
 
 Status PlatformDarwin::ResolveSymbolFile(Target &target,

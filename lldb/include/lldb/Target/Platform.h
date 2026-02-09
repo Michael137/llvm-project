@@ -273,7 +273,7 @@ public:
   //
   // Locating the file should happen only on the local computer or using the
   // current computers global settings.
-  virtual FileSpecList
+  virtual std::pair<FileSpecList, bool>
   LocateExecutableScriptingResources(Target *target, Module &module,
                                      Stream &feedback_stream);
 

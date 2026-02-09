@@ -1447,8 +1447,9 @@ bool Module::LoadScriptingResourceInTarget(Target *target, Status &error,
       return false;
     }
 
-    FileSpecList file_specs = platform_sp->LocateExecutableScriptingResources(
-        target, *this, feedback_stream);
+    const auto [file_specs, are_safe_paths] =
+        platform_sp->LocateExecutableScriptingResources(target, *this,
+                                                        feedback_stream);
 
     const uint32_t num_specs = file_specs.GetSize();
     if (num_specs) {
@@ -1458,7 +1459,7 @@ bool Module::LoadScriptingResourceInTarget(Target *target, Status &error,
           FileSpec scripting_fspec(file_specs.GetFileSpecAtIndex(i));
           if (scripting_fspec &&
               FileSystem::Instance().Exists(scripting_fspec)) {
-            if (should_load == eLoadScriptFromSymFileWarn) {
+            if (!are_safe_paths && should_load == eLoadScriptFromSymFileWarn) {
               feedback_stream.Printf(
                   "warning: '%s' contains a debug script. To run this script "
                   "in "
@@ -1471,6 +1472,10 @@ bool Module::LoadScriptingResourceInTarget(Target *target, Status &error,
                   scripting_fspec.GetPath().c_str());
               return false;
             }
+
+            LLDB_LOG(GetLog(LLDBLog::Modules), "Auto-loading {0}",
+                     scripting_fspec.GetPath());
+
             StreamString scripting_stream;
             scripting_fspec.Dump(scripting_stream.AsRawOstream());
             LoadScriptOptions options;

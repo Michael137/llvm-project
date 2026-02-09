@@ -238,6 +238,8 @@ public:
 
   LoadScriptFromSymFile GetLoadScriptFromSymbolFile() const;
 
+  FileSpecList GetSafeLoadPaths() const;
+
   LoadCWDlldbinitFile GetLoadCWDlldbinitFile() const;
 
   Disassembler::HexImmediateStyle GetHexImmediateStyle() const;

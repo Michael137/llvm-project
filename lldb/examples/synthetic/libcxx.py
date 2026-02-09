@@ -417,448 +417,6 @@ def stdlist_SummaryProvider(valobj, dict):
     return "size=" + str(prov.num_children())
 
 
-# a tree node - this class makes the syntax in the actual iterator nicer
-# to read and maintain
-
-
-class stdmap_iterator_node:
-    def _left_impl(self):
-        logger = lldb.formatters.Logger.Logger()
-        return stdmap_iterator_node(self.node.GetChildMemberWithName("__left_"))
-
-    def _right_impl(self):
-        logger = lldb.formatters.Logger.Logger()
-        return stdmap_iterator_node(self.node.GetChildMemberWithName("__right_"))
-
-    def _parent_impl(self):
-        logger = lldb.formatters.Logger.Logger()
-        return stdmap_iterator_node(self.node.GetChildMemberWithName("__parent_"))
-
-    def _value_impl(self):
-        logger = lldb.formatters.Logger.Logger()
-        return self.node.GetValueAsUnsigned(0)
-
-    def _sbvalue_impl(self):
-        logger = lldb.formatters.Logger.Logger()
-        return self.node
-
-    def _null_impl(self):
-        logger = lldb.formatters.Logger.Logger()
-        return self.value == 0
-
-    def __init__(self, node):
-        logger = lldb.formatters.Logger.Logger()
-        self.node = node
-
-    left = property(_left_impl, None)
-    right = property(_right_impl, None)
-    parent = property(_parent_impl, None)
-    value = property(_value_impl, None)
-    is_null = property(_null_impl, None)
-    sbvalue = property(_sbvalue_impl, None)
-
-
-# a Python implementation of the tree iterator used by libc++
-
-
-class stdmap_iterator:
-    def tree_min(self, x):
-        logger = lldb.formatters.Logger.Logger()
-        steps = 0
-        if x.is_null:
-            return None
-        while not x.left.is_null:
-            x = x.left
-            steps += 1
-            if steps > self.max_count:
-                logger >> "Returning None - we overflowed"
-                return None
-        return x
-
-    def tree_max(self, x):
-        logger = lldb.formatters.Logger.Logger()
-        if x.is_null:
-            return None
-        while not x.right.is_null:
-            x = x.right
-        return x
-
-    def tree_is_left_child(self, x):
-        logger = lldb.formatters.Logger.Logger()
-        if x.is_null:
-            return None
-        return True if x.value == x.parent.left.value else False
-
-    def increment_node(self, node):
-        logger = lldb.formatters.Logger.Logger()
-        if node.is_null:
-            return None
-        if not node.right.is_null:
-            return self.tree_min(node.right)
-        steps = 0
-        while not self.tree_is_left_child(node):
-            steps += 1
-            if steps > self.max_count:
-                logger >> "Returning None - we overflowed"
-                return None
-            node = node.parent
-        return node.parent
-
-    def __init__(self, node, max_count=0):
-        logger = lldb.formatters.Logger.Logger()
-        # we convert the SBValue to an internal node object on entry
-        self.node = stdmap_iterator_node(node)
-        self.max_count = max_count
-
-    def value(self):
-        logger = lldb.formatters.Logger.Logger()
-        return self.node.sbvalue  # and return the SBValue back on exit
-
-    def next(self):
-        logger = lldb.formatters.Logger.Logger()
-        node = self.increment_node(self.node)
-        if node is not None and node.sbvalue.IsValid() and not (node.is_null):
-            self.node = node
-            return self.value()
-        else:
-            return None
-
-    def advance(self, N):
-        logger = lldb.formatters.Logger.Logger()
-        if N < 0:
-            return None
-        if N == 0:
-            return self.value()
-        if N == 1:
-            return self.next()
-        while N > 0:
-            if self.next() is None:
-                return None
-            N = N - 1
-        return self.value()
-
-
-class stdmap_SynthProvider:
-    def __init__(self, valobj, dict):
-        logger = lldb.formatters.Logger.Logger()
-        self.valobj = valobj
-        self.pointer_size = self.valobj.GetProcess().GetAddressByteSize()
-        self.count = None
-
-    def update(self):
-        logger = lldb.formatters.Logger.Logger()
-        self.count = None
-        try:
-            # we will set this to True if we find out that discovering a node in the map takes more steps than the overall size of the RB tree
-            # if this gets set to True, then we will merrily return None for
-            # any child from that moment on
-            self.garbage = False
-            self.tree = self.valobj.GetChildMemberWithName("__tree_")
-            self.root_node = self.tree.GetChildMemberWithName("__begin_node_")
-            # this data is either lazily-calculated, or cannot be inferred at this moment
-            # we still need to mark it as None, meaning "please set me ASAP"
-            self.data_type = None
-            self.data_size = None
-            self.skip_size = None
-        except:
-            pass
-
-    def num_children(self):
-        global _map_capping_size
-        logger = lldb.formatters.Logger.Logger()
-        if self.count is None:
-            self.count = self.num_children_impl()
-            if self.count > _map_capping_size:
-                self.count = _map_capping_size
-        return self.count
-
-    def num_children_impl(self):
-        logger = lldb.formatters.Logger.Logger()
-        try:
-            return (
-                self.valobj.GetChildMemberWithName("__tree_")
-                .GetChildMemberWithName("__pair3_")
-                .GetChildMemberWithName("__first_")
-                .GetValueAsUnsigned()
-            )
-        except:
-            return 0
-
-    def has_children(self):
-        return True
-
-    def get_data_type(self):
-        logger = lldb.formatters.Logger.Logger()
-        if self.data_type is None or self.data_size is None:
-            if self.num_children() == 0:
-                return False
-            deref = self.root_node.Dereference()
-            if not (deref.IsValid()):
-                return False
-            value = deref.GetChildMemberWithName("__value_")
-            if not (value.IsValid()):
-                return False
-            self.data_type = value.GetType()
-            self.data_size = self.data_type.GetByteSize()
-            self.skip_size = None
-            return True
-        else:
-            return True
-
-    def get_value_offset(self, node):
-        logger = lldb.formatters.Logger.Logger()
-        if self.skip_size is None:
-            node_type = node.GetType()
-            fields_count = node_type.GetNumberOfFields()
-            for i in range(fields_count):
-                field = node_type.GetFieldAtIndex(i)
-                if field.GetName() == "__value_":
-                    self.skip_size = field.GetOffsetInBytes()
-                    break
-        return self.skip_size is not None
-
-    def get_child_index(self, name):
-        logger = lldb.formatters.Logger.Logger()
-        try:
-            return int(name.lstrip("[").rstrip("]"))
-        except:
-            return -1
-
-    def get_child_at_index(self, index):
-        logger = lldb.formatters.Logger.Logger()
-        logger >> "Retrieving child " + str(index)
-        if index < 0:
-            return None
-        if index >= self.num_children():
-            return None
-        if self.garbage:
-            logger >> "Returning None since this tree is garbage"
-            return None
-        try:
-            iterator = stdmap_iterator(self.root_node, max_count=self.num_children())
-            # the debug info for libc++ std::map is such that __begin_node_ has a very nice and useful type
-            # out of which we can grab the information we need - every other node has a less informative
-            # type which omits all value information and only contains housekeeping information for the RB tree
-            # hence, we need to know if we are at a node != 0, so that we can
-            # still get at the data
-            need_to_skip = index > 0
-            current = iterator.advance(index)
-            if current is None:
-                logger >> "Tree is garbage - returning None"
-                self.garbage = True
-                return None
-            if self.get_data_type():
-                if not (need_to_skip):
-                    current = current.Dereference()
-                    obj = current.GetChildMemberWithName("__value_")
-                    obj_data = obj.GetData()
-                    # make sure we have a valid offset for the next items
-                    self.get_value_offset(current)
-                    # we do not return __value_ because then we would end up with a child named
-                    # __value_ instead of [0]
-                    return self.valobj.CreateValueFromData(
-                        "[" + str(index) + "]", obj_data, self.data_type
-                    )
-                else:
-                    # FIXME we need to have accessed item 0 before accessing
-                    # any other item!
-                    if self.skip_size is None:
-                        (
-                            logger
-                            >> "You asked for item > 0 before asking for item == 0, I will fetch 0 now then retry"
-                        )
-                        if self.get_child_at_index(0):
-                            return self.get_child_at_index(index)
-                        else:
-                            (
-                                logger
-                                >> "item == 0 could not be found. sorry, nothing can be done here."
-                            )
-                            return None
-                    return current.CreateChildAtOffset(
-                        "[" + str(index) + "]", self.skip_size, self.data_type
-                    )
-            else:
-                (
-                    logger
-                    >> "Unable to infer data-type - returning None (should mark tree as garbage here?)"
-                )
-                return None
-        except Exception as err:
-            logger >> "Hit an exception: " + str(err)
-            return None
-
-
-# Just an example: the actual summary is produced by a summary string:
-# size=${svar%#}
-
-
-def stdmap_SummaryProvider(valobj, dict):
-    prov = stdmap_SynthProvider(valobj, None)
-    return "size=" + str(prov.num_children())
-
-
-class stddeque_SynthProvider:
-    def __init__(self, valobj, d):
-        logger = lldb.formatters.Logger.Logger()
-        logger.write("init")
-        self.valobj = valobj
-        self.pointer_size = self.valobj.GetProcess().GetAddressByteSize()
-        self.count = None
-        try:
-            self.find_block_size()
-        except:
-            self.block_size = -1
-            self.element_size = -1
-        logger.write(
-            "block_size=%d, element_size=%d" % (self.block_size, self.element_size)
-        )
-
-    def find_block_size(self):
-        # in order to use the deque we must have the block size, or else
-        # it's impossible to know what memory addresses are valid
-        obj_type = self.valobj.GetType()
-        if obj_type.IsReferenceType():
-            obj_type = obj_type.GetDereferencedType()
-        elif obj_type.IsPointerType():
-            obj_type = obj_type.GetPointeeType()
-        self.element_type = obj_type.GetTemplateArgumentType(0)
-        self.element_size = self.element_type.GetByteSize()
-        # The code says this, but there must be a better way:
-        # template <class _Tp, class _Allocator>
-        # class __deque_base {
-        #    static const difference_type __block_size = sizeof(value_type) < 256 ? 4096 / sizeof(value_type) : 16;
-        # }
-        if self.element_size < 256:
-            self.block_size = 4096 // self.element_size
-        else:
-            self.block_size = 16
-
-    def num_children(self):
-        logger = lldb.formatters.Logger.Logger()
-        if self.count is None:
-            return 0
-        return self.count
-
-    def has_children(self):
-        return True
-
-    def get_child_index(self, name):
-        logger = lldb.formatters.Logger.Logger()
-        try:
-            return int(name.lstrip("[").rstrip("]"))
-        except:
-            return -1
-
-    @staticmethod
-    def _subscript(ptr: lldb.SBValue, idx: int, name: str) -> lldb.SBValue:
-        """Access a pointer value as if it was an array. Returns ptr[idx]."""
-        deref_t = ptr.GetType().GetPointeeType()
-        offset = idx * deref_t.GetByteSize()
-        return ptr.CreateChildAtOffset(name, offset, deref_t)
-
-    def get_child_at_index(self, index):
-        logger = lldb.formatters.Logger.Logger()
-        logger.write("Fetching child " + str(index))
-        if index < 0 or self.count is None:
-            return None
-        if index >= self.num_children():
-            return None
-        try:
-            i, j = divmod(self.start + index, self.block_size)
-            val = stddeque_SynthProvider._subscript(self.map_begin, i, "")
-            return stddeque_SynthProvider._subscript(val, j, f"[{index}]")
-        except:
-            return None
-
-    def _get_value_of_compressed_pair(self, pair):
-        value = pair.GetChildMemberWithName("__value_")
-        if not value.IsValid():
-            # pre-r300140 member name
-            value = pair.GetChildMemberWithName("__first_")
-        return value.GetValueAsUnsigned(0)
-
-    def update(self):
-        logger = lldb.formatters.Logger.Logger()
-        try:
-            has_compressed_pair_layout = True
-            alloc_valobj = self.valobj.GetChildMemberWithName("__alloc_")
-            size_valobj = self.valobj.GetChildMemberWithName("__size_")
-            if alloc_valobj.IsValid() and size_valobj.IsValid():
-                has_compressed_pair_layout = False
-
-            # A deque is effectively a two-dim array, with fixed width.
-            # 'map' contains pointers to the rows of this array. The
-            # full memory area allocated by the deque is delimited
-            # by 'first' and 'end_cap'. However, only a subset of this
-            # memory contains valid data since a deque may have some slack
-            # at the front and back in order to have O(1) insertion at
-            # both ends. The rows in active use are delimited by
-            # 'begin' and 'end'.
-            #
-            # To find the elements that are actually constructed, the 'start'
-            # variable tells which element in this NxM array is the 0th
-            # one, and the 'size' element gives the number of elements
-            # in the deque.
-            if has_compressed_pair_layout:
-                count = self._get_value_of_compressed_pair(
-                    self.valobj.GetChildMemberWithName("__size_")
-                )
-            else:
-                count = size_valobj.GetValueAsUnsigned(0)
-
-            # give up now if we cant access memory reliably
-            if self.block_size < 0:
-                logger.write("block_size < 0")
-                return
-            start = self.valobj.GetChildMemberWithName("__start_").GetValueAsUnsigned(0)
-
-            map_ = self.valobj.GetChildMemberWithName("__map_")
-            is_size_based = map_.GetChildMemberWithName("__size_").IsValid()
-            first = map_.GetChildMemberWithName("__first_")
-            # LLVM 22 renames __map_.__begin_ to __map_.__front_cap_
-            if not first:
-                first = map_.GetChildMemberWithName("__front_cap_")
-            map_first = first.GetValueAsUnsigned(0)
-            self.map_begin = map_.GetChildMemberWithName("__begin_")
-            map_begin = self.map_begin.GetValueAsUnsigned(0)
-            map_end = get_buffer_end(map_, map_begin)
-            map_endcap = get_buffer_endcap(
-                self, map_, map_begin, has_compressed_pair_layout, is_size_based
-            )
-
-            # check consistency
-            if not map_first <= map_begin <= map_end <= map_endcap:
-                logger.write("map pointers are not monotonic")
-                return
-            total_rows, junk = divmod(map_endcap - map_first, self.pointer_size)
-            if junk:
-                logger.write("endcap-first doesnt align correctly")
-                return
-            active_rows, junk = divmod(map_end - map_begin, self.pointer_size)
-            if junk:
-                logger.write("end-begin doesnt align correctly")
-                return
-            start_row, junk = divmod(map_begin - map_first, self.pointer_size)
-            if junk:
-                logger.write("begin-first doesnt align correctly")
-                return
-
-            logger.write(
-                "update success: count=%r, start=%r, first=%r" % (count, start, first)
-            )
-            # if consistent, save all we really need:
-            self.count = count
-            self.start = start
-            self.first = first
-        except:
-            self.count = None
-            self.start = None
-            self.map_first = None
-            self.map_begin = None
-        return False
-
-
 class stdsharedptr_SynthProvider:
     def __init__(self, valobj, d):
         logger = lldb.formatters.Logger.Logger()
@@ -937,6 +495,400 @@ class stdsharedptr_SynthProvider:
         else:
             self.cntrl = None
 
+class MapEntry:
+    """Wrapper around an LLDB ValueObject representing a tree node entry."""
+
+    def __init__(self, entry_sp=None):
+        self.m_entry_sp = entry_sp
+
+    def left(self):
+        """Get the left child pointer."""
+        if not self.m_entry_sp:
+            return None
+        return self.m_entry_sp.CreateChildAtOffset(
+            "left", 0, self.m_entry_sp.GetType()
+        )
+
+    def right(self):
+        """Get the right child pointer."""
+        if not self.m_entry_sp:
+            return None
+        addr_size = self.m_entry_sp.GetProcess().GetAddressByteSize()
+        return self.m_entry_sp.CreateChildAtOffset(
+            "right", addr_size, self.m_entry_sp.GetType()
+        )
+
+    def parent(self):
+        """Get the parent pointer."""
+        if not self.m_entry_sp:
+            return None
+        addr_size = self.m_entry_sp.GetProcess().GetAddressByteSize()
+        return self.m_entry_sp.CreateChildAtOffset(
+            "parent", 2 * addr_size, self.m_entry_sp.GetType()
+        )
+
+    def value(self):
+        """Get the unsigned integer value of the entry."""
+        if not self.m_entry_sp:
+            return 0
+        return self.m_entry_sp.GetValueAsUnsigned(0)
+
+    def error(self):
+        """Check if the entry has an error."""
+        if not self.m_entry_sp:
+            return True
+        return self.m_entry_sp.GetError().Fail()
+
+    def null(self):
+        """Check if the entry is null."""
+        return self.value() == 0
+
+    def get_entry(self):
+        """Get the underlying ValueObject."""
+        return self.m_entry_sp
+
+    def set_entry(self, entry):
+        """Set the underlying ValueObject."""
+        self.m_entry_sp = entry
+
+    def __eq__(self, other):
+        if not isinstance(other, MapEntry):
+            return False
+        if self.m_entry_sp is None and other.m_entry_sp is None:
+            return True
+        if self.m_entry_sp is None or other.m_entry_sp is None:
+            return False
+        return self.m_entry_sp.GetValueAsUnsigned() == other.m_entry_sp.GetValueAsUnsigned()
+
+
+class MapIterator:
+    """Iterator for traversing the red-black tree backing std::map."""
+
+    def __init__(self, entry=None, depth=0):
+        self.m_entry = MapEntry(entry) if entry else MapEntry()
+        self.m_max_depth = depth
+        self.m_error = False
+
+    def value(self):
+        """Get the current entry."""
+        return self.m_entry.get_entry()
+
+    def advance(self, count):
+        """Advance the iterator by count steps."""
+        if self.m_error:
+            return None
+
+        steps = 0
+        while count > 0:
+            self._next()
+            count -= 1
+            steps += 1
+            if self.m_error or self.m_entry.null() or (steps > self.m_max_depth):
+                return None
+
+        return self.m_entry.get_entry()
+
+    def _next(self):
+        """
+        Mimics libc++'s __tree_next algorithm, which libc++ uses
+        in its __tree_iterator::operator++.
+        """
+        if self.m_entry.null():
+            return
+
+        right = MapEntry(self.m_entry.right())
+        if not right.null():
+            self.m_entry = self._tree_min(right)
+            return
+
+        steps = 0
+        while not self._is_left_child(self.m_entry):
+            if self.m_entry.error():
+                self.m_error = True
+                return
+            self.m_entry.set_entry(self.m_entry.parent())
+            steps += 1
+            if steps > self.m_max_depth:
+                self.m_entry = MapEntry()
+                return
+
+        self.m_entry = MapEntry(self.m_entry.parent())
+
+    def _tree_min(self, x):
+        """Mimics libc++'s __tree_min algorithm."""
+        if x.null():
+            return MapEntry()
+
+        left = MapEntry(x.left())
+        steps = 0
+        while not left.null():
+            if left.error():
+                self.m_error = True
+                return MapEntry()
+            x = left
+            left.set_entry(x.left())
+            steps += 1
+            if steps > self.m_max_depth:
+                return MapEntry()
+
+        return x
+
+    def _is_left_child(self, x):
+        """Check if x is a left child of its parent."""
+        if x.null():
+            return False
+        rhs = MapEntry(x.parent())
+        rhs.set_entry(rhs.left())
+        return x.value() == rhs.value()
+
+
+class LibcxxStdMapSyntheticFrontEnd:
+    """Synthetic children frontend for libc++ std::map."""
+
+    def __init__(self, valobj, internal_dict):
+        self.valobj = valobj
+        self.m_tree = None
+        self.m_root_node = None
+        self.m_node_ptr_type = None
+        self.m_count = None
+        self.m_iterators = {}
+        self.update()
+
+    def num_children(self):
+        """Calculate the number of children (map size)."""
+        if self.m_count is not None:
+            return self.m_count
+
+        if self.m_tree is None:
+            return 0
+
+        # Try the new layout first (__size_)
+        size_sp = self.m_tree.GetChildMemberWithName("__size_")
+        if size_sp and size_sp.IsValid():
+            self.m_count = size_sp.GetValueAsUnsigned(0)
+            return self.m_count
+
+        # Try old compressed pair layout (__pair3_)
+        pair3_sp = self.m_tree.GetChildMemberWithName("__pair3_")
+        if pair3_sp and pair3_sp.IsValid():
+            return self._calculate_num_children_for_old_compressed_pair_layout(pair3_sp)
+
+        return 0
+
+    def _calculate_num_children_for_old_compressed_pair_layout(self, pair):
+        """Handle old libc++ compressed pair layout."""
+        # Try to get the first value from the compressed pair
+        node_sp = pair.GetChildMemberWithName("__value_")
+        if not node_sp or not node_sp.IsValid():
+            # Alternative: try __first_
+            node_sp = pair.GetChildMemberWithName("__first_")
+
+        if not node_sp or not node_sp.IsValid():
+            return 0
+
+        self.m_count = node_sp.GetValueAsUnsigned(0)
+        return self.m_count
+
+    def get_child_index(self, name):
+        """Get the index of a child with the given name."""
+        try:
+            # Names are in the format [0], [1], etc.
+            if name.startswith('[') and name.endswith(']'):
+                return int(name[1:-1])
+        except ValueError:
+            pass
+        return None
+
+    def get_child_at_index(self, index):
+        """Get the child at the given index."""
+        num_children = self.num_children()
+        if index >= num_children:
+            return None
+
+        if self.m_tree is None or self.m_root_node is None:
+            return None
+
+        key_val_sp = self._get_key_value_pair(index, num_children)
+        if not key_val_sp:
+            # This will stop all future searches until an Update() happens
+            self.m_tree = None
+            return None
+
+        # Create a synthetic child with the appropriate name
+        name = "[%d]" % index
+        potential_child_sp = key_val_sp.Clone(name)
+
+        if potential_child_sp and potential_child_sp.IsValid():
+            num_child_children = potential_child_sp.GetNumChildren()
+
+            # Handle __cc_ or __cc wrapper
+            if num_child_children == 1:
+                child0_sp = potential_child_sp.GetChildAtIndex(0)
+                child_name = child0_sp.GetName() if child0_sp else ""
+                if child_name in ("__cc_", "__cc"):
+                    potential_child_sp = child0_sp.Clone(name)
+
+            # Handle __cc_ and __nc wrapper
+            elif num_child_children == 2:
+                child0_sp = potential_child_sp.GetChildAtIndex(0)
+                child1_sp = potential_child_sp.GetChildAtIndex(1)
+                child0_name = child0_sp.GetName() if child0_sp else ""
+                child1_name = child1_sp.GetName() if child1_sp else ""
+                if child0_name in ("__cc_", "__cc") and child1_name == "__nc":
+                    potential_child_sp = child0_sp.Clone(name)
+
+        return potential_child_sp
+
+    def update(self):
+        """Update the cached state."""
+        self.m_count = None
+        self.m_tree = None
+        self.m_root_node = None
+        self.m_iterators.clear()
+
+        self.m_tree = self.valobj.GetChildMemberWithName("__tree_")
+        if not self.m_tree or not self.m_tree.IsValid():
+            return False
+
+        self.m_root_node = self.m_tree.GetChildMemberWithName("__begin_node_")
+        if not self.m_root_node or not self.m_root_node.IsValid():
+            return False
+
+        # Get the __node_pointer type
+        self.m_node_ptr_type = self.m_tree.GetType().FindDirectNestedType("__node_pointer")
+
+        return True
+
+    def has_children(self):
+        """Check if this object has children."""
+        return True
+
+    def _get_key_value_pair(self, idx, max_depth):
+        """
+        Returns the ValueObject for the __tree_node type that
+        holds the key/value pair of the node at index idx.
+        """
+        iterator = MapIterator(self.m_root_node, max_depth)
+
+        advance_by = idx
+        if idx > 0:
+            # If we have already created the iterator for the previous
+            # index, we can start from there and advance by 1.
+            if idx - 1 in self.m_iterators:
+                iterator = self.m_iterators[idx - 1]
+                advance_by = 1
+
+        iterated_sp = iterator.advance(advance_by)
+        if not iterated_sp:
+            # This tree is garbage - stop
+            return None
+
+        if not self.m_node_ptr_type or not self.m_node_ptr_type.IsValid():
+            return None
+
+        # iterated_sp is a __iter_pointer at this point.
+        # We can cast it to a __node_pointer (which is what libc++ does).
+        value_type_sp = iterated_sp.Cast(self.m_node_ptr_type)
+        if not value_type_sp or not value_type_sp.IsValid():
+            return None
+
+        # Finally, get the key/value pair.
+        value_type_sp = value_type_sp.GetChildMemberWithName("__value_")
+        if not value_type_sp or not value_type_sp.IsValid():
+            return None
+
+        self.m_iterators[idx] = iterator
+
+        return value_type_sp
+
+
+class LibCxxMapIteratorSyntheticFrontEnd:
+    """Synthetic children frontend for libc++ std::map::iterator."""
+
+    def __init__(self, valobj, internal_dict):
+        self.valobj = valobj
+        self.m_pair_sp = None
+        self.update()
+
+    def num_children(self):
+        """Map iterators always have 2 children (first and second)."""
+        return 2
+
+    def get_child_index(self, name):
+        """Get the index of a child with the given name."""
+        if not self.m_pair_sp:
+            return None
+        return self.m_pair_sp.GetIndexOfChildWithName(name)
+
+    def get_child_at_index(self, index):
+        """Get the child at the given index."""
+        if not self.m_pair_sp:
+            return None
+        return self.m_pair_sp.GetChildAtIndex(index)
+
+    def update(self):
+        """Update the cached state."""
+        self.m_pair_sp = None
+
+        if not self.valobj.IsValid():
+            return False
+
+        target = self.valobj.GetTarget()
+        if not target or not target.IsValid():
+            return False
+
+        # m_backend is a std::map::iterator
+        # ...which is a __map_iterator<__tree_iterator<..., __node_pointer, ...>>
+        #
+        # Then, __map_iterator::__i_ is a __tree_iterator
+        tree_iter_sp = self.valobj.GetChildMemberWithName("__i_")
+        if not tree_iter_sp or not tree_iter_sp.IsValid():
+            return False
+
+        # Type is __tree_iterator::__node_pointer
+        # (We could alternatively also get this from the template argument)
+        tree_iter_type = tree_iter_sp.GetType()
+        node_pointer_type = None
+        if tree_iter_type.IsValid():
+            node_pointer_type = tree_iter_type.GetTypedefedType().GetTemplateArgumentType(1)
+
+        if not node_pointer_type or not node_pointer_type.IsValid():
+            return False
+
+        # __ptr_ is a __tree_iterator::__iter_pointer
+        iter_pointer_sp = tree_iter_sp.GetChildMemberWithName("__ptr_")
+        if not iter_pointer_sp or not iter_pointer_sp.IsValid():
+            return False
+
+        # Cast the __iter_pointer to a __node_pointer (which stores our key/value pair)
+        node_pointer_sp = iter_pointer_sp.Cast(node_pointer_type)
+        if not node_pointer_sp or not node_pointer_sp.IsValid():
+            return False
+
+        key_value_sp = node_pointer_sp.GetChildMemberWithName("__value_")
+        if not key_value_sp or not key_value_sp.IsValid():
+            return False
+
+        # Create the synthetic child, which is a pair where the key and value can be
+        # retrieved by querying the synthetic frontend for
+        # GetIndexOfChildWithName("first") and GetIndexOfChildWithName("second")
+        # respectively.
+        #
+        # std::map stores the actual key/value pair in value_type::__cc_ (or
+        # previously __cc).
+        key_value_sp = key_value_sp.Clone("pair")
+        if key_value_sp.GetNumChildren() == 1:
+            child0_sp = key_value_sp.GetChildAtIndex(0)
+            child_name = child0_sp.GetName() if child0_sp else ""
+            if child_name in ("__cc_", "__cc"):
+                key_value_sp = child0_sp.Clone("pair")
+
+        self.m_pair_sp = key_value_sp
+        return True
+
+    def has_children(self):
+        """Check if this object has children."""
+        return True
 
 # we can use two different categories for old and new formatters - type names are different enough that we should make no confusion
 # talking with libc++ developer: "std::__1::class_name is set in stone
@@ -964,9 +916,6 @@ def __lldb_init_module(debugger, dict):
         'type summary add -F libcxx.stdlist_SummaryProvider -e -x "^(std::__1::)list<.+>$" -w libcxx'
     )
     debugger.HandleCommand(
-        'type synthetic add -l libcxx.stdmap_SynthProvider -x "^(std::__1::)map<.+> >$" -w libcxx'
-    )
-    debugger.HandleCommand(
         'type summary add -F libcxx.stdmap_SummaryProvider -e -x "^(std::__1::)map<.+> >$" -w libcxx'
     )
     debugger.HandleCommand("type category enable libcxx")
@@ -980,8 +929,14 @@ def __lldb_init_module(debugger, dict):
     debugger.HandleCommand(
         'type synthetic add -l libcxx.stdsharedptr_SynthProvider -x "^(std::__1::)weak_ptr<.+>$" -w libcxx'
     )
+    """Initialize the module by registering the synthetic providers."""
+
+    # Register std::map formatter
+    debugger.HandleCommand(
+        'type synthetic add -l libcxx.LibcxxStdMapSyntheticFrontEnd '
+        '-x "^std::__[[:alnum:]]+::map<.+> >(( )?&)?$" -w libcxx'
+    )
 
 
-_map_capping_size = 255
 _list_capping_size = 255
 _list_uses_loop_detector = True

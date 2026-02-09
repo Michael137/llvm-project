@@ -882,11 +882,16 @@ static void LoadLibCxxFormatters(lldb::TypeCategoryImplSP cpp_category_sp) {
       lldb_private::formatters::LibcxxStdListSyntheticFrontEndCreator,
       "libc++ std::list synthetic children", "^std::__[[:alnum:]]+::list<.+>$",
       stl_deref_flags, true);
-  AddCXXSynthetic(
-      cpp_category_sp,
-      lldb_private::formatters::LibcxxStdMapSyntheticFrontEndCreator,
-      "libc++ std::map synthetic children", "^std::__[[:alnum:]]+::map<.+> >$",
-      stl_synth_flags, true);
+  //AddCXXSynthetic(
+  //    cpp_category_sp,
+  //    lldb_private::formatters::LibcxxStdMapSyntheticFrontEndCreator,
+  //    "libc++ std::map synthetic children", "^std::__[[:alnum:]]+::map<.+> >$",
+  //    stl_synth_flags, true);
+  cpp_category_sp->AddTypeSynthetic(
+      "^std::__[[:alnum:]]+::map<.+> >$", eFormatterMatchRegex,
+      SyntheticChildrenSP(new ScriptedSyntheticChildren(
+          stl_synth_flags,
+          "lldb.formatters.cpp.libcxx.LibcxxStdMapSyntheticFrontEnd")));
   AddCXXSynthetic(
       cpp_category_sp,
       lldb_private::formatters::LibcxxStdMapSyntheticFrontEndCreator,

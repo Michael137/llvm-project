@@ -85,6 +85,21 @@ void lldb_private::formatters::AddCXXSynthetic(
   category_sp->AddTypeSynthetic(type_name, match_type, synth_sp);
 }
 
+void lldb_private::formatters::AddCXXScriptedSynthetic(
+    TypeCategoryImpl::SharedPointer category_sp,
+    const char *regex,
+    ScriptedSyntheticChildren::Flags flags,
+    const char *python_class_name) {
+  assert (python_class_name && python_class_name[0] != '\0');
+  assert (regex && regex[0] != '\0');
+
+  category_sp->AddTypeSynthetic(
+      regex, eFormatterMatchRegex,
+      std::make_shared<ScriptedSyntheticChildren>(
+          flags, python_class_name
+  ));
+}
+
 void lldb_private::formatters::AddFilter(
     TypeCategoryImpl::SharedPointer category_sp,
     std::vector<std::string> children, const char *description,

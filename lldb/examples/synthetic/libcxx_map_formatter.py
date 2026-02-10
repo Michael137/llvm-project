@@ -35,30 +35,30 @@ class MapEntry:
     def __init__(self, entry_sp=None):
         self.m_entry_sp = entry_sp
 
-    def left(self):
-        """Get the left child pointer."""
-        if not self.m_entry_sp:
-            return None
-        return self.m_entry_sp.GetSyntheticChildAtOffset(
-            0, self.m_entry_sp.GetType(), True
-        )
-
-    def right(self):
-        """Get the right child pointer."""
-        if not self.m_entry_sp:
-            return None
-        addr_size = self.m_entry_sp.GetProcess().GetAddressByteSize()
-        return self.m_entry_sp.GetSyntheticChildAtOffset(
-            addr_size, self.m_entry_sp.GetType(), True
-        )
-
-    def parent(self):
-        """Get the parent pointer."""
-        if not self.m_entry_sp:
-            return None
-        addr_size = self.m_entry_sp.GetProcess().GetAddressByteSize()
-        return self.m_entry_sp.GetSyntheticChildAtOffset(
-            2 * addr_size, self.m_entry_sp.GetType(), True
+    def left(self):                                                   
+        """Get the left child pointer."""                             
+        if not self.m_entry_sp:                                       
+            return None                                               
+        return self.m_entry_sp.CreateChildAtOffset(                   
+            "left", 0, self.m_entry_sp.GetType()                      
+        )                                                             
+                                                                  
+    def right(self):                                                  
+        """Get the right child pointer."""                            
+        if not self.m_entry_sp:                                       
+            return None                                               
+        addr_size = self.m_entry_sp.GetProcess().GetAddressByteSize() 
+        return self.m_entry_sp.CreateChildAtOffset(                   
+            "right", addr_size, self.m_entry_sp.GetType()             
+        )                                                             
+                                                                      
+    def parent(self):                                                 
+        """Get the parent pointer."""                                 
+        if not self.m_entry_sp:                                       
+            return None                                               
+        addr_size = self.m_entry_sp.GetProcess().GetAddressByteSize() 
+        return self.m_entry_sp.CreateChildAtOffset(                   
+            "parent", 2 * addr_size, self.m_entry_sp.GetType()        
         )
 
     def value(self):
@@ -288,18 +288,8 @@ class LibcxxStdMapSyntheticFrontEnd:
         if not self.m_root_node or not self.m_root_node.IsValid():
             return False
 
-        # Get the __node_pointer type
-        tree_type = self.m_tree.GetType()
-        if tree_type.IsValid():
-            self.m_node_ptr_type = tree_type.GetTypedefedType().GetTemplateArgumentType(1)
-            if not self.m_node_ptr_type.IsValid():
-                # Try alternative approach
-                for i in range(tree_type.GetNumberOfTemplateArguments()):
-                    arg_type = tree_type.GetTemplateArgumentType(i)
-                    type_name = arg_type.GetName() if arg_type.IsValid() else ""
-                    if "node_pointer" in type_name or "pointer" in type_name:
-                        self.m_node_ptr_type = arg_type
-                        break
+         # Get the __node_pointer type
+        self.m_node_ptr_type = self.m_tree.GetType().FindDirectNestedType("__node_pointer")
 
         return True
 

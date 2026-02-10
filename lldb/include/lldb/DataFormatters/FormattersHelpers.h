@@ -48,6 +48,11 @@ void AddCXXSynthetic(TypeCategoryImpl::SharedPointer category_sp,
                      ScriptedSyntheticChildren::Flags flags,
                      bool regex = false);
 
+void AddCXXScriptedSynthetic(TypeCategoryImpl::SharedPointer category_sp,
+                             const char *regex,
+                             ScriptedSyntheticChildren::Flags flags,
+                             const char *python_class_name);
+
 void AddFilter(TypeCategoryImpl::SharedPointer category_sp,
                std::vector<std::string> children, const char *description,
                llvm::StringRef type_name,

@@ -185,34 +185,3 @@ def libcxx_string_summary_provider_utf16(valobj, internal_dict):
 def libcxx_string_summary_provider_utf32(valobj, internal_dict):
     """Summary provider for std::u32string."""
     return libcxx_string_summary_provider_ascii(valobj, internal_dict)
-
-
-def __lldb_init_module(debugger, internal_dict):
-    """Initialize the module by registering the summary providers."""
-    # Register std::string (char)
-    debugger.HandleCommand(
-        'type summary add -F libcxx_string_formatter.libcxx_string_summary_provider_ascii '
-        '-x "^std::__[[:alnum:]]+::basic_string<char, std::__[[:alnum:]]+::char_traits<char>, std::__[[:alnum:]]+::allocator<char> >$" '
-        '-w libcxx'
-    )
-
-    # Register std::wstring
-    debugger.HandleCommand(
-        'type summary add -F libcxx_string_formatter.libcxx_wstring_summary_provider '
-        '-x "^std::__[[:alnum:]]+::basic_string<wchar_t, std::__[[:alnum:]]+::char_traits<wchar_t>, std::__[[:alnum:]]+::allocator<wchar_t> >$" '
-        '-w libcxx'
-    )
-
-    # Register std::u16string
-    debugger.HandleCommand(
-        'type summary add -F libcxx_string_formatter.libcxx_string_summary_provider_utf16 '
-        '-x "^std::__[[:alnum:]]+::basic_string<char16_t, std::__[[:alnum:]]+::char_traits<char16_t>, std::__[[:alnum:]]+::allocator<char16_t> >$" '
-        '-w libcxx'
-    )
-
-    # Register std::u32string
-    debugger.HandleCommand(
-        'type summary add -F libcxx_string_formatter.libcxx_string_summary_provider_utf32 '
-        '-x "^std::__[[:alnum:]]+::basic_string<char32_t, std::__[[:alnum:]]+::char_traits<char32_t>, std::__[[:alnum:]]+::allocator<char32_t> >$" '
-        '-w libcxx'
-    )

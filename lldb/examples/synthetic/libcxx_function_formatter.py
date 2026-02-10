@@ -38,11 +38,3 @@ def libcxx_function_summary_provider(valobj, internal_dict):
         return "Empty"
 
     return "__f_ = 0x%x" % f_value
-
-
-def __lldb_init_module(debugger, internal_dict):
-    """Initialize the module by registering the summary provider."""
-    debugger.HandleCommand(
-        'type summary add -F libcxx_function_formatter.libcxx_function_summary_provider '
-        '-x "^std::__[[:alnum:]]+::function<.+>$" -w libcxx'
-    )

@@ -269,11 +269,3 @@ def libcxx_std_vector_synthetic_frontend_creator(valobj, internal_dict):
         return LibcxxVectorBoolSyntheticFrontEnd(valobj, internal_dict)
 
     return LibcxxStdVectorSyntheticFrontEnd(valobj, internal_dict)
-
-
-def __lldb_init_module(debugger, internal_dict):
-    """Initialize the module by registering the synthetic provider."""
-    debugger.HandleCommand(
-        'type synthetic add -l libcxx_vector_formatter.libcxx_std_vector_synthetic_frontend_creator '
-        '-x "^std::__[[:alnum:]]+::vector<.+>$" -w libcxx'
-    )

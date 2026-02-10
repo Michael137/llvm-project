@@ -74,24 +74,3 @@ def libcxx_strong_ordering_summary_provider(valobj, internal_dict):
         return "greater"
     else:
         return None
-
-
-def __lldb_init_module(debugger, internal_dict):
-    """Initialize the module by registering the summary providers."""
-    # Register partial_ordering
-    debugger.HandleCommand(
-        'type summary add -F libcxx_ordering_formatter.libcxx_partial_ordering_summary_provider '
-        '-x "^std::__[[:alnum:]]+::partial_ordering$" -w libcxx'
-    )
-
-    # Register weak_ordering
-    debugger.HandleCommand(
-        'type summary add -F libcxx_ordering_formatter.libcxx_weak_ordering_summary_provider '
-        '-x "^std::__[[:alnum:]]+::weak_ordering$" -w libcxx'
-    )
-
-    # Register strong_ordering
-    debugger.HandleCommand(
-        'type summary add -F libcxx_ordering_formatter.libcxx_strong_ordering_summary_provider '
-        '-x "^std::__[[:alnum:]]+::strong_ordering$" -w libcxx'
-    )

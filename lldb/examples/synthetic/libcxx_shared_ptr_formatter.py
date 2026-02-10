@@ -116,18 +116,3 @@ class LibcxxSharedPtrSyntheticFrontEnd:
     def has_children(self):
         """Check if this object has children."""
         return True
-
-
-def __lldb_init_module(debugger, internal_dict):
-    """Initialize the module by registering the formatters."""
-    # Register summary provider
-    debugger.HandleCommand(
-        'type summary add -F libcxx_shared_ptr_formatter.libcxx_shared_ptr_summary_provider '
-        '-x "^std::__[[:alnum:]]+::shared_ptr<.+>$" -w libcxx'
-    )
-
-    # Register synthetic provider
-    debugger.HandleCommand(
-        'type synthetic add -l libcxx_shared_ptr_formatter.LibcxxSharedPtrSyntheticFrontEnd '
-        '-x "^std::__[[:alnum:]]+::shared_ptr<.+>$" -w libcxx'
-    )

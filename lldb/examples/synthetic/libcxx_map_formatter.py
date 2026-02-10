@@ -433,26 +433,3 @@ class LibCxxMapIteratorSyntheticFrontEnd:
     def has_children(self):
         """Check if this object has children."""
         return True
-
-
-def __lldb_init_module(debugger, internal_dict):
-    """Initialize the module by registering the synthetic providers."""
-    # Register std::map formatter
-    debugger.HandleCommand(
-        'type synthetic add -l libcxx_map_formatter.LibcxxStdMapSyntheticFrontEnd '
-        '-x "^std::__[[:alnum:]]+::map<.+> >(( )?&)?$" -w libcxx'
-    )
-    debugger.HandleCommand(
-        'type synthetic add -l libcxx_map_formatter.LibcxxStdMapSyntheticFrontEnd '
-        '-x "^std::__[[:alnum:]]+::multimap<.+> >(( )?&)?$" -w libcxx'
-    )
-
-    # Register std::map::iterator formatter
-    debugger.HandleCommand(
-        'type synthetic add -l libcxx_map_formatter.LibCxxMapIteratorSyntheticFrontEnd '
-        '-x "^std::__[[:alnum:]]+::__map_iterator<.+>$" -w libcxx'
-    )
-    debugger.HandleCommand(
-        'type synthetic add -l libcxx_map_formatter.LibCxxMapIteratorSyntheticFrontEnd '
-        '-x "^std::__[[:alnum:]]+::__map_const_iterator<.+>$" -w libcxx'
-    )

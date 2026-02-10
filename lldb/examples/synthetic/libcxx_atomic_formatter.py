@@ -115,18 +115,3 @@ class LibcxxStdAtomicSyntheticFrontEnd:
     def has_children(self):
         """Check if this object has children."""
         return True
-
-
-def __lldb_init_module(debugger, internal_dict):
-    """Initialize the module by registering the formatters."""
-    # Register summary provider
-    debugger.HandleCommand(
-        'type summary add -F libcxx_atomic_formatter.libcxx_atomic_summary_provider '
-        '-x "^std::__[[:alnum:]]+::atomic<.+>$" -w libcxx'
-    )
-
-    # Register synthetic provider
-    debugger.HandleCommand(
-        'type synthetic add -l libcxx_atomic_formatter.LibcxxStdAtomicSyntheticFrontEnd '
-        '-x "^std::__[[:alnum:]]+::atomic<.+>$" -w libcxx'
-    )

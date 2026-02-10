@@ -335,26 +335,3 @@ class LibCxxUnorderedMapIteratorSyntheticFrontEnd:
     def has_children(self):
         """Check if this object has children."""
         return True
-
-
-def __lldb_init_module(debugger, internal_dict):
-    """Initialize the module by registering the synthetic providers."""
-    # Register unordered_map formatter
-    debugger.HandleCommand(
-        'type synthetic add -l libcxx_unordered_map_formatter.LibcxxStdUnorderedMapSyntheticFrontEnd '
-        '-x "^std::__[[:alnum:]]+::unordered_(map|multimap)<.+>$" -w libcxx'
-    )
-    debugger.HandleCommand(
-        'type synthetic add -l libcxx_unordered_map_formatter.LibcxxStdUnorderedMapSyntheticFrontEnd '
-        '-x "^std::__[[:alnum:]]+::unordered_(set|multiset)<.+>$" -w libcxx'
-    )
-
-    # Register unordered_map::iterator formatter
-    debugger.HandleCommand(
-        'type synthetic add -l libcxx_unordered_map_formatter.LibCxxUnorderedMapIteratorSyntheticFrontEnd '
-        '-x "^std::__[[:alnum:]]+::__hash_map_iterator<.+>$" -w libcxx'
-    )
-    debugger.HandleCommand(
-        'type synthetic add -l libcxx_unordered_map_formatter.LibCxxUnorderedMapIteratorSyntheticFrontEnd '
-        '-x "^std::__[[:alnum:]]+::__hash_map_const_iterator<.+>$" -w libcxx'
-    )

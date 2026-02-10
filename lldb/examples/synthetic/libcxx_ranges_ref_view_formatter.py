@@ -49,11 +49,3 @@ class LibcxxStdRangesRefViewSyntheticFrontEnd:
     def has_children(self):
         """Check if this object has children."""
         return True
-
-
-def __lldb_init_module(debugger, internal_dict):
-    """Initialize the module by registering the synthetic provider."""
-    debugger.HandleCommand(
-        'type synthetic add -l libcxx_ranges_ref_view_formatter.LibcxxStdRangesRefViewSyntheticFrontEnd '
-        '-x "^std::__[[:alnum:]]+::ranges::ref_view<.+>$" -w libcxx'
-    )

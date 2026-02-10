@@ -156,11 +156,3 @@ class LibcxxStdProxyArraySyntheticFrontEnd:
     def has_children(self):
         """Check if this object has children."""
         return True
-
-
-def __lldb_init_module(debugger, internal_dict):
-    """Initialize the module by registering the synthetic provider."""
-    debugger.HandleCommand(
-        'type synthetic add -l libcxx_proxy_array_formatter.LibcxxStdProxyArraySyntheticFrontEnd '
-        '-x "^std::__[[:alnum:]]+::(gslice_array|mask_array|indirect_array)<.+>$" -w libcxx'
-    )

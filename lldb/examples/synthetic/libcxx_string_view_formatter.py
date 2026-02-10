@@ -214,34 +214,3 @@ def libcxx_wstring_view_summary_provider(valobj, internal_dict):
 
     except Exception as e:
         return "Summary Unavailable"
-
-
-def __lldb_init_module(debugger, internal_dict):
-    """Initialize the module by registering the summary providers."""
-    # Register std::string_view
-    debugger.HandleCommand(
-        'type summary add -F libcxx_string_view_formatter.libcxx_string_view_summary_provider_ascii '
-        '-x "^std::__[[:alnum:]]+::basic_string_view<char, std::__[[:alnum:]]+::char_traits<char> >$" '
-        '-w libcxx'
-    )
-
-    # Register std::wstring_view
-    debugger.HandleCommand(
-        'type summary add -F libcxx_string_view_formatter.libcxx_wstring_view_summary_provider '
-        '-x "^std::__[[:alnum:]]+::basic_string_view<wchar_t, std::__[[:alnum:]]+::char_traits<wchar_t> >$" '
-        '-w libcxx'
-    )
-
-    # Register std::u16string_view
-    debugger.HandleCommand(
-        'type summary add -F libcxx_string_view_formatter.libcxx_string_view_summary_provider_utf16 '
-        '-x "^std::__[[:alnum:]]+::basic_string_view<char16_t, std::__[[:alnum:]]+::char_traits<char16_t> >$" '
-        '-w libcxx'
-    )
-
-    # Register std::u32string_view
-    debugger.HandleCommand(
-        'type summary add -F libcxx_string_view_formatter.libcxx_string_view_summary_provider_utf32 '
-        '-x "^std::__[[:alnum:]]+::basic_string_view<char32_t, std::__[[:alnum:]]+::char_traits<char32_t> >$" '
-        '-w libcxx'
-    )

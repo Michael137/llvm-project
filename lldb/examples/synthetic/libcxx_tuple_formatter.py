@@ -83,11 +83,3 @@ class TupleFrontEnd:
     def has_children(self):
         """Check if this object has children."""
         return True
-
-
-def __lldb_init_module(debugger, internal_dict):
-    """Initialize the module by registering the synthetic provider."""
-    debugger.HandleCommand(
-        'type synthetic add -l libcxx_tuple_formatter.TupleFrontEnd '
-        '-x "^std::__[[:alnum:]]+::tuple<.+>$" -w libcxx'
-    )

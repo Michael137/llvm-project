@@ -14,6 +14,7 @@ class LibcxxInvalidVectorDataFormatterSimulatorTestCase(TestBase):
     NO_DEBUG_INFO_TESTCASE = True
 
 
+    @expectedFailureAll(bugnumber="not support for python formatters")
     @skipIf(compiler="clang", compiler_version=['<', '18.0'])
     def test(self):
         self.build()

@@ -16,14 +16,15 @@ def is_std_template(type_name, template_name):
     """Check if type_name is a std template with the given name."""
     if not type_name:
         return False
-    pattern = r'std::__[^:]+::' + re.escape(template_name) + r'<'
+    pattern = r"std::__[^:]+::" + re.escape(template_name) + r"<"
     return re.search(pattern, type_name) is not None
 
 
 def is_unordered_map(type_name):
     """Check if type is an unordered_map or unordered_multimap."""
-    return is_std_template(type_name, "unordered_map") or \
-           is_std_template(type_name, "unordered_multimap")
+    return is_std_template(type_name, "unordered_map") or is_std_template(
+        type_name, "unordered_multimap"
+    )
 
 
 class LibcxxStdUnorderedMapSyntheticFrontEnd:
@@ -46,7 +47,7 @@ class LibcxxStdUnorderedMapSyntheticFrontEnd:
     def get_child_index(self, name):
         """Get the index of a child with the given name."""
         try:
-            if name.startswith('[') and name.endswith(']'):
+            if name.startswith("[") and name.endswith("]"):
                 return int(name[1:-1])
         except ValueError:
             pass

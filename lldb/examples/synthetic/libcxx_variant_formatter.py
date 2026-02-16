@@ -23,6 +23,7 @@ import lldb
 
 class LibcxxVariantIndexValidity:
     """Enum for variant index validity states."""
+
     VALID = 0
     INVALID = 1
     NPOS = 2
@@ -166,7 +167,7 @@ class VariantFrontEnd:
     def get_child_index(self, name):
         """Get the index of a child with the given name."""
         try:
-            if name.startswith('[') and name.endswith(']'):
+            if name.startswith("[") and name.endswith("]"):
                 return int(name[1:-1])
         except ValueError:
             pass

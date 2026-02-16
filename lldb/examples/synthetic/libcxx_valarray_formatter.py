@@ -47,7 +47,7 @@ class LibcxxStdValarraySyntheticFrontEnd:
         if not self.m_start or not self.m_finish:
             return None
         try:
-            if name.startswith('[') and name.endswith(']'):
+            if name.startswith("[") and name.endswith("]"):
                 return int(name[1:-1])
         except ValueError:
             pass

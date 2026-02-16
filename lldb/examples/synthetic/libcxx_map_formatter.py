@@ -39,9 +39,7 @@ class MapEntry:
         """Get the left child pointer (offset 0)."""
         if not self.m_entry_sp:
             return None
-        return self.m_entry_sp.CreateChildAtOffset(
-            "", 0, self.m_entry_sp.GetType()
-        )
+        return self.m_entry_sp.CreateChildAtOffset("", 0, self.m_entry_sp.GetType())
 
     def right(self):
         """Get the right child pointer (offset = address size)."""
@@ -258,7 +256,7 @@ class LibcxxStdMapSyntheticProvider:
     def get_child_index(self, name):
         """Get the index of a child with the given name (e.g., "[0]" -> 0)."""
         try:
-            if name.startswith('[') and name.endswith(']'):
+            if name.startswith("[") and name.endswith("]"):
                 return int(name[1:-1])
         except ValueError:
             pass

@@ -35,7 +35,7 @@ def libcxx_chrono_sys_seconds_summary_provider(valobj, internal_dict):
 
     # chrono library valid range: [-32767-01-01, 32767-12-31]
     chrono_timestamp_min = -1_096_193_779_200  # -32767-01-01T00:00:00Z
-    chrono_timestamp_max = 971_890_963_199     # 32767-12-31T23:59:59Z
+    chrono_timestamp_max = 971_890_963_199  # 32767-12-31T23:59:59Z
 
     if seconds < chrono_timestamp_min or seconds > chrono_timestamp_max:
         return "timestamp=%d s" % seconds
@@ -89,7 +89,7 @@ def libcxx_chrono_sys_days_summary_provider(valobj, internal_dict):
     days = ptr_sp.GetValueAsSigned(0)
 
     chrono_timestamp_min = -12_687_428  # -32767-01-01Z
-    chrono_timestamp_max = 11_248_737   # 32767-12-31Z
+    chrono_timestamp_max = 11_248_737  # 32767-12-31Z
 
     if days < chrono_timestamp_min or days > chrono_timestamp_max:
         return "timestamp=%d days" % days
@@ -133,8 +133,18 @@ def libcxx_chrono_local_days_summary_provider(valobj, internal_dict):
 def libcxx_chrono_month_summary_provider(valobj, internal_dict):
     """Summary provider for std::chrono::month."""
     months = [
-        "January", "February", "March", "April", "May", "June",
-        "July", "August", "September", "October", "November", "December"
+        "January",
+        "February",
+        "March",
+        "April",
+        "May",
+        "June",
+        "July",
+        "August",
+        "September",
+        "October",
+        "November",
+        "December",
     ]
 
     ptr_sp = valobj.GetChildMemberWithName("__m_")
@@ -152,8 +162,13 @@ def libcxx_chrono_month_summary_provider(valobj, internal_dict):
 def libcxx_chrono_weekday_summary_provider(valobj, internal_dict):
     """Summary provider for std::chrono::weekday."""
     weekdays = [
-        "Sunday", "Monday", "Tuesday", "Wednesday",
-        "Thursday", "Friday", "Saturday"
+        "Sunday",
+        "Monday",
+        "Tuesday",
+        "Wednesday",
+        "Thursday",
+        "Friday",
+        "Saturday",
     ]
 
     ptr_sp = valobj.GetChildMemberWithName("__wd_")

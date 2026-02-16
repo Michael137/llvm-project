@@ -72,7 +72,7 @@ def libcxx_string_view_summary_provider_ascii(valobj, internal_dict):
             return "Summary Unavailable"
 
         try:
-            string = data_bytes.decode('utf-8', errors='replace')
+            string = data_bytes.decode("utf-8", errors="replace")
             return '"%s"' % string
         except:
             return "Summary Unavailable"
@@ -113,7 +113,7 @@ def libcxx_string_view_summary_provider_utf16(valobj, internal_dict):
             return "Summary Unavailable"
 
         try:
-            string = data_bytes.decode('utf-16', errors='replace')
+            string = data_bytes.decode("utf-16", errors="replace")
             return 'u"%s"' % string
         except:
             return "Summary Unavailable"
@@ -154,7 +154,7 @@ def libcxx_string_view_summary_provider_utf32(valobj, internal_dict):
             return "Summary Unavailable"
 
         try:
-            string = data_bytes.decode('utf-32', errors='replace')
+            string = data_bytes.decode("utf-32", errors="replace")
             return 'U"%s"' % string
         except:
             return "Summary Unavailable"
@@ -198,7 +198,7 @@ def libcxx_wstring_view_summary_provider(valobj, internal_dict):
             return "Summary Unavailable"
 
         try:
-            string = data_bytes.decode('utf-32', errors='replace')
+            string = data_bytes.decode("utf-32", errors="replace")
             return 'L"%s"' % string
         except:
             # Try UTF-16 if UTF-32 fails (might be Windows)
@@ -206,7 +206,7 @@ def libcxx_wstring_view_summary_provider(valobj, internal_dict):
                 byte_size = size * 2
                 data_bytes = process.ReadMemory(data_addr, byte_size, error)
                 if not error.Fail() and data_bytes:
-                    string = data_bytes.decode('utf-16', errors='replace')
+                    string = data_bytes.decode("utf-16", errors="replace")
                     return 'L"%s"' % string
             except:
                 pass

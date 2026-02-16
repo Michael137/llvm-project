@@ -78,7 +78,7 @@ class LibcxxStdVectorSyntheticFrontEnd:
         if not self.m_start or not self.m_finish:
             return None
         try:
-            if name.startswith('[') and name.endswith(']'):
+            if name.startswith("[") and name.endswith("]"):
                 return int(name[1:-1])
         except ValueError:
             pass
@@ -161,7 +161,7 @@ class LibcxxVectorBoolSyntheticFrontEnd:
         if not self.m_count or not self.m_base_data_address:
             return None
         try:
-            if name.startswith('[') and name.endswith(']'):
+            if name.startswith("[") and name.endswith("]"):
                 idx = int(name[1:-1])
                 if idx >= self.m_count:
                     return None
@@ -209,8 +209,12 @@ class LibcxxVectorBoolSyntheticFrontEnd:
 
         # Create data for the bool value
         data = lldb.SBData()
-        data.SetData(error, bytes([1 if bit_set else 0]), process.GetByteOrder(),
-                     process.GetAddressByteSize())
+        data.SetData(
+            error,
+            bytes([1 if bit_set else 0]),
+            process.GetByteOrder(),
+            process.GetAddressByteSize(),
+        )
 
         name = "[%d]" % index
         target = self.valobj.GetTarget()

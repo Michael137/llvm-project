@@ -134,7 +134,7 @@ def libcxx_string_summary_provider_ascii(valobj, internal_dict):
                     bytes_list.append(byte)
 
                 if bytes_list:
-                    string = bytes(bytes_list).decode('utf-8', errors='replace')
+                    string = bytes(bytes_list).decode("utf-8", errors="replace")
                     return '"%s"' % string
             except:
                 pass

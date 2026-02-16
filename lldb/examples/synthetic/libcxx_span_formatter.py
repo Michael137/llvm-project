@@ -75,18 +75,18 @@ def _extract_extent_from_type_name(type_name):
 
         for i in range(len(type_name) - 1, -1, -1):
             c = type_name[i]
-            if c == '>':
+            if c == ">":
                 if last_angle_pos == -1:
                     last_angle_pos = i
                 depth += 1
-            elif c == '<':
+            elif c == "<":
                 depth -= 1
-            elif c == ',' and depth == 1:
+            elif c == "," and depth == 1:
                 last_comma_pos = i
                 break
 
         if last_comma_pos != -1 and last_angle_pos != -1:
-            extent_str = type_name[last_comma_pos + 1:last_angle_pos].strip()
+            extent_str = type_name[last_comma_pos + 1 : last_angle_pos].strip()
             extent = int(extent_str)
             # Check for dynamic_extent (usually max value of size_t)
             # 18446744073709551615 is std::dynamic_extent (size_t(-1))
@@ -119,7 +119,7 @@ class LibcxxStdSpanSyntheticFrontEnd:
         if not self.m_start:
             return None
         try:
-            if name.startswith('[') and name.endswith(']'):
+            if name.startswith("[") and name.endswith("]"):
                 return int(name[1:-1])
         except ValueError:
             pass

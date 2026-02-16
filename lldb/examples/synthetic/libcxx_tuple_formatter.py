@@ -27,7 +27,7 @@ class TupleFrontEnd:
     def get_child_index(self, name):
         """Get the index of a child with the given name."""
         try:
-            if name.startswith('[') and name.endswith(']'):
+            if name.startswith("[") and name.endswith("]"):
                 return int(name[1:-1])
         except ValueError:
             pass

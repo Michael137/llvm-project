@@ -234,18 +234,3 @@ class VariantFrontEnd:
     def has_children(self):
         """Check if this object has children."""
         return True
-
-
-def __lldb_init_module(debugger, internal_dict):
-    """Initialize the module by registering the formatters."""
-    # Register summary provider
-    debugger.HandleCommand(
-        'type summary add -F libcxx_variant_formatter.libcxx_variant_summary_provider '
-        '-x "^std::__[[:alnum:]]+::variant<.+>$" -w libcxx'
-    )
-
-    # Register synthetic provider
-    debugger.HandleCommand(
-        'type synthetic add -l libcxx_variant_formatter.VariantFrontEnd '
-        '-x "^std::__[[:alnum:]]+::variant<.+>$" -w libcxx'
-    )

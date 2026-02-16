@@ -887,22 +887,9 @@ static void LoadLibCxxFormatters(lldb::TypeCategoryImplSP cpp_category_sp) {
       "libc++ std::list synthetic children", "^std::__[[:alnum:]]+::list<.+>$",
       stl_deref_flags, true);
 
-#if 1
-  // TODO: 17 calls to GetSyntheticChildAtOffset in failing case
-  // TODO: 16 calls to GetSyntheticChildAtOffset in successful case
-    cpp_category_sp->AddTypeSynthetic(                                    
-        "^std::__[[:alnum:]]+::map<.+> >$", eFormatterMatchRegex,         
-        SyntheticChildrenSP(new ScriptedSyntheticChildren(                
-            stl_synth_flags,                                              
-            "lldb.formatters.cpp.libcxx_map_formatter.LibcxxStdMapSyntheticProvider")));
-#else
-    AddCXXSynthetic(
-        cpp_category_sp,
-        lldb_private::formatters::LibcxxStdMapSyntheticFrontEndCreator,
-        "libc++ std::map synthetic children", "^std::__[[:alnum:]]+::map<.+> >$",
-        stl_synth_flags, true);
-#endif
-
+  AddCXXScriptedSynthetic(cpp_category_sp,
+      "^std::__[[:alnum:]]+::map<.+> >$", stl_synth_flags,
+      "lldb.formatters.cpp.libcxx_map_formatter.LibcxxStdMapSyntheticProvider");
   AddCXXScriptedSynthetic(
       cpp_category_sp, "^std::__[[:alnum:]]+::set<.+> >$",
       stl_deref_flags, "lldb.formatters.cpp.libcxx_map_formatter.LibcxxStdMapSyntheticProvider");
@@ -926,30 +913,27 @@ static void LoadLibCxxFormatters(lldb::TypeCategoryImplSP cpp_category_sp) {
   AddCXXSynthetic(cpp_category_sp, LibcxxOptionalSyntheticFrontEndCreator,
                   "libc++ std::optional synthetic children",
                   "^std::__[[:alnum:]]+::optional<.+>$", stl_synth_flags, true);
-  AddCXXSynthetic(cpp_category_sp, LibcxxVariantFrontEndCreator,
-                  "libc++ std::variant synthetic children",
-                  "^std::__[[:alnum:]]+::variant<.+>$", stl_synth_flags, true);
-  AddCXXSynthetic(
+  AddCXXScriptedSynthetic(cpp_category_sp,
+                  "^std::__[[:alnum:]]+::variant<.+>$", stl_synth_flags,
+                  "lldb.formatters.cpp.libcxx_variant_formatter.VariantFrontEnd");
+  AddCXXScriptedSynthetic(
       cpp_category_sp,
-      lldb_private::formatters::LibcxxAtomicSyntheticFrontEndCreator,
-      "libc++ std::atomic synthetic children",
-      "^std::__[[:alnum:]]+::atomic<.+>$", stl_synth_flags, true);
-  AddCXXSynthetic(
+      "^std::__[[:alnum:]]+::atomic<.+>$", stl_synth_flags,
+              "lldb.formatters.cpp.libcxx_atomic_formatter.LibcxxStdAtomicSyntheticFrontEnd");
+  AddCXXScriptedSynthetic(
       cpp_category_sp,
-      lldb_private::formatters::LibcxxStdSpanSyntheticFrontEndCreator,
-      "libc++ std::span synthetic children", "^std::__[[:alnum:]]+::span<.+>$",
-      stl_deref_flags, true);
-  AddCXXSynthetic(
+      "^std::__[[:alnum:]]+::span<.+>$",
+      stl_deref_flags, "lldb.formatters.cpp.libcxx_span_formatter.LibcxxStdSpanSyntheticFrontEnd");
+  AddCXXScriptedSynthetic(
       cpp_category_sp,
-      lldb_private::formatters::LibcxxStdRangesRefViewSyntheticFrontEndCreator,
-      "libc++ std::ranges::ref_view synthetic children",
-      "^std::__[[:alnum:]]+::ranges::ref_view<.+>$", stl_deref_flags, true);
+      "^std::__[[:alnum:]]+::ranges::ref_view<.+>$", stl_deref_flags,
+      "lldb.formatters.cpp.libcxx_ranges_ref_view_formatter.LibcxxStdRangesRefViewSyntheticFrontEnd");
 
-  cpp_category_sp->AddTypeSynthetic(
-      "^std::__[[:alnum:]]+::deque<.+>$", eFormatterMatchRegex,
-      SyntheticChildrenSP(new ScriptedSyntheticChildren(
+  AddCXXScriptedSynthetic(
+    cpp_category_sp,
+      "^std::__[[:alnum:]]+::deque<.+>$", 
           stl_synth_flags,
-          "lldb.formatters.cpp.libcxx.stddeque_SynthProvider")));
+          "lldb.formatters.cpp.libcxx_deque_formatter.stddeque_SynthProvider");
 
   AddCXXSynthetic(
       cpp_category_sp,

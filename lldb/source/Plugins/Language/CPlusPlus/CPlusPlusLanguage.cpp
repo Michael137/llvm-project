@@ -849,7 +849,7 @@ static void LoadLibCxxFormatters(lldb::TypeCategoryImplSP cpp_category_sp) {
   AddCXXScriptedSynthetic(
       cpp_category_sp,
       "^std::__[[:alnum:]]+::bitset<.+>$", stl_deref_flags,
-      "lldb.formatters.cpp.libcxx_bitset_formatter.TODO");
+      "lldb.formatters.cpp.libcxx_bitset_formatter.LibcxxBitsetSyntheticFrontEnd");
   AddCXXScriptedSynthetic(
       cpp_category_sp,
       "^std::__[[:alnum:]]+::vector<.+>$",
@@ -872,17 +872,12 @@ static void LoadLibCxxFormatters(lldb::TypeCategoryImplSP cpp_category_sp) {
       "lldb.formatters.cpp.libcxx_proxy_array_formatter.LibcxxStdProxyArraySyntheticFrontEnd");
   AddCXXScriptedSynthetic(
       cpp_category_sp,
-      "^std::__[[:alnum:]]+::forward_list<.+>$",
-      stl_deref_flags,
-      "lldb.formatters.cpp.libcxx_proxy_array_formatter.LibcxxStdProxyArraySyntheticFrontEnd");
-  AddCXXScriptedSynthetic(
-      cpp_category_sp,
       "^std::__[[:alnum:]]+::forward_list<.+>$", stl_synth_flags,
-      "TODO");
+      "lldb.formatters.cpp.libcxx_forward_list_formatter.LibcxxForwardListSyntheticFrontEnd");
   AddCXXScriptedSynthetic(
       cpp_category_sp,
       "^std::__[[:alnum:]]+::list<.+>$", stl_deref_flags,
-      "TODO");
+      "lldb.formatters.cpp.libcxx_list_formatter.LibcxxListSyntheticFrontEnd");
 
   AddCXXScriptedSynthetic(cpp_category_sp,
       "^std::__[[:alnum:]]+::map<.+> >$", stl_synth_flags,
@@ -907,8 +902,7 @@ static void LoadLibCxxFormatters(lldb::TypeCategoryImplSP cpp_category_sp) {
   AddCXXScriptedSynthetic(cpp_category_sp,
                   "^std::__[[:alnum:]]+::queue<.+>$", stl_synth_flags, "lldb.formatters.cpp.libcxx_queue_formatter.QueueFrontEnd");
   AddCXXScriptedSynthetic(cpp_category_sp,
-                  "^std::__[[:alnum:]]+::optional<.+>$", stl_synth_flags,
-                  "TODO");
+                  "^std::__[[:alnum:]]+::optional<.+>$", stl_synth_flags, "lldb.formatters.cpp.libcxx_optional_formatter.LibcxxOptionalSyntheticFrontEnd");
   AddCXXScriptedSynthetic(cpp_category_sp,
                   "^std::__[[:alnum:]]+::variant<.+>$", stl_synth_flags,
                   "lldb.formatters.cpp.libcxx_variant_formatter.VariantFrontEnd");
@@ -959,8 +953,7 @@ static void LoadLibCxxFormatters(lldb::TypeCategoryImplSP cpp_category_sp) {
   AddCXXScriptedSynthetic(
       cpp_category_sp,
       libcxx_std_coroutine_handle_regex,
-      stl_deref_flags,
-      "TODO");
+      stl_deref_flags, "lldb.formatters.cpp.libcxx_coroutine_handle_formatter.StdlibCoroutineHandleSyntheticFrontEnd");
 
   stl_summary_flags.SetDontShowChildren(false);
   stl_summary_flags.SetSkipPointers(false);

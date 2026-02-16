@@ -665,6 +665,8 @@ public:
 
   TypeImpl GetReferenceType() const;
 
+  TypeImpl GetNonReferenceType() const;
+
   TypeImpl GetTypedefedType() const;
 
   TypeImpl GetDereferencedType() const;

@@ -1115,6 +1115,18 @@ TypeImpl TypeImpl::GetReferenceType() const {
   return TypeImpl();
 }
 
+TypeImpl TypeImpl::GetNonReferenceType() const {
+  ModuleSP module_sp;
+  if (CheckModule(module_sp)) {
+    if (m_dynamic_type.IsValid()) {
+      return TypeImpl(m_static_type.GetNonReferenceType(),
+                      m_dynamic_type.GetNonReferenceType());
+    }
+    return TypeImpl(m_static_type.GetNonReferenceType());
+  }
+  return TypeImpl();
+}
+
 TypeImpl TypeImpl::GetTypedefedType() const {
   ModuleSP module_sp;
   if (CheckModule(module_sp)) {

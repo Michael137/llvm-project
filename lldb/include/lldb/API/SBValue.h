@@ -41,6 +41,8 @@ public:
 
   SBError GetError();
 
+  SBValue GetParent();
+
   lldb::user_id_t GetID();
 
   const char *GetName();

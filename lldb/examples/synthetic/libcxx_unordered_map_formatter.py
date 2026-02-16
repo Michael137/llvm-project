@@ -97,6 +97,9 @@ class LibcxxStdUnorderedMapSyntheticFrontEnd:
                         value_sp = anon_union_sp.GetChildMemberWithName("__value_")
                         if not value_sp or not value_sp.IsValid():
                             return None
+                else:
+                    # m_node_type is invalid and we couldn't get value directly
+                    return None
 
             self.m_elements_cache.append(value_sp)
             next_sp = node_sp.GetChildMemberWithName("__next_")
@@ -122,25 +125,30 @@ class LibcxxStdUnorderedMapSyntheticFrontEnd:
 
     def get_element_type(self, table_type):
         """Get the element type (key/value pair type)."""
-        # Try getting value_type from the table
-        element_type = table_type.GetTypedefedType()
-        for i in range(element_type.GetNumberOfDirectBaseClasses()):
-            base = element_type.GetDirectBaseClassAtIndex(i)
-            if "value_type" in base.GetName():
-                element_type = base.GetTypedefedType()
-                break
+        # Get value_type from the table type (like C++ does)
+        element_type = table_type.FindDirectNestedType("value_type")
+        if element_type and element_type.IsValid():
+            element_type = element_type.GetTypedefedType()
+        else:
+            # Fall back to the old approach
+            element_type = table_type.GetTypedefedType()
+            for i in range(element_type.GetNumberOfDirectBaseClasses()):
+                base = element_type.GetDirectBaseClassAtIndex(i)
+                if base and "value_type" in (base.GetName() or ""):
+                    element_type = base.GetTypedefedType()
+                    break
 
         # In newer layouts, element type is directly a std::pair
-        if is_std_template(element_type.GetName(), "pair"):
+        if element_type and is_std_template(element_type.GetName(), "pair"):
             return element_type
 
         # For older unordered_map layouts with __hash_value_type wrapper
         backend_type = self.valobj.GetType()
-        if backend_type.IsPointerOrReferenceType():
+        if backend_type.IsPointerType() or backend_type.IsReferenceType():
             backend_type = backend_type.GetPointeeType()
 
         if is_unordered_map(backend_type.GetCanonicalType().GetName()):
-            if element_type.GetNumberOfFields() > 0:
+            if element_type and element_type.GetNumberOfFields() > 0:
                 field_type = element_type.GetFieldAtIndex(0).GetType()
                 actual_type = field_type.GetTypedefedType()
                 if is_std_template(actual_type.GetName(), "pair"):
@@ -272,7 +280,15 @@ class LibCxxUnorderedMapIteratorSyntheticFrontEnd:
     def get_child_at_index(self, index):
         """Get the child at the given index."""
         if self.m_pair_sp and self.m_pair_sp.IsValid():
-            return self.m_pair_sp.GetChildAtIndex(index)
+            child = self.m_pair_sp.GetChildAtIndex(index)
+            if child and child.IsValid():
+                # Get the proper element type from the pair's type template arguments
+                pair_type = self.m_pair_sp.GetType()
+                if pair_type.GetNumberOfTemplateArguments() > index:
+                    elem_type = pair_type.GetTemplateArgumentType(index)
+                    if elem_type and elem_type.IsValid():
+                        return child.Cast(elem_type)
+            return child
         return None
 
     def update(self):
@@ -287,31 +303,36 @@ class LibCxxUnorderedMapIteratorSyntheticFrontEnd:
             return False
 
         # Get the hash iterator
+        # m_backend is an 'unordered_map::iterator', aka a
+        # '__hash_map_iterator<__hash_table::iterator>'
+        #
+        # __hash_map_iterator::__i_ is a __hash_table::iterator (aka
+        # __hash_iterator<__node_pointer>)
         hash_iter_sp = self.valobj.GetChildMemberWithName("__i_")
         if not hash_iter_sp or not hash_iter_sp.IsValid():
             return False
 
+        # Type is '__hash_iterator<__node_pointer>'
         hash_iter_type = hash_iter_sp.GetType()
         if not hash_iter_type.IsValid():
             return False
 
-        # Get __node_pointer type
-        if hash_iter_type.GetNumberOfTemplateArguments() > 0:
-            node_pointer_type = hash_iter_type.GetTemplateArgumentType(0)
-        else:
+        # Type is '__node_pointer'
+        node_pointer_type = hash_iter_type.GetTemplateArgumentType(0)
+        if not node_pointer_type or not node_pointer_type.IsValid():
             return False
 
-        if not node_pointer_type.IsValid():
-            return False
-
-        # Cast to node pointer
+        # Cast the __hash_iterator to a __node_pointer (which stores our key/value pair)
         hash_node_sp = hash_iter_sp.Cast(node_pointer_type)
         if not hash_node_sp or not hash_node_sp.IsValid():
             return False
 
         key_value_sp = hash_node_sp.GetChildMemberWithName("__value_")
         if not key_value_sp or not key_value_sp.IsValid():
-            # Try anonymous union layout (since D101206)
+            # Since D101206, libc++ wraps __value_ in an anonymous union
+            # Child 0: __hash_node_base base class
+            # Child 1: __hash_
+            # Child 2: anonymous union
             anon_union_sp = hash_node_sp.GetChildAtIndex(2)
             if not anon_union_sp or not anon_union_sp.IsValid():
                 return False
@@ -320,7 +341,12 @@ class LibCxxUnorderedMapIteratorSyntheticFrontEnd:
             if not key_value_sp or not key_value_sp.IsValid():
                 return False
 
-        # Clone as "pair"
+        # Create the synthetic child, which is a pair where the key and value can be
+        # retrieved by querying the synthetic frontend for
+        # get_child_index("first") and get_child_index("second") respectively.
+        #
+        # std::unordered_map stores the actual key/value pair in
+        # __hash_value_type::__cc_ (or previously __cc).
         potential_child_sp = key_value_sp.Clone("pair")
         if potential_child_sp and potential_child_sp.IsValid():
             if potential_child_sp.GetNumChildren() == 1:

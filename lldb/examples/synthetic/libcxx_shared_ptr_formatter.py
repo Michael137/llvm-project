@@ -11,6 +11,31 @@ SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 import lldb
 
 
+def get_desugared_smart_pointer_value(ptr_obj, smart_ptr_obj):
+    """
+    Cast a smart pointer's internal pointer to the proper element type.
+
+    This handles cases where the internal pointer is declared as element_type*
+    (a typedef) and casts it to the actual type (e.g., int*) for proper display.
+    """
+    if not ptr_obj or not ptr_obj.IsValid():
+        return ptr_obj
+
+    valobj_type = smart_ptr_obj.GetType()
+    if valobj_type.GetNumberOfTemplateArguments() == 0:
+        return ptr_obj
+
+    element_type = valobj_type.GetTemplateArgumentType(0)
+    if not element_type or not element_type.IsValid():
+        return ptr_obj
+
+    ptr_type = element_type.GetPointerType()
+    if not ptr_type or not ptr_type.IsValid():
+        return ptr_obj
+
+    return ptr_obj.Cast(ptr_type)
+
+
 def libcxx_shared_ptr_summary_provider(valobj, internal_dict):
     """Summary provider for std::shared_ptr."""
     valobj_sp = valobj.GetNonSyntheticValue()
@@ -82,10 +107,7 @@ class LibcxxSharedPtrSyntheticFrontEnd:
             return self.m_ptr_obj
 
         if index == 1:
-            error = lldb.SBError()
-            value_sp = self.m_ptr_obj.Dereference()
-            if value_sp and value_sp.IsValid():
-                return value_sp
+            return self.m_ptr_obj.Dereference()
 
         return None
 
@@ -105,10 +127,15 @@ class LibcxxSharedPtrSyntheticFrontEnd:
         if not ptr_obj_sp or not ptr_obj_sp.IsValid():
             return False
 
+        cntrl_sp = self.valobj.GetChildMemberWithName("__cntrl_")
+        if not cntrl_sp or not cntrl_sp.IsValid():
+            return False
+
+        # Cast pointer to proper element type for display
+        ptr_obj_sp = get_desugared_smart_pointer_value(ptr_obj_sp, self.valobj)
+
         # Clone with user-friendly name
         self.m_ptr_obj = ptr_obj_sp.Clone("pointer")
-
-        cntrl_sp = self.valobj.GetChildMemberWithName("__cntrl_")
         self.m_cntrl = cntrl_sp
 
         return True

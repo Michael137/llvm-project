@@ -857,6 +857,21 @@ SBValue SBValue::Dereference() {
   return sb_value;
 }
 
+SBValue SBValue::GetParent() {
+  LLDB_INSTRUMENT_VA(this);
+
+  SBValue sb_value;
+  ValueLocker locker;
+  lldb::ValueObjectSP value_sp(GetSP(locker));
+  if (value_sp) {
+    Status error;
+    if (auto *parent = value_sp->GetParent())
+      sb_value = parent->GetSP();
+  }
+
+  return sb_value;
+}
+
 // Deprecated - please use GetType().IsPointerType() instead.
 bool SBValue::TypeIsPointerType() {
   LLDB_INSTRUMENT_VA(this);

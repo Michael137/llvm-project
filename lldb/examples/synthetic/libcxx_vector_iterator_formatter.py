@@ -53,11 +53,20 @@ class VectorIteratorSyntheticFrontEnd:
         self.item = None
 
         # Try to find the iterator member with alternative names
+        item_ptr = None
         for name in self.item_names:
             item_sp = self.valobj.GetChildMemberWithName(name)
             if item_sp and item_sp.IsValid():
-                self.item = item_sp
+                item_ptr = item_sp
                 break
+
+        if not item_ptr:
+            return False
+
+        # Dereference the pointer and name it "item"
+        deref = item_ptr.Dereference()
+        if deref and deref.IsValid():
+            self.item = deref.Clone("item")
 
         return True
 

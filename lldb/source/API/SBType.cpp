@@ -203,6 +203,14 @@ SBType SBType::GetReferenceType() {
   return SBType(std::make_shared<TypeImpl>(m_opaque_sp->GetReferenceType()));
 }
 
+SBType SBType::GetNonReferenceType() {
+  LLDB_INSTRUMENT_VA(this);
+
+  if (!IsValid())
+    return SBType();
+  return SBType(std::make_shared<TypeImpl>(m_opaque_sp->GetNonReferenceType()));
+}
+
 SBType SBType::GetTypedefedType() {
   LLDB_INSTRUMENT_VA(this);
 

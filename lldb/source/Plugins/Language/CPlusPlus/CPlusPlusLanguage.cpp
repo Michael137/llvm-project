@@ -886,23 +886,32 @@ static void LoadLibCxxFormatters(lldb::TypeCategoryImplSP cpp_category_sp) {
       lldb_private::formatters::LibcxxStdListSyntheticFrontEndCreator,
       "libc++ std::list synthetic children", "^std::__[[:alnum:]]+::list<.+>$",
       stl_deref_flags, true);
-//  AddCXXScriptedSynthetic(
-//      cpp_category_sp, "^std::__[[:alnum:]]+::map<.+> >$",
-//      stl_synth_flags, "lldb.formatters.cpp.libcxx_map_formatter.LibcxxStdMapSyntheticFrontEnd");
+
+#if 1
+  // TODO: 17 calls to GetSyntheticChildAtOffset in failing case
+  // TODO: 16 calls to GetSyntheticChildAtOffset in successful case
     cpp_category_sp->AddTypeSynthetic(                                    
         "^std::__[[:alnum:]]+::map<.+> >$", eFormatterMatchRegex,         
         SyntheticChildrenSP(new ScriptedSyntheticChildren(                
             stl_synth_flags,                                              
-            "lldb.formatters.cpp.libcxx_map_formatter.LibcxxStdMapSyntheticFrontEnd")));
+            "lldb.formatters.cpp.libcxx_map_formatter.LibcxxStdMapSyntheticProvider")));
+#else
+    AddCXXSynthetic(
+        cpp_category_sp,
+        lldb_private::formatters::LibcxxStdMapSyntheticFrontEndCreator,
+        "libc++ std::map synthetic children", "^std::__[[:alnum:]]+::map<.+> >$",
+        stl_synth_flags, true);
+#endif
+
   AddCXXScriptedSynthetic(
       cpp_category_sp, "^std::__[[:alnum:]]+::set<.+> >$",
-      stl_deref_flags, "lldb.formatters.cpp.libcxx_map_formatter.LibcxxStdMapSyntheticFrontEnd");
+      stl_deref_flags, "lldb.formatters.cpp.libcxx_map_formatter.LibcxxStdMapSyntheticProvider");
   AddCXXScriptedSynthetic(
       cpp_category_sp, "^std::__[[:alnum:]]+::multiset<.+> >$",
-      stl_deref_flags, "lldb.formatters.cpp.libcxx_map_formatter.LibcxxStdMapSyntheticFrontEnd");
+      stl_deref_flags, "lldb.formatters.cpp.libcxx_map_formatter.LibcxxStdMapSyntheticProvider");
   AddCXXScriptedSynthetic(
       cpp_category_sp, "^std::__[[:alnum:]]+::multimap<.+> >$",
-      stl_deref_flags, "lldb.formatters.cpp.libcxx_map_formatter.LibcxxStdMapSyntheticFrontEnd");
+      stl_deref_flags, "lldb.formatters.cpp.libcxx_map_formatter.LibcxxStdMapSyntheticProvider");
   AddCXXScriptedSynthetic(
       cpp_category_sp, "^std::__[[:alnum:]]+::tuple<.*>$",
       stl_synth_flags, "lldb.formatters.cpp.libcxx_tuple_formatter.TupleFrontEnd");

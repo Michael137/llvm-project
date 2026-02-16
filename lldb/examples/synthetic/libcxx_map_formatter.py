@@ -1,5 +1,5 @@
 """
-Python LLDB data formatter for libc++ std::map
+Python LLDB synthetic child provider for libc++ std::map
 
 Converted from LibCxxMap.cpp
 
@@ -35,34 +35,34 @@ class MapEntry:
     def __init__(self, entry_sp=None):
         self.m_entry_sp = entry_sp
 
-    def left(self):                                                   
-        """Get the left child pointer."""                             
-        if not self.m_entry_sp:                                       
-            return None                                               
-        return self.m_entry_sp.CreateChildAtOffset(                   
-            "left", 0, self.m_entry_sp.GetType()                      
-        )                                                             
-                                                                  
-    def right(self):                                                  
-        """Get the right child pointer."""                            
-        if not self.m_entry_sp:                                       
-            return None                                               
-        addr_size = self.m_entry_sp.GetProcess().GetAddressByteSize() 
-        return self.m_entry_sp.CreateChildAtOffset(                   
-            "right", addr_size, self.m_entry_sp.GetType()             
-        )                                                             
-                                                                      
-    def parent(self):                                                 
-        """Get the parent pointer."""                                 
-        if not self.m_entry_sp:                                       
-            return None                                               
-        addr_size = self.m_entry_sp.GetProcess().GetAddressByteSize() 
-        return self.m_entry_sp.CreateChildAtOffset(                   
-            "parent", 2 * addr_size, self.m_entry_sp.GetType()        
+    def left(self):
+        """Get the left child pointer (offset 0)."""
+        if not self.m_entry_sp:
+            return None
+        return self.m_entry_sp.CreateChildAtOffset(
+            "", 0, self.m_entry_sp.GetType()
+        )
+
+    def right(self):
+        """Get the right child pointer (offset = address size)."""
+        if not self.m_entry_sp:
+            return None
+        addr_size = self.m_entry_sp.GetProcess().GetAddressByteSize()
+        return self.m_entry_sp.CreateChildAtOffset(
+            "", addr_size, self.m_entry_sp.GetType()
+        )
+
+    def parent(self):
+        """Get the parent pointer (offset = 2 * address size)."""
+        if not self.m_entry_sp:
+            return None
+        addr_size = self.m_entry_sp.GetProcess().GetAddressByteSize()
+        return self.m_entry_sp.CreateChildAtOffset(
+            "", 2 * addr_size, self.m_entry_sp.GetType()
         )
 
     def value(self):
-        """Get the unsigned integer value of the entry."""
+        """Get the unsigned integer value of the entry (pointer address)."""
         if not self.m_entry_sp:
             return 0
         return self.m_entry_sp.GetValueAsUnsigned(0)
@@ -74,7 +74,7 @@ class MapEntry:
         return self.m_entry_sp.GetError().Fail()
 
     def null(self):
-        """Check if the entry is null."""
+        """Check if the entry is null (value == 0)."""
         return self.value() == 0
 
     def get_entry(self):
@@ -92,7 +92,7 @@ class MapEntry:
             return True
         if self.m_entry_sp is None or other.m_entry_sp is None:
             return False
-        return self.m_entry_sp.GetValueAsUnsigned() == other.m_entry_sp.GetValueAsUnsigned()
+        return self.m_entry_sp.GetLoadAddress() == other.m_entry_sp.GetLoadAddress()
 
 
 class MapIterator:
@@ -108,7 +108,7 @@ class MapIterator:
         return self.m_entry.get_entry()
 
     def advance(self, count):
-        """Advance the iterator by count steps."""
+        """Advance the iterator by count steps and return the entry."""
         if self.m_error:
             return None
 
@@ -159,8 +159,8 @@ class MapIterator:
             if left.error():
                 self.m_error = True
                 return MapEntry()
-            x = left
-            left.set_entry(x.left())
+            x = MapEntry(left.get_entry())  # Create new MapEntry to avoid aliasing
+            left = MapEntry(x.left())
             steps += 1
             if steps > self.m_max_depth:
                 return MapEntry()
@@ -176,8 +176,44 @@ class MapIterator:
         return x.value() == rhs.value()
 
 
-class LibcxxStdMapSyntheticFrontEnd:
-    """Synthetic children frontend for libc++ std::map."""
+def _get_first_value_of_libcxx_compressed_pair(pair):
+    """
+    Get the first value from a libc++ compressed pair.
+    Handles both old and new layouts.
+    """
+    # Try __value_ first (newer layout)
+    value_sp = pair.GetChildMemberWithName("__value_")
+    if value_sp and value_sp.IsValid():
+        return value_sp
+
+    # Try __first_ (older layout)
+    first_sp = pair.GetChildMemberWithName("__first_")
+    if first_sp and first_sp.IsValid():
+        return first_sp
+
+    return None
+
+
+def _get_value_or_old_compressed_pair(tree, value_name, pair_name):
+    """
+    Try to get a value member directly, or fall back to compressed pair layout.
+    Returns (value_sp, is_compressed_pair).
+    """
+    # Try new layout first (direct member)
+    value_sp = tree.GetChildMemberWithName(value_name)
+    if value_sp and value_sp.IsValid():
+        return (value_sp, False)
+
+    # Fall back to old compressed pair layout
+    pair_sp = tree.GetChildMemberWithName(pair_name)
+    if pair_sp and pair_sp.IsValid():
+        return (pair_sp, True)
+
+    return (None, False)
+
+
+class LibcxxStdMapSyntheticProvider:
+    """Synthetic children provider for libc++ std::map."""
 
     def __init__(self, valobj, internal_dict):
         self.valobj = valobj
@@ -186,7 +222,6 @@ class LibcxxStdMapSyntheticFrontEnd:
         self.m_node_ptr_type = None
         self.m_count = None
         self.m_iterators = {}
-        self.update()
 
     def num_children(self):
         """Calculate the number of children (map size)."""
@@ -196,37 +231,33 @@ class LibcxxStdMapSyntheticFrontEnd:
         if self.m_tree is None:
             return 0
 
-        # Try the new layout first (__size_)
-        size_sp = self.m_tree.GetChildMemberWithName("__size_")
-        if size_sp and size_sp.IsValid():
-            self.m_count = size_sp.GetValueAsUnsigned(0)
-            return self.m_count
+        # Try new layout (__size_) or old compressed pair layout (__pair3_)
+        size_sp, is_compressed_pair = _get_value_or_old_compressed_pair(
+            self.m_tree, "__size_", "__pair3_"
+        )
 
-        # Try old compressed pair layout (__pair3_)
-        pair3_sp = self.m_tree.GetChildMemberWithName("__pair3_")
-        if pair3_sp and pair3_sp.IsValid():
-            return self._calculate_num_children_for_old_compressed_pair_layout(pair3_sp)
+        if not size_sp:
+            return 0
 
-        return 0
+        if is_compressed_pair:
+            return self._calculate_num_children_for_old_compressed_pair_layout(size_sp)
+
+        self.m_count = size_sp.GetValueAsUnsigned(0)
+        return self.m_count
 
     def _calculate_num_children_for_old_compressed_pair_layout(self, pair):
         """Handle old libc++ compressed pair layout."""
-        # Try to get the first value from the compressed pair
-        node_sp = pair.GetChildMemberWithName("__value_")
-        if not node_sp or not node_sp.IsValid():
-            # Alternative: try __first_
-            node_sp = pair.GetChildMemberWithName("__first_")
+        node_sp = _get_first_value_of_libcxx_compressed_pair(pair)
 
-        if not node_sp or not node_sp.IsValid():
+        if not node_sp:
             return 0
 
         self.m_count = node_sp.GetValueAsUnsigned(0)
         return self.m_count
 
     def get_child_index(self, name):
-        """Get the index of a child with the given name."""
+        """Get the index of a child with the given name (e.g., "[0]" -> 0)."""
         try:
-            # Names are in the format [0], [1], etc.
             if name.startswith('[') and name.endswith(']'):
                 return int(name[1:-1])
         except ValueError:
@@ -244,7 +275,7 @@ class LibcxxStdMapSyntheticFrontEnd:
 
         key_val_sp = self._get_key_value_pair(index, num_children)
         if not key_val_sp:
-            # This will stop all future searches until an Update() happens
+            # This will stop all future searches until an update() happens
             self.m_tree = None
             return None
 
@@ -255,26 +286,28 @@ class LibcxxStdMapSyntheticFrontEnd:
         if potential_child_sp and potential_child_sp.IsValid():
             num_child_children = potential_child_sp.GetNumChildren()
 
-            # Handle __cc_ or __cc wrapper
+            # Handle __cc_ or __cc wrapper (1 child case)
             if num_child_children == 1:
                 child0_sp = potential_child_sp.GetChildAtIndex(0)
-                child_name = child0_sp.GetName() if child0_sp else ""
-                if child_name in ("__cc_", "__cc"):
-                    potential_child_sp = child0_sp.Clone(name)
+                if child0_sp:
+                    child_name = child0_sp.GetName()
+                    if child_name in ("__cc_", "__cc"):
+                        potential_child_sp = child0_sp.Clone(name)
 
-            # Handle __cc_ and __nc wrapper
+            # Handle __cc_ and __nc wrapper (2 children case)
             elif num_child_children == 2:
                 child0_sp = potential_child_sp.GetChildAtIndex(0)
                 child1_sp = potential_child_sp.GetChildAtIndex(1)
-                child0_name = child0_sp.GetName() if child0_sp else ""
-                child1_name = child1_sp.GetName() if child1_sp else ""
-                if child0_name in ("__cc_", "__cc") and child1_name == "__nc":
-                    potential_child_sp = child0_sp.Clone(name)
+                if child0_sp and child1_sp:
+                    child0_name = child0_sp.GetName()
+                    child1_name = child1_sp.GetName()
+                    if child0_name in ("__cc_", "__cc") and child1_name == "__nc":
+                        potential_child_sp = child0_sp.Clone(name)
 
         return potential_child_sp
 
     def update(self):
-        """Update the cached state."""
+        """Update the cached state. Called when the underlying value changes."""
         self.m_count = None
         self.m_tree = None
         self.m_root_node = None
@@ -285,13 +318,12 @@ class LibcxxStdMapSyntheticFrontEnd:
             return False
 
         self.m_root_node = self.m_tree.GetChildMemberWithName("__begin_node_")
-        if not self.m_root_node or not self.m_root_node.IsValid():
-            return False
 
-         # Get the __node_pointer type
-        self.m_node_ptr_type = self.m_tree.GetType().FindDirectNestedType("__node_pointer")
+        # Get the __node_pointer type from the tree's type
+        tree_type = self.m_tree.GetType()
+        self.m_node_ptr_type = tree_type.FindDirectNestedType("__node_pointer")
 
-        return True
+        return False
 
     def has_children(self):
         """Check if this object has children."""
@@ -336,13 +368,12 @@ class LibcxxStdMapSyntheticFrontEnd:
         return value_type_sp
 
 
-class LibCxxMapIteratorSyntheticFrontEnd:
-    """Synthetic children frontend for libc++ std::map::iterator."""
+class LibCxxMapIteratorSyntheticProvider:
+    """Synthetic children provider for libc++ std::map::iterator."""
 
     def __init__(self, valobj, internal_dict):
         self.valobj = valobj
         self.m_pair_sp = None
-        self.update()
 
     def num_children(self):
         """Map iterators always have 2 children (first and second)."""
@@ -371,7 +402,7 @@ class LibCxxMapIteratorSyntheticFrontEnd:
         if not target or not target.IsValid():
             return False
 
-        # m_backend is a std::map::iterator
+        # valobj is a std::map::iterator
         # ...which is a __map_iterator<__tree_iterator<..., __node_pointer, ...>>
         #
         # Then, __map_iterator::__i_ is a __tree_iterator
@@ -382,10 +413,7 @@ class LibCxxMapIteratorSyntheticFrontEnd:
         # Type is __tree_iterator::__node_pointer
         # (We could alternatively also get this from the template argument)
         tree_iter_type = tree_iter_sp.GetType()
-        node_pointer_type = None
-        if tree_iter_type.IsValid():
-            node_pointer_type = tree_iter_type.GetTypedefedType().GetTemplateArgumentType(1)
-
+        node_pointer_type = tree_iter_type.FindDirectNestedType("__node_pointer")
         if not node_pointer_type or not node_pointer_type.IsValid():
             return False
 
@@ -404,8 +432,8 @@ class LibCxxMapIteratorSyntheticFrontEnd:
             return False
 
         # Create the synthetic child, which is a pair where the key and value can be
-        # retrieved by querying the synthetic frontend for
-        # GetIndexOfChildWithName("first") and GetIndexOfChildWithName("second")
+        # retrieved by querying the synthetic provider for
+        # get_child_index("first") and get_child_index("second")
         # respectively.
         #
         # std::map stores the actual key/value pair in value_type::__cc_ (or
@@ -413,12 +441,13 @@ class LibCxxMapIteratorSyntheticFrontEnd:
         key_value_sp = key_value_sp.Clone("pair")
         if key_value_sp.GetNumChildren() == 1:
             child0_sp = key_value_sp.GetChildAtIndex(0)
-            child_name = child0_sp.GetName() if child0_sp else ""
-            if child_name in ("__cc_", "__cc"):
-                key_value_sp = child0_sp.Clone("pair")
+            if child0_sp:
+                child_name = child0_sp.GetName()
+                if child_name in ("__cc_", "__cc"):
+                    key_value_sp = child0_sp.Clone("pair")
 
         self.m_pair_sp = key_value_sp
-        return True
+        return False
 
     def has_children(self):
         """Check if this object has children."""

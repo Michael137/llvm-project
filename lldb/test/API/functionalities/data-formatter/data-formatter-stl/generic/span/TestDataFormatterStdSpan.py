@@ -183,8 +183,24 @@ class StdSpanDataFormatterTestCase(TestBase):
 
     @skipIf(compiler="clang", compiler_version=["<", "11.0"])
     @add_test_categories(["libc++"])
+    def test_libcxx_py(self):
+        self.build(dictionary={"USE_LIBCPP": 1})
+        self.runCmd("command script import lldb.formatters.cpp.libcxx")
+        self.runCmd("type category enable cplusplus-py")
+        self.do_test()
+
+    @skipIf(compiler="clang", compiler_version=["<", "11.0"])
+    @add_test_categories(["libc++"])
     def test_ref_and_ptr_libcxx(self):
         self.build(dictionary={"USE_LIBCPP": 1})
+        self.do_test_ref_and_ptr()
+
+    @skipIf(compiler="clang", compiler_version=["<", "11.0"])
+    @add_test_categories(["libc++"])
+    def test_ref_and_ptr_libcxx_py(self):
+        self.build(dictionary={"USE_LIBCPP": 1})
+        self.runCmd("command script import lldb.formatters.cpp.libcxx")
+        self.runCmd("type category enable cplusplus-py")
         self.do_test_ref_and_ptr()
 
     @skipIf(compiler="clang", compiler_version=["<", "11.0"])

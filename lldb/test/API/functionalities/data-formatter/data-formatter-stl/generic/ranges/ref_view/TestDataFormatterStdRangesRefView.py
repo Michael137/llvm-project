@@ -72,3 +72,12 @@ class StdRangesRefViewDataFormatterTestCase(TestBase):
     def test_libcxx(self):
         self.build(dictionary={"USE_LIBCPP": 1})
         self.do_test()
+
+    @skipIf(compiler=no_match("clang"))
+    @skipIf(compiler="clang", compiler_version=["<", "16.0"])
+    @add_test_categories(["libc++"])
+    def test_libcxx_py(self):
+        self.build(dictionary={"USE_LIBCPP": 1})
+        self.runCmd("command script import lldb.formatters.cpp.libcxx")
+        self.runCmd("type category enable cplusplus-py")
+        self.do_test()

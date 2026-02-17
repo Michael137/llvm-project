@@ -132,6 +132,14 @@ class StdStringDataFormatterTestCase(TestBase):
         self.build(dictionary={"USE_LIBCPP": 1})
         self.do_test()
 
+    @expectedFailureAll(debug_info="gmodules")
+    @add_test_categories(["libc++"])
+    def test_libcxx_py(self):
+        self.build(dictionary={"USE_LIBCPP": 1})
+        self.runCmd("command script import lldb.formatters.cpp.libcxx")
+        self.runCmd("type category enable cplusplus-py")
+        self.do_test()
+
     @expectedFailureAll(
         bugnumber="llvm.org/pr36109", debug_info="gmodules", triple=".*-android"
     )
@@ -181,6 +189,13 @@ class StdStringDataFormatterTestCase(TestBase):
         self.build(dictionary={"USE_LIBCPP": 1})
         self.do_test_multibyte()
 
+    @add_test_categories(["libc++"])
+    def test_multibyte_libcxx_py(self):
+        self.build(dictionary={"USE_LIBCPP": 1})
+        self.runCmd("command script import lldb.formatters.cpp.libcxx")
+        self.runCmd("type category enable cplusplus-py")
+        self.do_test_multibyte()
+
     @expectedFailureAll(
         bugnumber="libstdc++ formatters don't support UTF-16/UTF-32 strings yet."
     )
@@ -216,6 +231,13 @@ class StdStringDataFormatterTestCase(TestBase):
         self.build(dictionary={"USE_LIBCPP": 1})
         self.do_test_uncapped_summary()
 
+    @add_test_categories(["libc++"])
+    def test_uncapped_libcxx_py(self):
+        self.build(dictionary={"USE_LIBCPP": 1})
+        self.runCmd("command script import lldb.formatters.cpp.libcxx")
+        self.runCmd("type category enable cplusplus-py")
+        self.do_test_uncapped_summary()
+
     @expectedFailureAll(
         bugnumber="libstdc++ std::string summary provider doesn't obey summary options."
     )
@@ -247,6 +269,13 @@ class StdStringDataFormatterTestCase(TestBase):
         self.build(dictionary={"USE_LIBCPP": 1})
         self.do_test_summary_unavailable()
 
+    @add_test_categories(["libc++"])
+    def test_unavailable_summary_libcxx_py(self):
+        self.build(dictionary={"USE_LIBCPP": 1})
+        self.runCmd("command script import lldb.formatters.cpp.libcxx")
+        self.runCmd("type category enable cplusplus-py")
+        self.do_test_summary_unavailable()
+
     @add_test_categories(["libstdcxx"])
     def test_unavailable_summary_libstdcxx(self):
         self.build(dictionary={"USE_LIBSTDCPP": 1})
@@ -270,6 +299,13 @@ class StdStringDataFormatterTestCase(TestBase):
     @add_test_categories(["libc++"])
     def test_overwritten_libcxx(self):
         self.build(dictionary={"USE_LIBCPP": 1})
+        self.do_test_overwritten()
+
+    @add_test_categories(["libc++"])
+    def test_overwritten_libcxx_py(self):
+        self.build(dictionary={"USE_LIBCPP": 1})
+        self.runCmd("command script import lldb.formatters.cpp.libcxx")
+        self.runCmd("type category enable cplusplus-py")
         self.do_test_overwritten()
 
     @expectedFailureAll(
@@ -303,6 +339,13 @@ class StdStringDataFormatterTestCase(TestBase):
     @add_test_categories(["libc++"])
     def test_embedded_null_libcxx(self):
         self.build(dictionary={"USE_LIBCPP": 1})
+        self.do_test_embedded_null()
+
+    @add_test_categories(["libc++"])
+    def test_embedded_null_libcxx_py(self):
+        self.build(dictionary={"USE_LIBCPP": 1})
+        self.runCmd("command script import lldb.formatters.cpp.libcxx")
+        self.runCmd("type category enable cplusplus-py")
         self.do_test_embedded_null()
 
     @expectedFailureAll(

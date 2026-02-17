@@ -40,6 +40,14 @@ class StdU8StringViewDataFormatterTestCase(TestBase):
         self.build(dictionary={"USE_LIBCPP": 1})
         self.do_test()
 
+    @expectedFailureAll(bugnumber="No libc++ formatters for std::u8string_view yet.")
+    @add_test_categories(["libc++"])
+    def test_libcxx_py(self):
+        self.build(dictionary={"USE_LIBCPP": 1})
+        self.runCmd("command script import lldb.formatters.cpp.libcxx")
+        self.runCmd("type category enable cplusplus-py")
+        self.do_test()
+
     @add_test_categories(["libstdcxx"])
     def test_libstdcxx(self):
         self.build(dictionary={"USE_LIBSTDCPP": 1})

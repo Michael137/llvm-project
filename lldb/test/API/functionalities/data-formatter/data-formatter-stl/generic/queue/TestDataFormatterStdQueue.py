@@ -38,3 +38,19 @@ class TestDataFormatterStdQueue(TestBase):
 
         self.check_variable("q1")
         self.check_variable("q2")
+
+    @expectedFailureAll(
+        bugnumber="llvm.org/pr36109", debug_info="gmodules", triple=".*-android"
+    )
+    @add_test_categories(["libc++"])
+    def test_libcxx_py(self):
+        """Test that std::queue is displayed correctly"""
+        self.build(dictionary={"USE_LIBCPP": 1})
+        self.runCmd("command script import lldb.formatters.cpp.libcxx")
+        self.runCmd("type category enable cplusplus-py")
+        lldbutil.run_to_source_breakpoint(
+            self, "// break here", lldb.SBFileSpec("main.cpp", False)
+        )
+
+        self.check_variable("q1")
+        self.check_variable("q2")

@@ -196,6 +196,13 @@ class StdVectorDataFormatterTestCase(TestBase):
         self.build(dictionary={"USE_LIBCPP": 1})
         self.do_test()
 
+    @add_test_categories(["libc++"])
+    def test_libcxx_py(self):
+        self.build(dictionary={"USE_LIBCPP": 1})
+        self.runCmd("command script import lldb.formatters.cpp.libcxx")
+        self.runCmd("type category enable cplusplus-py")
+        self.do_test()
+
     @add_test_categories(["msvcstl"])
     def test_msvcstl(self):
         # No flags, because the "msvcstl" category checks that the MSVC STL is used by default.
@@ -232,6 +239,13 @@ class StdVectorDataFormatterTestCase(TestBase):
     @add_test_categories(["libc++"])
     def test_ref_and_ptr_libcxx(self):
         self.build(dictionary={"USE_LIBCPP": 1})
+        self.do_test_ref_and_ptr()
+
+    @add_test_categories(["libc++"])
+    def test_ref_and_ptr_libcxx_py(self):
+        self.build(dictionary={"USE_LIBCPP": 1})
+        self.runCmd("command script import lldb.formatters.cpp.libcxx")
+        self.runCmd("type category enable cplusplus-py")
         self.do_test_ref_and_ptr()
 
     @add_test_categories(["msvcstl"])

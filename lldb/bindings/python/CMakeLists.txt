@@ -110,7 +110,8 @@ function(finish_swig_python swig_target lldb_python_bindings_dir lldb_python_tar
           "${LLDB_SOURCE_DIR}/examples/synthetic/libcxx_bitset_formatter.py"
           "${LLDB_SOURCE_DIR}/examples/synthetic/libcxx_forward_list_formatter.py"
           "${LLDB_SOURCE_DIR}/examples/synthetic/libcxx_list_formatter.py"
-          "${LLDB_SOURCE_DIR}/examples/synthetic/libcxx_coroutine_handle_formatter.py")
+          "${LLDB_SOURCE_DIR}/examples/synthetic/libcxx_coroutine_handle_formatter.py"
+          "${LLDB_SOURCE_DIR}/examples/synthetic/libcxx.py")
 
   create_python_package(
     ${swig_target}

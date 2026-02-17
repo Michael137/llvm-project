@@ -8,6 +8,7 @@ from lldbsuite.test import lldbutil
 
 
 class InvalidAtomicDataFormatterTestCase(TestBase):
+    @expectedFailureAll(bugnumber="not support for python formatters")
     def test(self):
         self.build()
         lldbutil.run_to_source_breakpoint(

@@ -5,6 +5,7 @@ Test formatting of `std::atomic`s not from any STL
 import lldb
 from lldbsuite.test.lldbtest import *
 from lldbsuite.test import lldbutil
+from lldbsuite.test.decorators import *
 
 
 class InvalidAtomicDataFormatterTestCase(TestBase):

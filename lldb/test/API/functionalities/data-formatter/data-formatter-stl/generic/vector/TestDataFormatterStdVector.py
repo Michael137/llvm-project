@@ -201,6 +201,9 @@ class StdVectorDataFormatterTestCase(TestBase):
         self.build(dictionary={"USE_LIBCPP": 1})
         self.runCmd("command script import lldb.formatters.cpp.libcxx")
         self.runCmd("type category enable cplusplus-py")
+        def cleanup():
+            self.runCmd("type category delete cplusplus-py")
+        self.addTearDownHook(cleanup)
         self.do_test()
 
     @add_test_categories(["msvcstl"])
@@ -246,6 +249,9 @@ class StdVectorDataFormatterTestCase(TestBase):
         self.build(dictionary={"USE_LIBCPP": 1})
         self.runCmd("command script import lldb.formatters.cpp.libcxx")
         self.runCmd("type category enable cplusplus-py")
+        def cleanup():
+            self.runCmd("type category delete cplusplus-py")
+        self.addTearDownHook(cleanup)
         self.do_test_ref_and_ptr()
 
     @add_test_categories(["msvcstl"])

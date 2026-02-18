@@ -1460,6 +1460,8 @@ bool Module::LoadScriptingResourceInTarget(Target *target, Status &error,
           FileSpec scripting_fspec(file_specs.GetFileSpecAtIndex(i));
           if (scripting_fspec &&
               FileSystem::Instance().Exists(scripting_fspec)) {
+            // TODO: adjust for libc++ (and generally "safe paths")...no need to
+            // warn
             if (should_load == eLoadScriptFromSymFileWarn) {
               feedback_stream.Printf(
                   "warning: '%s' contains a debug script. To run this script "

@@ -199,6 +199,33 @@ PlatformDarwin::PutFile(const lldb_private::FileSpec &source,
   return PlatformPOSIX::PutFile(source, destination, uid, gid);
 }
 
+static FileSpecList LoadExecutableScriptingResourceLibcxx(
+    Stream &feedback_stream, FileSpec module_spec,
+    const FileSpec &symfile_spec) {
+  auto sdk_path_or_err =
+      HostInfo::GetSDKRoot(HostInfo::SDKOptions{XcodeSDK::GetAnyMacOS()});
+  if (!sdk_path_or_err) {
+    Log *log = GetLog(LLDBLog::Platform);
+    LLDB_LOG_ERROR(log, sdk_path_or_err.takeError(),
+                   "Error while searching for Xcode SDK: {0}");
+    return {};
+  }
+
+  FileSpec fspec(*sdk_path_or_err);
+
+  if (!fspec)
+    return {};
+
+  if (!FileSystem::Instance().Exists(fspec))
+    return {};
+
+  fspec.AppendPathComponent("usr");
+  fspec.AppendPathComponent("share");
+  fspec.AppendPathComponent("lldb");
+  fspec.AppendPathComponent("formatters");
+  fspec.AppendPathComponent("libc++");
+}
+
 static FileSpecList LocateExecutableScriptingResourcesFromDSYM(
     Stream &feedback_stream, FileSpec module_spec, const Target &target,
     const FileSpec &symfile_spec) {
@@ -320,12 +347,18 @@ FileSpecList PlatformDarwin::LocateExecutableScriptingResources(
     return {};
 
   const FileSpec &symfile_spec = objfile->GetFileSpec();
-  if (symfile_spec &&
-      llvm::StringRef(symfile_spec.GetPath())
+  if (!symfile_spec)
+    return {};
+
+  if (llvm::StringRef(symfile_spec.GetPath())
           .contains_insensitive(".dSYM/Contents/Resources/DWARF") &&
       FileSystem::Instance().Exists(symfile_spec))
     return LocateExecutableScriptingResourcesFromDSYM(
         feedback_stream, module_spec, *target, symfile_spec);
+
+  if (llvm::StringRef(symfile_spec.GetPath())
+          .contains_insensitive("libc++"))
+    return LoadExecutableScriptingResourceLibcxx(feedback_stream, module_spec, symfile_spec);
 
   return {};
 }

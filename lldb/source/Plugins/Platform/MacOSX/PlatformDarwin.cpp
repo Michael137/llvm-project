@@ -199,8 +199,8 @@ PlatformDarwin::PutFile(const lldb_private::FileSpec &source,
   return PlatformPOSIX::PutFile(source, destination, uid, gid);
 }
 
-static FileSpecList LoadExecutableScriptingResourceLibcxx(
-    Stream &feedback_stream, FileSpec module_spec,
+static FileSpecList LocateExecutableScriptingResourcesFromSDK(
+    Stream &feedback_stream, const Target &target, FileSpec module_spec,
     const FileSpec &symfile_spec) {
   auto sdk_path_or_err =
       HostInfo::GetSDKRoot(HostInfo::SDKOptions{XcodeSDK::GetAnyMacOS()});
@@ -222,8 +222,30 @@ static FileSpecList LoadExecutableScriptingResourceLibcxx(
   fspec.AppendPathComponent("usr");
   fspec.AppendPathComponent("share");
   fspec.AppendPathComponent("lldb");
-  fspec.AppendPathComponent("formatters");
-  fspec.AppendPathComponent("libc++");
+  //fspec.AppendPathComponent("formatters");
+  fspec.AppendPathComponent(module_spec.GetFileNameStrippingExtension().GetStringRef()); // TODO: should we try with extensions as well?
+
+  if (!FileSystem::Instance().Exists(fspec))
+    return {};
+
+  // TODO: share the Python "reserved identifier in filename" warning code
+  // with LocateExecutableScriptingResourcesFromDSYM
+
+  auto callback = [](void *baton, llvm::sys::fs::file_type file_type, llvm::StringRef path) -> FileSystem::EnumerateDirectoryResult {
+    assert (baton);
+    FileSpecList *file_list = static_cast<FileSpecList*>(baton);
+    if (file_type == llvm::sys::fs::file_type::regular_file
+        && path.ends_with(".py"))
+        file_list->AppendIfUnique(FileSpec(path));
+
+    return FileSystem::EnumerateDirectoryResult::eEnumerateDirectoryResultNext;
+  };
+
+  FileSpecList file_list;
+  FileSystem::Instance().EnumerateDirectory(fspec.GetPath(), false, true, false,
+          callback, &file_list);
+
+  return file_list;
 }
 
 static FileSpecList LocateExecutableScriptingResourcesFromDSYM(
@@ -356,11 +378,7 @@ FileSpecList PlatformDarwin::LocateExecutableScriptingResources(
     return LocateExecutableScriptingResourcesFromDSYM(
         feedback_stream, module_spec, *target, symfile_spec);
 
-  if (llvm::StringRef(symfile_spec.GetPath())
-          .contains_insensitive("libc++"))
-    return LoadExecutableScriptingResourceLibcxx(feedback_stream, module_spec, symfile_spec);
-
-  return {};
+  return LocateExecutableScriptingResourcesFromSDK(feedback_stream, *target, module_spec, symfile_spec);
 }
 
 Status PlatformDarwin::ResolveSymbolFile(Target &target,

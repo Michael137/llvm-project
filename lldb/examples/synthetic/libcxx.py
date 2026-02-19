@@ -26,6 +26,7 @@ from lldb.formatters.cpp.libcxx_list_formatter import *
 from lldb.formatters.cpp.libcxx_coroutine_handle_formatter import *
 
 def __lldb_init_module(debugger, dict):
+    # TODO: should the individual formatters register themselves?
     debugger.HandleCommand(f'type synthetic add -x "^std::__[[:alnum:]]+::bitset<.+>$" -l lldb.formatters.cpp.libcxx_bitset_formatter.LibcxxBitsetSyntheticFrontEnd -w "cplusplus-py"')
     debugger.HandleCommand(f'type synthetic add -x "^std::__[[:alnum:]]+::vector<.+>$" -l lldb.formatters.cpp.libcxx_vector_formatter.libcxx_std_vector_synthetic_frontend_creator -w "cplusplus-py"')
     debugger.HandleCommand(f'type synthetic add -x "^std::__[[:alnum:]]+::valarray<.+>$" -l lldb.formatters.cpp.libcxx_valarray_formatter.LibcxxStdValarraySyntheticFrontEnd -w "cplusplus-py"')
@@ -53,3 +54,4 @@ def __lldb_init_module(debugger, dict):
     debugger.HandleCommand(f'type synthetic add -x "^std::__[[:alnum:]]+::__wrap_iter<.+>$" -l lldb.formatters.cpp.libcxx_vector_iterator_formatter.VectorIteratorSyntheticFrontEnd -w "cplusplus-py"')
     debugger.HandleCommand(f'type synthetic add -x "^std::__[[:alnum:]]+::__map_(const_)?iterator<.+>$" -l lldb.formatters.cpp.libcxx_map_formatter.LibCxxMapIteratorSyntheticProvider -w "cplusplus-py"')
     debugger.HandleCommand(f'type synthetic add -x "^std::__[[:alnum:]]+::__hash_map_(const_)?iterator<.+>$" -l lldb.formatters.cpp.libcxx_unordered_map_formatter.LibCxxUnorderedMapIteratorSyntheticFrontEnd -w "cplusplus-py"')
+    debugger.HandleCommand(f'type category enable cplusplus-py')

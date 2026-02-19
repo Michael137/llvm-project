@@ -52,3 +52,6 @@ class QueueFrontEnd:
     def has_children(self):
         """Check if this object has children."""
         return True
+
+def __lldb_init_module(debugger, dict):
+    debugger.HandleCommand(f'type synthetic add -x "^std::__[[:alnum:]]+::queue<.+>$" -l lldb.formatters.cpp.libcxx_queue_formatter.QueueFrontEnd -w "cplusplus-py"')

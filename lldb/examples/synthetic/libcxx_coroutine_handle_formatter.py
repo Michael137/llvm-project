@@ -280,3 +280,6 @@ class StdlibCoroutineHandleSyntheticFrontEnd:
     def has_children(self):
         """Check if this object has children."""
         return True
+
+def __lldb_init_module(debugger, dict):
+    debugger.HandleCommand(f'type synthetic add -x "^std::__[[:alnum:]]+::coroutine_handle<.+>$" -l lldb.formatters.cpp.libcxx_coroutine_handle_formatter.StdlibCoroutineHandleSyntheticFrontEnd -w "cplusplus-py"')

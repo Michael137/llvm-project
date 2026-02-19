@@ -235,3 +235,6 @@ class VariantFrontEnd:
     def has_children(self):
         """Check if this object has children."""
         return True
+
+def __lldb_init_module(debugger, dict):
+    debugger.HandleCommand(f'type synthetic add -x "^std::__[[:alnum:]]+::variant<.+>$" -l lldb.formatters.cpp.libcxx_variant_formatter.VariantFrontEnd -w "cplusplus-py"')

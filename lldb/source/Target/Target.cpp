@@ -70,6 +70,7 @@
 
 #include "llvm/ADT/ScopeExit.h"
 #include "llvm/ADT/SetVector.h"
+#include "llvm/ADT/StringExtras.h"
 #include "llvm/Support/ErrorExtras.h"
 #include "llvm/Support/ThreadPool.h"
 
@@ -5091,6 +5092,17 @@ LoadScriptFromSymFile TargetProperties::GetLoadScriptFromSymbolFile() const {
   return GetPropertyAtIndexAs<LoadScriptFromSymFile>(
       idx, static_cast<LoadScriptFromSymFile>(
                g_target_properties[idx].default_uint_value));
+}
+
+FileSpecList TargetProperties::GetSafeLoadPaths() const {
+  const uint32_t idx = ePropertySafeLoadPaths;
+  //llvm::StringRef default_paths_str = g_target_properties[idx].default_cstr_value;
+  //std::vector<FileSpec> default_paths;
+  //llvm::copy(llvm::map_range(llvm::split(default_paths_str, ':'),
+  //                [](llvm::StringRef path) { return FileSpec(path); }),
+  //          std::back_inserter(default_paths));
+  //return GetPropertyAtIndexAs<FileSpecList>(idx, FileSpecList(std::move(default_paths)));
+  return GetPropertyAtIndexAs<FileSpecList>(idx, FileSpecList());
 }
 
 LoadCWDlldbinitFile TargetProperties::GetLoadCWDlldbinitFile() const {

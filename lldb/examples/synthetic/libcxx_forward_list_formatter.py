@@ -308,3 +308,6 @@ class LibcxxForwardListSyntheticFrontEnd:
     def has_children(self):
         """Check if this object has children."""
         return True
+
+def __lldb_init_module(debugger, dict):
+    debugger.HandleCommand(f'type synthetic add -x "^std::__[[:alnum:]]+::forward_list<.+>$" -l lldb.formatters.cpp.libcxx_forward_list_formatter.LibcxxForwardListSyntheticFrontEnd -w "cplusplus-py"')

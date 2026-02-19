@@ -1425,6 +1425,12 @@ bool Module::IsLoadedInTarget(Target *target) {
   return false;
 }
 
+static bool file_spec_list_contains(const FileSpecList &file_list, llvm::StringRef dir) {
+    return llvm::any_of(file_list, [&](const FileSpec &fspec) {
+        return fspec.GetPath() == dir;
+    });
+}
+
 bool Module::LoadScriptingResourceInTarget(Target *target, Status &error,
                                            Stream &feedback_stream) {
   if (!target) {
@@ -1460,9 +1466,11 @@ bool Module::LoadScriptingResourceInTarget(Target *target, Status &error,
           FileSpec scripting_fspec(file_specs.GetFileSpecAtIndex(i));
           if (scripting_fspec &&
               FileSystem::Instance().Exists(scripting_fspec)) {
-            // TODO: adjust for libc++ (and generally "safe paths")...no need to
-            // warn
-            if (should_load == eLoadScriptFromSymFileWarn) {
+            const bool can_autoload = 
+                should_load != eLoadScriptFromSymFileFalse
+                && file_spec_list_contains(target->TargetProperties::GetSafeLoadPaths(), scripting_fspec.GetDirectory().GetStringRef());
+            if (!can_autoload
+                && should_load == eLoadScriptFromSymFileWarn) {
               feedback_stream.Printf(
                   "warning: '%s' contains a debug script. To run this script "
                   "in "
@@ -1475,6 +1483,11 @@ bool Module::LoadScriptingResourceInTarget(Target *target, Status &error,
                   scripting_fspec.GetPath().c_str());
               return false;
             }
+
+            if (can_autoload)
+              LLDB_LOG(GetLog(LLDBLog::Modules),
+                       "Auto-loading {0}", scripting_fspec.GetPath());
+
             StreamString scripting_stream;
             scripting_fspec.Dump(scripting_stream.AsRawOstream());
             LoadScriptOptions options;

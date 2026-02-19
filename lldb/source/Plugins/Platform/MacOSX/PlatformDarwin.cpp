@@ -231,19 +231,16 @@ static FileSpecList LocateExecutableScriptingResourcesFromSDK(
   // TODO: share the Python "reserved identifier in filename" warning code
   // with LocateExecutableScriptingResourcesFromDSYM
 
-  auto callback = [](void *baton, llvm::sys::fs::file_type file_type, llvm::StringRef path) -> FileSystem::EnumerateDirectoryResult {
-    assert (baton);
-    FileSpecList *file_list = static_cast<FileSpecList*>(baton);
-    if (file_type == llvm::sys::fs::file_type::regular_file
-        && path.ends_with(".py"))
-        file_list->AppendIfUnique(FileSpec(path));
-
-    return FileSystem::EnumerateDirectoryResult::eEnumerateDirectoryResultNext;
-  };
-
   FileSpecList file_list;
-  FileSystem::Instance().EnumerateDirectory(fspec.GetPath(), false, true, false,
-          callback, &file_list);
+  std::error_code ec;
+  llvm::vfs::directory_iterator entry = FileSystem::Instance().DirBegin(fspec.GetPath(), ec);
+  for (; entry != llvm::vfs::directory_iterator() && !ec; entry.increment(ec)) {
+    if (entry->type() != llvm::sys::fs::file_type::regular_file)
+      continue;
+
+    if (entry->path().ends_with(".py"))
+      file_list.AppendIfUnique(FileSpec(entry->path()));
+  }
 
   return file_list;
 }

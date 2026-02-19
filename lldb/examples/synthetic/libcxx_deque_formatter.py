@@ -218,3 +218,6 @@ class stddeque_SynthProvider:
             self.map_first = None
             self.map_begin = None
         return False
+
+def __lldb_init_module(debugger, dict):
+    debugger.HandleCommand(f'type synthetic add -x "^std::__[[:alnum:]]+::deque<.+>$" -l lldb.formatters.cpp.libcxx_deque_formatter.stddeque_SynthProvider -w "cplusplus-py"')

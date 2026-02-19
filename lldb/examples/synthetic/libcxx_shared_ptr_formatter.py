@@ -143,3 +143,7 @@ class LibcxxSharedPtrSyntheticFrontEnd:
     def has_children(self):
         """Check if this object has children."""
         return True
+
+def __lldb_init_module(debugger, dict):
+    debugger.HandleCommand(f'type synthetic add -x "^std::__[[:alnum:]]+::shared_ptr<.+>$" -l lldb.formatters.cpp.libcxx_shared_ptr_formatter.LibcxxSharedPtrSyntheticFrontEnd -w "cplusplus-py"')
+    debugger.HandleCommand(f'type synthetic add -x "^std::__[[:alnum:]]+::weak_ptr<.+>$" -l lldb.formatters.cpp.libcxx_shared_ptr_formatter.LibcxxSharedPtrSyntheticFrontEnd -w "cplusplus-py"')

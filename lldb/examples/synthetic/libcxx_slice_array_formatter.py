@@ -119,3 +119,6 @@ class LibcxxStdSliceArraySyntheticFrontEnd:
     def has_children(self):
         """Check if this object has children."""
         return True
+
+def __lldb_init_module(debugger, dict):
+    debugger.HandleCommand(f'type synthetic add -x "^std::__[[:alnum:]]+::slice_array<.+>$" -l lldb.formatters.cpp.libcxx_slice_array_formatter.LibcxxStdSliceArraySyntheticFrontEnd -w "cplusplus-py"')

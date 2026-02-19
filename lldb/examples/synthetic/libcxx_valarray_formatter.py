@@ -103,3 +103,6 @@ class LibcxxStdValarraySyntheticFrontEnd:
     def has_children(self):
         """Check if this object has children."""
         return True
+
+def __lldb_init_module(debugger, dict):
+    debugger.HandleCommand(f'type synthetic add -x "^std::__[[:alnum:]]+::valarray<.+>$" -l lldb.formatters.cpp.libcxx_valarray_formatter.LibcxxStdValarraySyntheticFrontEnd -w "cplusplus-py"')

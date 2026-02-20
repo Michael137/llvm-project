@@ -2273,7 +2273,6 @@ let Command = "type synth add" in {
   def type_synth_add_skip_references
       : Option<"skip-references", "r">,
         Desc<"Don't use this format for references-to-type objects.">;
-  # TODO: Is this needed?
   def type_synth_add_dereference : Option<"dereference", "D">,
                                Arg<"Boolean">,
                                Desc<"If true, dereference pointers.">;

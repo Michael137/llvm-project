@@ -100,6 +100,15 @@ add_lldb_library(lldbTarget
     lldbPluginProcessUtility
   )
 
+set(cachestring_LLDB_SAFE_LOAD_PATHS
+    "Semi-colon separated list of safe paths.")
+
+if (NOT LLDB_SAFE_LOAD_PATHS)
+  message(WARNING "LLDB_SAFE_LOAD_PATHS is not set. LLDB data-formatters are likely to fail or be outdated.")
+endif()
+
+target_compile_definitions(lldbTarget PRIVATE LLDB_SAFE_LOAD_PATHS="${LLDB_SAFE_LOAD_PATHS}")
+
 add_dependencies(lldbTarget
   LLDBTargetPropertiesGen
   LLDBTargetPropertiesEnumGen)

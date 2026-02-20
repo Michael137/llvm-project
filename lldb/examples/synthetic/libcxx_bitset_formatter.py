@@ -150,4 +150,4 @@ class LibcxxBitsetSyntheticFrontEnd:
         return True
 
 def __lldb_init_module(debugger, dict):
-    debugger.HandleCommand(f'type synthetic add -x "^std::__[[:alnum:]]+::bitset<.+>$" -l lldb.formatters.cpp.libcxx_bitset_formatter.LibcxxBitsetSyntheticFrontEnd -w "cplusplus-py"')
+    debugger.HandleCommand(f'type synthetic add -x "^std::__[[:alnum:]]+::bitset<.+>$" -l lldb.formatters.cpp.libcxx_bitset_formatter.LibcxxBitsetSyntheticFrontEnd -w "cplusplus-py" -D true')

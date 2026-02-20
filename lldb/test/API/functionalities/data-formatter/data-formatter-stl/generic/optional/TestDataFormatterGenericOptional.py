@@ -102,6 +102,17 @@ class GenericOptionalDataFormatterTestCase(TestBase):
         self.build(dictionary={"USE_LIBCPP": 1})
         self.do_test_with_run_command()
 
+    @add_test_categories(["libc++"])
+    def test_with_run_command_libcpp_py(self):
+        self.build(dictionary={"USE_LIBCPP": 1})
+        self.runCmd("settings set target.load-script-from-symbol-file false")
+        self.runCmd("command script import lldb.formatters.cpp.libcxx")
+        self.runCmd("type category enable cplusplus-py")
+        def cleanup():
+            self.runCmd("type category delete cplusplus-py")
+        self.addTearDownHook(cleanup)
+        self.do_test_with_run_command()
+
     @add_test_categories(["libstdcxx"])
     def test_with_run_command_libstdcpp(self):
         self.build(dictionary={"USE_LIBSTDCPP": 1})

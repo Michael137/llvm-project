@@ -8,14 +8,9 @@ from lldbsuite.test.decorators import *
 from lldbsuite.test.lldbtest import *
 from lldbsuite.test import lldbutil
 
-USE_LIBSTDCPP = "USE_LIBSTDCPP"
-USE_LIBCPP = "USE_LIBCPP"
-
-
 class TestCoroutineHandle(TestBase):
-    def do_test(self, stdlib_type):
+    def do_test(self):
         """Test std::coroutine_handle is displayed correctly."""
-        self.build(dictionary={stdlib_type: "1"})
         is_clang = self.expectedCompiler(["clang"])
 
         # Clang <= 20 used to also name the resume/destroy functions
@@ -167,9 +162,23 @@ class TestCoroutineHandle(TestBase):
 
     @add_test_categories(["libstdcxx"])
     def test_libstdcpp(self):
-        self.do_test(USE_LIBSTDCPP)
+        self.build(dictionary={"USE_LIBSTDCPP": 1})
+        self.do_test()
 
     @add_test_categories(["libc++"])
     @skipIf(compiler="clang", compiler_version=["<", "15.0"])
     def test_libcpp(self):
-        self.do_test(USE_LIBCPP)
+        self.build(dictionary={"USE_LIBCPP": 1})
+        self.do_test()
+
+    @add_test_categories(["libc++"])
+    @skipIf(compiler="clang", compiler_version=["<", "15.0"])
+    def test_libcpp_py(self):
+        self.build(dictionary={"USE_LIBCPP": 1})
+        self.runCmd("settings set target.load-script-from-symbol-file false")
+        self.runCmd("command script import lldb.formatters.cpp.libcxx")
+        self.runCmd("type category enable cplusplus-py")
+        def cleanup():
+            self.runCmd("type category delete cplusplus-py")
+        self.addTearDownHook(cleanup)
+        self.do_test()

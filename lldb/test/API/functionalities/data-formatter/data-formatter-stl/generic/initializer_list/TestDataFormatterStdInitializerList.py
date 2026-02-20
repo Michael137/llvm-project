@@ -49,6 +49,7 @@ class InitializerListTestCase(TestBase):
     @add_test_categories(["libc++"])
     def test_libcxx_py(self):
         self.build(dictionary={"USE_LIBCPP": 1})
+        self.runCmd("settings set target.load-script-from-symbol-file false")
         self.runCmd("command script import lldb.formatters.cpp.libcxx")
         self.runCmd("type category enable cplusplus-py")
         def cleanup():

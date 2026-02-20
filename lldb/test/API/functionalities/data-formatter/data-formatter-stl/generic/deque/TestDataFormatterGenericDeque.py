@@ -141,6 +141,17 @@ class GenericDequeDataFormatterTestCase(TestBase):
         self.build(dictionary={"USE_LIBCPP": 1})
         self.do_test()
 
+    @add_test_categories(["libc++"])
+    def test_libcpp_py(self):
+        self.build(dictionary={"USE_LIBCPP": 1})
+        self.runCmd("settings set target.load-script-from-symbol-file false")
+        self.runCmd("command script import lldb.formatters.cpp.libcxx")
+        self.runCmd("type category enable cplusplus-py")
+        def cleanup():
+            self.runCmd("type category delete cplusplus-py")
+        self.addTearDownHook(cleanup)
+        self.do_test()
+
     @add_test_categories(["msvcstl"])
     def test_msvcstl(self):
         # No flags, because the "msvcstl" category checks that the MSVC STL is used by default.
@@ -168,6 +179,17 @@ class GenericDequeDataFormatterTestCase(TestBase):
     @add_test_categories(["libc++"])
     def test_libcpp_ref_and_ptr(self):
         self.build(dictionary={"USE_LIBCPP": 1})
+        self.do_test_ref_and_ptr()
+
+    @add_test_categories(["libc++"])
+    def test_libcpp_ref_and_ptr_py(self):
+        self.build(dictionary={"USE_LIBCPP": 1})
+        self.runCmd("settings set target.load-script-from-symbol-file false")
+        self.runCmd("command script import lldb.formatters.cpp.libcxx")
+        self.runCmd("type category enable cplusplus-py")
+        def cleanup():
+            self.runCmd("type category delete cplusplus-py")
+        self.addTearDownHook(cleanup)
         self.do_test_ref_and_ptr()
 
     @add_test_categories(["msvcstl"])

@@ -67,10 +67,20 @@ class GenericBitsetDataFormatterTestCase(TestBase):
         self.build(dictionary={"USE_LIBSTDCPP": 1})
         self.do_test_value()
 
-    # TODO: add py test
     @add_test_categories(["libc++"])
     def test_value_libcpp(self):
         self.build(dictionary={"USE_LIBCPP": 1})
+        self.do_test_value()
+
+    @add_test_categories(["libc++"])
+    def test_value_libcpp_py(self):
+        self.build(dictionary={"USE_LIBCPP": 1})
+        self.runCmd("settings set target.load-script-from-symbol-file false")
+        self.runCmd("command script import lldb.formatters.cpp.libcxx")
+        self.runCmd("type category enable cplusplus-py")
+        def cleanup():
+            self.runCmd("type category delete cplusplus-py")
+        self.addTearDownHook(cleanup)
         self.do_test_value()
 
     def do_test_ptr_and_ref(self):
@@ -100,4 +110,15 @@ class GenericBitsetDataFormatterTestCase(TestBase):
     @add_test_categories(["libc++"])
     def test_ptr_and_ref_libcpp(self):
         self.build(dictionary={"USE_LIBCPP": 1})
+        self.do_test_ptr_and_ref()
+
+    @add_test_categories(["libc++"])
+    def test_ptr_and_ref_libcpp_py(self):
+        self.build(dictionary={"USE_LIBCPP": 1})
+        self.runCmd("settings set target.load-script-from-symbol-file false")
+        self.runCmd("command script import lldb.formatters.cpp.libcxx")
+        self.runCmd("type category enable cplusplus-py")
+        def cleanup():
+            self.runCmd("type category delete cplusplus-py")
+        self.addTearDownHook(cleanup)
         self.do_test_ptr_and_ref()

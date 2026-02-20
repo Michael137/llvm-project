@@ -172,6 +172,28 @@ class TestDataFormatterGenericForwardList(TestBase):
         self.build(dictionary={"USE_LIBCPP": 1})
         self.do_test_ptr_and_ref()
 
+    @add_test_categories(["libc++"])
+    def test_libcpp_py(self):
+        self.build(dictionary={"USE_LIBCPP": 1})
+        self.runCmd("settings set target.load-script-from-symbol-file false")
+        self.runCmd("command script import lldb.formatters.cpp.libcxx")
+        self.runCmd("type category enable cplusplus-py")
+        def cleanup():
+            self.runCmd("type category delete cplusplus-py")
+        self.addTearDownHook(cleanup)
+        self.do_test()
+
+    @add_test_categories(["libc++"])
+    def test_ptr_and_ref_libcpp_py(self):
+        self.build(dictionary={"USE_LIBCPP": 1})
+        self.runCmd("settings set target.load-script-from-symbol-file false")
+        self.runCmd("command script import lldb.formatters.cpp.libcxx")
+        self.runCmd("type category enable cplusplus-py")
+        def cleanup():
+            self.runCmd("type category delete cplusplus-py")
+        self.addTearDownHook(cleanup)
+        self.do_test_ptr_and_ref()
+
     @add_test_categories(["msvcstl"])
     def test_msvcstl(self):
         # No flags, because the "msvcstl" category checks that the MSVC STL is used by default.

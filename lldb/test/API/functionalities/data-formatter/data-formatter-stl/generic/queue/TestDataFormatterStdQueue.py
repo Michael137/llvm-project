@@ -46,6 +46,7 @@ class TestDataFormatterStdQueue(TestBase):
     def test_libcxx_py(self):
         """Test that std::queue is displayed correctly"""
         self.build(dictionary={"USE_LIBCPP": 1})
+        self.runCmd("settings set target.load-script-from-symbol-file false")
         self.runCmd("command script import lldb.formatters.cpp.libcxx")
         self.runCmd("type category enable cplusplus-py")
         def cleanup():

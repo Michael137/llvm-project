@@ -281,6 +281,7 @@ class StdStringDataFormatterTestCase(TestBase):
     @add_test_categories(["libc++"])
     def test_unavailable_summary_libcxx_py(self):
         self.build(dictionary={"USE_LIBCPP": 1})
+        self.runCmd("settings set target.load-script-from-symbol-file false")
         self.runCmd("command script import lldb.formatters.cpp.libcxx")
         self.runCmd("type category enable cplusplus-py")
         def cleanup():
@@ -316,6 +317,7 @@ class StdStringDataFormatterTestCase(TestBase):
     @add_test_categories(["libc++"])
     def test_overwritten_libcxx_py(self):
         self.build(dictionary={"USE_LIBCPP": 1})
+        self.runCmd("settings set target.load-script-from-symbol-file false")
         self.runCmd("command script import lldb.formatters.cpp.libcxx")
         self.runCmd("type category enable cplusplus-py")
         def cleanup():
@@ -359,6 +361,7 @@ class StdStringDataFormatterTestCase(TestBase):
     @add_test_categories(["libc++"])
     def test_embedded_null_libcxx_py(self):
         self.build(dictionary={"USE_LIBCPP": 1})
+        self.runCmd("settings set target.load-script-from-symbol-file false")
         self.runCmd("command script import lldb.formatters.cpp.libcxx")
         self.runCmd("type category enable cplusplus-py")
         def cleanup():

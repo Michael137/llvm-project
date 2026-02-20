@@ -322,6 +322,12 @@ private:
           error = Status::FromErrorStringWithFormat(
               "invalid value for cascade: %s", option_arg.str().c_str());
         break;
+      case 'D':
+        m_dereference = OptionArgParser::ToBoolean(option_arg, true, &success);
+        if (!success)
+          error = Status::FromErrorStringWithFormat(
+              "invalid value for dereference: %s", option_arg.str().c_str());
+        break;
       case 'P':
         handwrite_python = true;
         break;
@@ -361,6 +367,7 @@ private:
 
     void OptionParsingStarting(ExecutionContext *execution_context) override {
       m_cascade = true;
+      m_dereference = false;
       m_class_name = "";
       m_skip_pointers = false;
       m_skip_references = false;
@@ -377,6 +384,7 @@ private:
     // Instance variables to hold the values for command options.
 
     bool m_cascade;
+    bool m_dereference;
     bool m_skip_references;
     bool m_skip_pointers;
     std::string m_class_name;
@@ -453,6 +461,7 @@ protected:
                 synth_provider = std::make_shared<ScriptedSyntheticChildren>(
                     SyntheticChildren::Flags()
                         .SetCascades(options->m_cascade)
+                        .SetFrontEndWantsDereference(options->m_cascade)
                         .SetSkipPointers(options->m_skip_pointers)
                         .SetSkipReferences(options->m_skip_references),
                     class_name_str.c_str());

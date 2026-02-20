@@ -809,6 +809,8 @@ class Base(unittest.TestCase):
             "settings set use-color false",
             # Disable the statusline by default.
             "settings set show-statusline false",
+            # Don't auto-load formatters
+            "settings set target.load-script-from-symbol-file false",
         ]
 
         # Set any user-overridden settings.

@@ -1344,9 +1344,7 @@ public:
   void ForgetSource(clang::ASTContext *src_ctx, ClangASTImporter &importer);
 
   // llvm casting support
-  bool isA(const void *ClassID) const override {
-    return ClassID == &ID || TypeSystemClang::isA(ClassID);
-  }
+  bool isA(const void *ClassID) const override { return ClassID == &ID; }
   static bool classof(const TypeSystem *ts) { return ts->isA(&ID); }
 
 private:

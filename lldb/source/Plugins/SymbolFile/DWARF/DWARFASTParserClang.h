@@ -131,6 +131,82 @@ public:
   GetObjectParameter(const lldb_private::plugin::dwarf::DWARFDIE &subprogram,
                      const lldb_private::plugin::dwarf::DWARFDIE &decl_ctx_die);
 
+  /// Parsed form of all attributes that are relevant for parsing type members.
+  struct MemberAttributes {
+    explicit MemberAttributes(
+        const lldb_private::plugin::dwarf::DWARFDIE &die,
+        const lldb_private::plugin::dwarf::DWARFDIE &parent_die,
+        lldb::ModuleSP module_sp);
+    const char *name = nullptr;
+    /// Indicates how many bits into the word (according to the host endianness)
+    /// the low-order bit of the field starts. Can be negative.
+    int64_t bit_offset = 0;
+    /// Indicates the size of the field in bits.
+    size_t bit_size = 0;
+    uint64_t data_bit_offset = UINT64_MAX;
+    lldb::AccessType accessibility = lldb::eAccessNone;
+    std::optional<uint64_t> byte_size;
+    std::optional<lldb_private::plugin::dwarf::DWARFFormValue> const_value_form;
+    lldb_private::plugin::dwarf::DWARFFormValue encoding_form;
+    /// Indicates the byte offset of the word from the base address of the
+    /// structure.
+    uint32_t member_byte_offset = UINT32_MAX;
+    bool is_artificial = false;
+    bool is_declaration = false;
+  };
+
+  struct FieldInfo {
+    /// Size in bits that this field occupies. Can but
+    /// need not be the DW_AT_bit_size of the field.
+    uint64_t bit_size = 0;
+
+    /// Offset of this field in bits from the beginning
+    /// of the containing struct. Can but need not
+    /// be the DW_AT_data_bit_offset of the field.
+    uint64_t bit_offset = 0;
+
+    /// In case this field is folded into the storage
+    /// of a previous member's storage (for example
+    /// with [[no_unique_address]]), the effective field
+    /// end is the offset in bits from the beginning of
+    /// the containing struct where the field we were
+    /// folded into ended.
+    std::optional<uint64_t> effective_field_end;
+
+    /// Set to 'true' if this field is a bit-field.
+    bool is_bitfield = false;
+
+    /// Set to 'true' if this field is DW_AT_artificial.
+    bool is_artificial = false;
+
+    FieldInfo() = default;
+
+    void SetIsBitfield(bool flag) { is_bitfield = flag; }
+    bool IsBitfield() const { return is_bitfield; }
+
+    void SetIsArtificial(bool flag) { is_artificial = flag; }
+    bool IsArtificial() const { return is_artificial; }
+
+    bool NextBitfieldOffsetIsValid(const uint64_t next_bit_offset) const {
+      // Any subsequent bitfields must not overlap and must be at a higher
+      // bit offset than any previous bitfield + size.
+      return (bit_size + bit_offset) <= next_bit_offset;
+    }
+
+    /// Returns the offset in bits of where the storage this field
+    /// occupies ends.
+    uint64_t GetFieldEnd() const { return bit_size + bit_offset; }
+
+    void SetEffectiveFieldEnd(uint64_t val) { effective_field_end = val; }
+
+    /// If this field was folded into storage of a previous field,
+    /// returns the offset in bits of where that storage ends. Otherwise,
+    /// returns the regular field end (see \ref GetFieldEnd).
+    uint64_t GetEffectiveFieldEnd() const {
+      return effective_field_end.value_or(GetFieldEnd());
+    }
+  };
+
 protected:
   /// Protected typedefs and members.
   /// @{
@@ -269,80 +345,6 @@ protected:
   GetModuleForType(const lldb_private::plugin::dwarf::DWARFDIE &die);
 
 private:
-  struct FieldInfo {
-    /// Size in bits that this field occupies. Can but
-    /// need not be the DW_AT_bit_size of the field.
-    uint64_t bit_size = 0;
-
-    /// Offset of this field in bits from the beginning
-    /// of the containing struct. Can but need not
-    /// be the DW_AT_data_bit_offset of the field.
-    uint64_t bit_offset = 0;
-
-    /// In case this field is folded into the storage
-    /// of a previous member's storage (for example
-    /// with [[no_unique_address]]), the effective field
-    /// end is the offset in bits from the beginning of
-    /// the containing struct where the field we were
-    /// folded into ended.
-    std::optional<uint64_t> effective_field_end;
-
-    /// Set to 'true' if this field is a bit-field.
-    bool is_bitfield = false;
-
-    /// Set to 'true' if this field is DW_AT_artificial.
-    bool is_artificial = false;
-
-    FieldInfo() = default;
-
-    void SetIsBitfield(bool flag) { is_bitfield = flag; }
-    bool IsBitfield() const { return is_bitfield; }
-
-    void SetIsArtificial(bool flag) { is_artificial = flag; }
-    bool IsArtificial() const { return is_artificial; }
-
-    bool NextBitfieldOffsetIsValid(const uint64_t next_bit_offset) const {
-      // Any subsequent bitfields must not overlap and must be at a higher
-      // bit offset than any previous bitfield + size.
-      return (bit_size + bit_offset) <= next_bit_offset;
-    }
-
-    /// Returns the offset in bits of where the storage this field
-    /// occupies ends.
-    uint64_t GetFieldEnd() const { return bit_size + bit_offset; }
-
-    void SetEffectiveFieldEnd(uint64_t val) { effective_field_end = val; }
-
-    /// If this field was folded into storage of a previous field,
-    /// returns the offset in bits of where that storage ends. Otherwise,
-    /// returns the regular field end (see \ref GetFieldEnd).
-    uint64_t GetEffectiveFieldEnd() const {
-      return effective_field_end.value_or(GetFieldEnd());
-    }
-  };
-
-  /// Parsed form of all attributes that are relevant for parsing type members.
-  struct MemberAttributes {
-    explicit MemberAttributes(
-        const lldb_private::plugin::dwarf::DWARFDIE &die,
-        const lldb_private::plugin::dwarf::DWARFDIE &parent_die,
-        lldb::ModuleSP module_sp);
-    const char *name = nullptr;
-    /// Indicates how many bits into the word (according to the host endianness)
-    /// the low-order bit of the field starts. Can be negative.
-    int64_t bit_offset = 0;
-    /// Indicates the size of the field in bits.
-    size_t bit_size = 0;
-    uint64_t data_bit_offset = UINT64_MAX;
-    std::optional<uint64_t> byte_size;
-    std::optional<lldb_private::plugin::dwarf::DWARFFormValue> const_value_form;
-    lldb_private::plugin::dwarf::DWARFFormValue encoding_form;
-    /// Indicates the byte offset of the word from the base address of the
-    /// structure.
-    uint32_t member_byte_offset = UINT32_MAX;
-    bool is_artificial = false;
-    bool is_declaration = false;
-  };
 
   /// Returns 'true' if we should create an unnamed bitfield
   /// and add it to the parser's current AST.

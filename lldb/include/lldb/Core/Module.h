@@ -1064,6 +1064,7 @@ protected:
   /// references to them
   TypeSystemMap m_type_system_map; ///< A map of any type systems associated
                                    /// with this module
+
   /// Module specific source remappings for when you have debug info for a
   /// module that doesn't match where the sources currently are.
   PathMappingList m_source_mappings =

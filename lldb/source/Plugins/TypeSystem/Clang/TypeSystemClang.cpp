@@ -109,6 +109,9 @@ static void VerifyDecl(clang::Decl *decl) {
 
 static inline bool
 TypeSystemClangSupportsLanguage(lldb::LanguageType language) {
+#ifdef LITE
+  return false;
+#else
   return language == eLanguageTypeUnknown || // Clang is the default type system
          lldb_private::Language::LanguageIsC(language) ||
          lldb_private::Language::LanguageIsCPlusPlus(language) ||
@@ -120,6 +123,7 @@ TypeSystemClangSupportsLanguage(lldb::LanguageType language) {
          language == eLanguageTypeD ||
          // Open Dylan compiler debug info is designed to be Clang-compatible
          language == eLanguageTypeDylan;
+#endif
 }
 
 // Checks whether m1 is an overload of m2 (as opposed to an override). This is
@@ -548,6 +552,7 @@ lldb::TypeSystemSP TypeSystemClang::CreateInstance(lldb::LanguageType language,
 
 LanguageSet TypeSystemClang::GetSupportedLanguagesForTypes() {
   LanguageSet languages;
+#ifndef LITE
   languages.Insert(lldb::eLanguageTypeC89);
   languages.Insert(lldb::eLanguageTypeC);
   languages.Insert(lldb::eLanguageTypeC11);
@@ -561,11 +566,13 @@ LanguageSet TypeSystemClang::GetSupportedLanguagesForTypes() {
   languages.Insert(lldb::eLanguageTypeC_plus_plus_14);
   languages.Insert(lldb::eLanguageTypeC_plus_plus_17);
   languages.Insert(lldb::eLanguageTypeC_plus_plus_20);
+#endif
   return languages;
 }
 
 LanguageSet TypeSystemClang::GetSupportedLanguagesForExpressions() {
   LanguageSet languages;
+#ifndef LITE
   languages.Insert(lldb::eLanguageTypeC_plus_plus);
   languages.Insert(lldb::eLanguageTypeObjC_plus_plus);
   languages.Insert(lldb::eLanguageTypeC_plus_plus_03);
@@ -573,6 +580,7 @@ LanguageSet TypeSystemClang::GetSupportedLanguagesForExpressions() {
   languages.Insert(lldb::eLanguageTypeC_plus_plus_14);
   languages.Insert(lldb::eLanguageTypeC_plus_plus_17);
   languages.Insert(lldb::eLanguageTypeC_plus_plus_20);
+#endif
   return languages;
 }
 
@@ -3643,7 +3651,8 @@ bool TypeSystemClang::CanPassInRegisters(const CompilerType &type) {
 }
 
 bool TypeSystemClang::SupportsLanguage(lldb::LanguageType language) {
-  return TypeSystemClangSupportsLanguage(language);
+  //return TypeSystemClangSupportsLanguage(language);
+  return false;
 }
 
 std::optional<std::string>

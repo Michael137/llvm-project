@@ -47,6 +47,8 @@ namespace npdb {
   class PdbAstBuilder;
 } // namespace npdb
 
+#define LITE 1
+
 /// Interface for representing a type system.
 ///
 /// Implemented by language plugins to define the type system for a given

@@ -1,5 +1,5 @@
-add_lldb_library(lldbPluginTypeSystemClang PLUGIN
-  TypeSystemClang.cpp
+add_lldb_library(lldbPluginTypeSystemLite PLUGIN
+  TypeSystemLite.cpp
 
   LINK_COMPONENTS
     Support
@@ -18,5 +18,3 @@ add_lldb_library(lldbPluginTypeSystemClang PLUGIN
     clangFrontend
     clangSema
 )
-
-add_subdirectory(Lite)

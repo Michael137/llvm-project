@@ -180,9 +180,8 @@ let Definition = "target", Path = "target" in {
     DefaultEnumValue<"eLoadScriptFromSymFileWarn">,
     EnumValues<"OptionEnumValues(g_load_script_from_sym_file_values)">,
     Desc<"Allow LLDB to load scripting resources embedded in symbol files when available.">;
-  # TODO: support colon-seperate list of paths?
   def SafeLoadPaths: Property<"safe-load-paths", "String">,
-    DefaultStringValue<"LLDB_SAFE_LOAD_PATHS">,
+    DefaultStringValue<"">,
     Desc<"Paths that LLDB can auto-load scripting resources from.">;
   def LoadCWDlldbinitFile: Property<"load-cwd-lldbinit", "Enum">,
     DefaultEnumValue<"eLoadCWDlldbinitWarn">,

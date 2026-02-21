@@ -100,14 +100,15 @@ add_lldb_library(lldbTarget
     lldbPluginProcessUtility
   )
 
-set(cachestring_LLDB_SAFE_LOAD_PATHS
-    "Semi-colon separated list of safe paths.")
-
-if (NOT LLDB_SAFE_LOAD_PATHS)
+if (NOT DEFINED LLDB_SAFE_LOAD_PATHS)
   message(WARNING "LLDB_SAFE_LOAD_PATHS is not set. LLDB data-formatters are likely to fail or be outdated.")
+  set(LLDB_SAFE_LOAD_PATHS
+      "$SDK_ROOT/usr/share/lldb:/usr/share/invalid:$SDK_ROOT/invalid" CACHE STRING "Semi-colon separated list of safe paths.")
 endif()
 
-target_compile_definitions(lldbTarget PRIVATE LLDB_SAFE_LOAD_PATHS="${LLDB_SAFE_LOAD_PATHS}")
+target_compile_definitions(lldbTarget PRIVATE
+  "LLDB_SAFE_LOAD_PATHS=\"${LLDB_SAFE_LOAD_PATHS}\""
+)
 
 add_dependencies(lldbTarget
   LLDBTargetPropertiesGen

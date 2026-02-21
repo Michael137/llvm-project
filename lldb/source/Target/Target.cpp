@@ -5096,12 +5096,28 @@ LoadScriptFromSymFile TargetProperties::GetLoadScriptFromSymbolFile() const {
 
 FileSpecList TargetProperties::GetSafeLoadPaths() const {
   const uint32_t idx = ePropertySafeLoadPaths;
-  llvm::StringRef default_paths_str = g_target_properties[idx].default_cstr_value;
   std::vector<FileSpec> default_paths;
-  llvm::copy(llvm::map_range(llvm::split(default_paths_str, ';'),
-                  [](llvm::StringRef path) { return FileSpec(path); }),
-            std::back_inserter(default_paths));
-  return GetPropertyAtIndexAs<FileSpecList>(idx, FileSpecList(std::move(default_paths)));
+
+  {
+      llvm::StringRef default_paths_str = GetPropertyAtIndexAs<llvm::StringRef>(idx, g_target_properties[idx].default_cstr_value);
+      llvm::copy(llvm::map_range(llvm::split(default_paths_str, ':'),
+                      [](llvm::StringRef path) { return FileSpec(path); }),
+                std::back_inserter(default_paths));
+  }
+
+  // TODO: we want to configure these strings into TableGen so they show up in 'settings show'
+
+#ifndef LLDB_SAFE_LOAD_PATHS
+#error "Expected LLDB_SAFE_LOAD_PATHS to be defined."
+#endif
+  {
+      llvm::StringRef default_paths_str = LLDB_SAFE_LOAD_PATHS;
+      llvm::copy(llvm::map_range(llvm::split(default_paths_str, ':'),
+                      [](llvm::StringRef path) { return FileSpec(path); }),
+                std::back_inserter(default_paths));
+  }
+
+  return default_paths;
 }
 
 LoadCWDlldbinitFile TargetProperties::GetLoadCWDlldbinitFile() const {

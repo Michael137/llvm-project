@@ -199,47 +199,60 @@ PlatformDarwin::PutFile(const lldb_private::FileSpec &source,
   return PlatformPOSIX::PutFile(source, destination, uid, gid);
 }
 
-static FileSpecList LocateExecutableScriptingResourcesFromSDK(
+static FileSpecList LocateExecutableScriptingResourcesFromSafePaths(
     Stream &feedback_stream, const Target &target, FileSpec module_spec,
     const FileSpec &symfile_spec) {
-  auto sdk_path_or_err =
-      HostInfo::GetSDKRoot(HostInfo::SDKOptions{XcodeSDK::GetAnyMacOS()});
-  if (!sdk_path_or_err) {
-    Log *log = GetLog(LLDBLog::Platform);
-    LLDB_LOG_ERROR(log, sdk_path_or_err.takeError(),
-                   "Error while searching for Xcode SDK: {0}");
-    return {};
-  }
 
-  FileSpec fspec(*sdk_path_or_err);
-
-  if (!fspec)
-    return {};
-
-  if (!FileSystem::Instance().Exists(fspec))
-    return {};
-
-  fspec.AppendPathComponent("usr");
-  fspec.AppendPathComponent("share");
-  fspec.AppendPathComponent("lldb");
-  //fspec.AppendPathComponent("formatters");
-  fspec.AppendPathComponent(module_spec.GetFileNameStrippingExtension().GetStringRef()); // TODO: should we try with extensions as well?
-
-  if (!FileSystem::Instance().Exists(fspec))
-    return {};
-
-  // TODO: share the Python "reserved identifier in filename" warning code
-  // with LocateExecutableScriptingResourcesFromDSYM
+  FileSpecList paths =
+      target.TargetProperties::GetSafeLoadPaths();
 
   FileSpecList file_list;
-  std::error_code ec;
-  llvm::vfs::directory_iterator entry = FileSystem::Instance().DirBegin(fspec.GetPath(), ec);
-  for (; entry != llvm::vfs::directory_iterator() && !ec; entry.increment(ec)) {
-    if (entry->type() != llvm::sys::fs::file_type::regular_file)
+  for (auto path : paths) {
+    if (llvm::StringRef(path.GetPath()).starts_with("$SDK_ROOT")) {
+      auto sdk_path_or_err =
+          HostInfo::GetSDKRoot(HostInfo::SDKOptions{XcodeSDK::GetAnyMacOS()});
+      if (!sdk_path_or_err) {
+        Log *log = GetLog(LLDBLog::Platform);
+        LLDB_LOG_ERROR(log, sdk_path_or_err.takeError(),
+                       "Error while searching for Xcode SDK: {0}");
+        continue;
+      }
+
+      FileSpec fspec(*sdk_path_or_err);
+
+      if (!fspec)
+        continue;
+
+      if (!FileSystem::Instance().Exists(fspec))
+        continue;
+
+      // TODO: find a cleaner way to do this
+      auto current_path = path.GetPath();
+      auto current_path_ref = llvm::StringRef(current_path);
+      current_path_ref.consume_front("$SDK_ROOT");
+      fspec.AppendPathComponent(current_path_ref);
+      path = fspec;
+    }
+
+    // TODO: we want to be able to specify $SDK_ROOT/usr/share/lldb/<module-name> as a safe path.
+    // Should we try with and without module in the name?
+    path.AppendPathComponent(module_spec.GetFileNameStrippingExtension().GetStringRef());
+
+    if (!FileSystem::Instance().Exists(path))
       continue;
 
-    if (entry->path().ends_with(".py"))
-      file_list.AppendIfUnique(FileSpec(entry->path()));
+    // TODO: share the Python "reserved identifier in filename" warning code
+    // with LocateExecutableScriptingResourcesFromDSYM
+
+    std::error_code ec;
+    llvm::vfs::directory_iterator entry = FileSystem::Instance().DirBegin(path.GetPath(), ec);
+    for (; entry != llvm::vfs::directory_iterator() && !ec; entry.increment(ec)) {
+      if (entry->type() != llvm::sys::fs::file_type::regular_file)
+        continue;
+
+      if (entry->path().ends_with(".py"))
+        file_list.AppendIfUnique(FileSpec(entry->path()));
+    }
   }
 
   return file_list;
@@ -336,7 +349,7 @@ static FileSpecList LocateExecutableScriptingResourcesFromDSYM(
   return file_list;
 }
 
-FileSpecList PlatformDarwin::LocateExecutableScriptingResources(
+std::pair<FileSpecList, bool> PlatformDarwin::LocateExecutableScriptingResources(
     Target *target, Module &module, Stream &feedback_stream) {
   if (!target)
     return {};
@@ -375,7 +388,7 @@ FileSpecList PlatformDarwin::LocateExecutableScriptingResources(
     return LocateExecutableScriptingResourcesFromDSYM(
         feedback_stream, module_spec, *target, symfile_spec);
 
-  return LocateExecutableScriptingResourcesFromSDK(feedback_stream, *target, module_spec, symfile_spec);
+  return LocateExecutableScriptingResourcesFromSafePaths(feedback_stream, *target, module_spec, symfile_spec);
 }
 
 Status PlatformDarwin::ResolveSymbolFile(Target &target,

@@ -155,10 +155,10 @@ Status Platform::GetFileWithUUID(const FileSpec &platform_file,
   return Status();
 }
 
-FileSpecList
+std::pair<FileSpecList, bool>
 Platform::LocateExecutableScriptingResources(Target *target, Module &module,
                                              Stream &feedback_stream) {
-  return FileSpecList();
+  return { FileSpecList(), false };
 }
 
 Status Platform::GetSharedModule(

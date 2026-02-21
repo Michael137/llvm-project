@@ -385,10 +385,10 @@ std::pair<FileSpecList, bool> PlatformDarwin::LocateExecutableScriptingResources
   if (llvm::StringRef(symfile_spec.GetPath())
           .contains_insensitive(".dSYM/Contents/Resources/DWARF") &&
       FileSystem::Instance().Exists(symfile_spec))
-    return LocateExecutableScriptingResourcesFromDSYM(
-        feedback_stream, module_spec, *target, symfile_spec);
+    return { LocateExecutableScriptingResourcesFromDSYM(
+        feedback_stream, module_spec, *target, symfile_spec), false };
 
-  return LocateExecutableScriptingResourcesFromSafePaths(feedback_stream, *target, module_spec, symfile_spec);
+  return { LocateExecutableScriptingResourcesFromSafePaths(feedback_stream, *target, module_spec, symfile_spec), true };
 }
 
 Status PlatformDarwin::ResolveSymbolFile(Target &target,

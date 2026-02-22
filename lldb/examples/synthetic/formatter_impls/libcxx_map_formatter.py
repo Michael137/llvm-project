@@ -451,9 +451,9 @@ class LibCxxMapIteratorSyntheticProvider:
         """Check if this object has children."""
         return True
 
-def __lldb_init_module(debugger, dict):
-    debugger.HandleCommand(f'type synthetic add -x "^std::__[[:alnum:]]+::map<.+> >$" -l lldb.formatters.cpp.libcxx_map_formatter.LibcxxStdMapSyntheticProvider -w "cplusplus-py"')
-    debugger.HandleCommand(f'type synthetic add -x "^std::__[[:alnum:]]+::set<.+> >$" -l lldb.formatters.cpp.libcxx_map_formatter.LibcxxStdMapSyntheticProvider -w "cplusplus-py"')
-    debugger.HandleCommand(f'type synthetic add -x "^std::__[[:alnum:]]+::multiset<.+> >$" -l lldb.formatters.cpp.libcxx_map_formatter.LibcxxStdMapSyntheticProvider -w "cplusplus-py"')
-    debugger.HandleCommand(f'type synthetic add -x "^std::__[[:alnum:]]+::multimap<.+> >$" -l lldb.formatters.cpp.libcxx_map_formatter.LibcxxStdMapSyntheticProvider -w "cplusplus-py"')
-    debugger.HandleCommand(f'type synthetic add -x "^std::__[[:alnum:]]+::__map_(const_)?iterator<.+>$" -l lldb.formatters.cpp.libcxx_map_formatter.LibCxxMapIteratorSyntheticProvider -w "cplusplus-py"')
+def init_formatter(debugger, dict):
+    debugger.HandleCommand(f'type synthetic add -x "^std::__[[:alnum:]]+::map<.+> >$" -l lldb.formatters.cpp.formatter_impls.libcxx_map_formatter.LibcxxStdMapSyntheticProvider -w "cplusplus-py"')
+    debugger.HandleCommand(f'type synthetic add -x "^std::__[[:alnum:]]+::set<.+> >$" -l lldb.formatters.cpp.formatter_impls.libcxx_map_formatter.LibcxxStdMapSyntheticProvider -w "cplusplus-py"')
+    debugger.HandleCommand(f'type synthetic add -x "^std::__[[:alnum:]]+::multiset<.+> >$" -l lldb.formatters.cpp.formatter_impls.libcxx_map_formatter.LibcxxStdMapSyntheticProvider -w "cplusplus-py"')
+    debugger.HandleCommand(f'type synthetic add -x "^std::__[[:alnum:]]+::multimap<.+> >$" -l lldb.formatters.cpp.formatter_impls.libcxx_map_formatter.LibcxxStdMapSyntheticProvider -w "cplusplus-py"')
+    debugger.HandleCommand(f'type synthetic add -x "^std::__[[:alnum:]]+::__map_(const_)?iterator<.+>$" -l lldb.formatters.cpp.formatter_impls.libcxx_map_formatter.LibCxxMapIteratorSyntheticProvider -w "cplusplus-py"')

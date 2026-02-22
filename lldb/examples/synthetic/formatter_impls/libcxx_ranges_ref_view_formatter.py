@@ -50,5 +50,5 @@ class LibcxxStdRangesRefViewSyntheticFrontEnd:
         """Check if this object has children."""
         return True
 
-def __lldb_init_module(debugger, dict):
-    debugger.HandleCommand(f'type synthetic add -x "^std::__[[:alnum:]]+::ranges::ref_view<.+>$" -l lldb.formatters.cpp.libcxx_ranges_ref_view_formatter.LibcxxStdRangesRefViewSyntheticFrontEnd -w "cplusplus-py"')
+def init_formatter(debugger, dict):
+    debugger.HandleCommand(f'type synthetic add -x "^std::__[[:alnum:]]+::ranges::ref_view<.+>$" -l lldb.formatters.cpp.formatter_impls.libcxx_ranges_ref_view_formatter.LibcxxStdRangesRefViewSyntheticFrontEnd -w "cplusplus-py"')

@@ -157,5 +157,5 @@ class LibcxxStdProxyArraySyntheticFrontEnd:
         """Check if this object has children."""
         return True
 
-def __lldb_init_module(debugger, dict):
-    debugger.HandleCommand(f'type synthetic add -x "^std::__[[:alnum:]]+::(gslice|mask|indirect)_array<.+>$" -l lldb.formatters.cpp.libcxx_proxy_array_formatter.LibcxxStdProxyArraySyntheticFrontEnd -w "cplusplus-py"')
+def init_formatter(debugger, dict):
+    debugger.HandleCommand(f'type synthetic add -x "^std::__[[:alnum:]]+::(gslice|mask|indirect)_array<.+>$" -l lldb.formatters.cpp.formatter_impls.libcxx_proxy_array_formatter.LibcxxStdProxyArraySyntheticFrontEnd -w "cplusplus-py"')

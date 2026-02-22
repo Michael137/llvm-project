@@ -149,5 +149,5 @@ class LibcxxBitsetSyntheticFrontEnd:
         """Check if this object has children."""
         return True
 
-def __lldb_init_module(debugger, dict):
-    debugger.HandleCommand(f'type synthetic add -x "^std::__[[:alnum:]]+::bitset<.+>$" -l lldb.formatters.cpp.libcxx_bitset_formatter.LibcxxBitsetSyntheticFrontEnd -w "cplusplus-py" -D true')
+def init_formatter(debugger, dict):
+    debugger.HandleCommand(f'type synthetic add -x "^std::__[[:alnum:]]+::bitset<.+>$" -l lldb.formatters.cpp.formatter_impls.libcxx_bitset_formatter.LibcxxBitsetSyntheticFrontEnd -w "cplusplus-py" -D true')

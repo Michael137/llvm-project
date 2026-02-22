@@ -274,5 +274,5 @@ def libcxx_std_vector_synthetic_frontend_creator(valobj, internal_dict):
 
     return LibcxxStdVectorSyntheticFrontEnd(valobj, internal_dict)
 
-def __lldb_init_module(debugger, dict):
-    debugger.HandleCommand(f'type synthetic add -x "^std::__[[:alnum:]]+::vector<.+>$" -l lldb.formatters.cpp.libcxx_vector_formatter.libcxx_std_vector_synthetic_frontend_creator -w "cplusplus-py"')
+def init_formatter(debugger, dict):
+    debugger.HandleCommand(f'type synthetic add -x "^std::__[[:alnum:]]+::vector<.+>$" -l lldb.formatters.cpp.formatter_impls.libcxx_vector_formatter.libcxx_std_vector_synthetic_frontend_creator -w "cplusplus-py"')

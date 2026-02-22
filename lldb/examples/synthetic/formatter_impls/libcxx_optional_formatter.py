@@ -98,5 +98,5 @@ class LibcxxOptionalSyntheticFrontEnd:
         """Check if this object has children."""
         return self.m_has_value
 
-def __lldb_init_module(debugger, dict):
-    debugger.HandleCommand(f'type synthetic add -x "^std::__[[:alnum:]]+::optional<.+>$" -l lldb.formatters.cpp.libcxx_optional_formatter.LibcxxOptionalSyntheticFrontEnd -w "cplusplus-py"')
+def init_formatter(debugger, dict):
+    debugger.HandleCommand(f'type synthetic add -x "^std::__[[:alnum:]]+::optional<.+>$" -l lldb.formatters.cpp.formatter_impls.libcxx_optional_formatter.LibcxxOptionalSyntheticFrontEnd -w "cplusplus-py"')

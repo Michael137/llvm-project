@@ -363,6 +363,6 @@ class LibCxxUnorderedMapIteratorSyntheticFrontEnd:
         """Check if this object has children."""
         return True
 
-def __lldb_init_module(debugger, dict):
-    debugger.HandleCommand(f'type synthetic add -x "^std::__[[:alnum:]]+::unordered_(multi)?(map|set)<.+> >$" -l lldb.formatters.cpp.libcxx_unordered_map_formatter.LibcxxStdUnorderedMapSyntheticFrontEnd -w "cplusplus-py"')
-    debugger.HandleCommand(f'type synthetic add -x "^std::__[[:alnum:]]+::__hash_map_(const_)?iterator<.+>$" -l lldb.formatters.cpp.libcxx_unordered_map_formatter.LibCxxUnorderedMapIteratorSyntheticFrontEnd -w "cplusplus-py"')
+def init_formatter(debugger, dict):
+    debugger.HandleCommand(f'type synthetic add -x "^std::__[[:alnum:]]+::unordered_(multi)?(map|set)<.+> >$" -l lldb.formatters.cpp.formatter_impls.libcxx_unordered_map_formatter.LibcxxStdUnorderedMapSyntheticFrontEnd -w "cplusplus-py"')
+    debugger.HandleCommand(f'type synthetic add -x "^std::__[[:alnum:]]+::__hash_map_(const_)?iterator<.+>$" -l lldb.formatters.cpp.formatter_impls.libcxx_unordered_map_formatter.LibCxxUnorderedMapIteratorSyntheticFrontEnd -w "cplusplus-py"')

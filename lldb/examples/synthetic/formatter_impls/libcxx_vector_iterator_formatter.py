@@ -74,5 +74,5 @@ class VectorIteratorSyntheticFrontEnd:
         """Check if this object has children."""
         return True
 
-def __lldb_init_module(debugger, dict):
-    debugger.HandleCommand(f'type synthetic add -x "^std::__[[:alnum:]]+::__wrap_iter<.+>$" -l lldb.formatters.cpp.libcxx_vector_iterator_formatter.VectorIteratorSyntheticFrontEnd -w "cplusplus-py"')
+def init_formatter(debugger, dict):
+    debugger.HandleCommand(f'type synthetic add -x "^std::__[[:alnum:]]+::__wrap_iter<.+>$" -l lldb.formatters.cpp.formatter_impls.libcxx_vector_iterator_formatter.VectorIteratorSyntheticFrontEnd -w "cplusplus-py"')

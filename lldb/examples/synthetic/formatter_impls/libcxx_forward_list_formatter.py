@@ -1,5 +1,5 @@
 """
-Python LLDB data formatter for libc++ std::list
+Python LLDB data formatter for libc++ std::forward_list
 
 Converted from GenericList.cpp
 
@@ -49,7 +49,7 @@ def get_first_value_of_libcxx_compressed_pair(pair):
 
 
 class ListEntry:
-    """Represents a node in the list."""
+    """Represents a node in the forward_list."""
 
     def __init__(self, entry_sp=None):
         self.m_entry_sp = entry_sp
@@ -66,13 +66,6 @@ class ListEntry:
             return ListEntry()
         next_sp = self.m_entry_sp.GetChildMemberWithName("__next_")
         return ListEntry(next_sp)
-
-    def prev(self):
-        """Get the previous entry in the list."""
-        if not self.m_entry_sp or not self.m_entry_sp.IsValid():
-            return ListEntry()
-        prev_sp = self.m_entry_sp.GetChildMemberWithName("__prev_")
-        return ListEntry(prev_sp)
 
     def null(self):
         """Check if this entry is null."""
@@ -97,7 +90,7 @@ class ListEntry:
 
 
 class ListIterator:
-    """Iterator for traversing the list."""
+    """Iterator for traversing the forward_list."""
 
     def __init__(self, entry):
         if isinstance(entry, ListEntry):
@@ -131,15 +124,13 @@ class ListIterator:
         return self.m_entry == other.m_entry
 
 
-class LibcxxListSyntheticFrontEnd:
-    """Synthetic children frontend for libc++ std::list."""
+class LibcxxForwardListSyntheticFrontEnd:
+    """Synthetic children frontend for libc++ std::forward_list."""
 
     def __init__(self, valobj, _internal_dict):
         self.valobj = valobj
         self.m_count = 0xFFFFFFFF  # UINT32_MAX sentinel
         self.m_head = None
-        self.m_tail = None
-        self.m_node_address = 0
         self.m_element_type = None
         self.m_list_capping_size = 255
 
@@ -158,41 +149,11 @@ class LibcxxListSyntheticFrontEnd:
         if self.m_count != 0xFFFFFFFF:
             return self.m_count
 
-        if not self.m_head or not self.m_tail or self.m_node_address == 0:
-            return 0
-
-        # Try to get the size from __size_ or __size_alloc_
-        size_node_sp, is_compressed_pair = get_value_or_old_compressed_pair(
-            self.valobj, "__size_", "__size_alloc_"
-        )
-        if is_compressed_pair and size_node_sp:
-            size_node_sp = get_first_value_of_libcxx_compressed_pair(size_node_sp)
-
-        if size_node_sp and size_node_sp.IsValid():
-            self.m_count = size_node_sp.GetValueAsUnsigned(0xFFFFFFFF)
-
-        if self.m_count != 0xFFFFFFFF:
-            return self.m_count
-
-        # Fall back to counting nodes
-        next_val = self.m_head.GetValueAsUnsigned(0)
-        prev_val = self.m_tail.GetValueAsUnsigned(0)
-        if next_val == 0 or prev_val == 0:
-            return 0
-        if next_val == self.m_node_address:
-            return 0
-        if next_val == prev_val:
-            return 1
-
-        size = 2
         current = ListEntry(self.m_head)
-        while current.next() and current.next().value() != self.m_node_address:
-            size += 1
+        self.m_count = 0
+        while current and self.m_count < self.m_list_capping_size:
+            self.m_count += 1
             current = current.next()
-            if size > self.m_list_capping_size:
-                break
-
-        self.m_count = size - 1
         return self.m_count
 
     def get_child_index(self, name):
@@ -211,7 +172,7 @@ class LibcxxListSyntheticFrontEnd:
             return False
 
         if self.m_loop_detected == 0:
-            # First time setup
+            # First time setup - set up loop invariant for the first element
             self.m_slow_runner = ListEntry(self.m_head).next()
             self.m_fast_runner = self.m_slow_runner.next()
             self.m_loop_detected = 1
@@ -229,9 +190,9 @@ class LibcxxListSyntheticFrontEnd:
             self.m_loop_detected += 1
 
         if count <= self.m_loop_detected:
-            return False
+            return False  # No loop in the first m_loop_detected elements
         if not self.m_slow_runner or not self.m_fast_runner:
-            return False
+            return False  # Reached the end of the list
         return self.m_slow_runner == self.m_fast_runner
 
     def _get_item(self, idx):
@@ -252,7 +213,7 @@ class LibcxxListSyntheticFrontEnd:
         if idx >= self.num_children():
             return None
 
-        if not self.m_head or not self.m_tail or self.m_node_address == 0:
+        if not self.m_head:
             return None
 
         if self._has_loop(idx + 1):
@@ -262,26 +223,32 @@ class LibcxxListSyntheticFrontEnd:
         if not current_sp or not current_sp.IsValid():
             return None
 
-        # current_sp is a __next_ pointer. Get the node address it points to.
-        node_addr = current_sp.GetValueAsUnsigned(0)
-        if node_addr == 0:
+        # Get the __value_ child (at index 1 in the node structure)
+        current_sp = current_sp.GetChildAtIndex(1)
+        if not current_sp or not current_sp.IsValid():
             return None
 
-        # __value_ is at offset 2*pointer_size in the node (after __prev_ and __next_)
-        process = self.valobj.GetProcess()
-        if not process or not process.IsValid():
-            return None
+        # The node structure may have __value_ as a nested member
+        # Try to get the actual __value_ if it exists
+        val_sp = current_sp.GetChildMemberWithName("__value_")
+        if val_sp and val_sp.IsValid():
+            current_sp = val_sp
 
-        ptr_size = process.GetAddressByteSize()
-        value_addr = node_addr + 2 * ptr_size
-
-        target = self.valobj.GetTarget()
-        if not target or not target.IsValid() or not self.m_element_type:
+        # Create a copy with the proper name [idx] using the element type
+        data_buffer = current_sp.GetData()
+        if not data_buffer or not data_buffer.IsValid():
             return None
 
         name = "[%d]" % idx
-        sb_addr = lldb.SBAddress(value_addr, target)
-        return target.CreateValueFromAddress(name, sb_addr, self.m_element_type)
+        target = self.valobj.GetTarget()
+        if not target or not target.IsValid():
+            return None
+
+        # Use element type if available, otherwise fall back to current type
+        result_type = (
+            self.m_element_type if self.m_element_type else current_sp.GetType()
+        )
+        return target.CreateValueFromData(name, data_buffer, result_type)
 
     def update(self):
         """Update the cached state."""
@@ -289,8 +256,6 @@ class LibcxxListSyntheticFrontEnd:
         self.m_loop_detected = 0
         self.m_count = 0xFFFFFFFF
         self.m_head = None
-        self.m_tail = None
-        self.m_node_address = 0
         self.m_list_capping_size = 255
         self.m_slow_runner = ListEntry()
         self.m_fast_runner = ListEntry()
@@ -315,22 +280,28 @@ class LibcxxListSyntheticFrontEnd:
         if list_type.GetNumberOfTemplateArguments() > 0:
             self.m_element_type = list_type.GetTemplateArgumentType(0)
 
-        # Get the address of the backend (for detecting end of circular list)
-        backend_addr = self.valobj.AddressOf()
-        if not backend_addr or not backend_addr.IsValid():
-            return False
-        self.m_node_address = backend_addr.GetValueAsUnsigned(0)
-        if self.m_node_address == 0 or self.m_node_address == 0xFFFFFFFFFFFFFFFF:
+        # Get the base class at index 0
+        list_base_sp = self.valobj.GetChildAtIndex(0)
+        if not list_base_sp or not list_base_sp.IsValid():
             return False
 
-        # Get __end_ member
-        impl_sp = self.valobj.GetChildMemberWithName("__end_")
+        # Get __before_begin_ (handles both new and old compressed pair layouts)
+        impl_sp, is_compressed_pair = get_value_or_old_compressed_pair(
+            list_base_sp, "__before_begin_", "__before_begin_"
+        )
         if not impl_sp or not impl_sp.IsValid():
             return False
 
-        # Get head (__next_) and tail (__prev_) from __end_
-        self.m_head = impl_sp.GetChildMemberWithName("__next_")
-        self.m_tail = impl_sp.GetChildMemberWithName("__prev_")
+        if is_compressed_pair:
+            impl_sp = get_first_value_of_libcxx_compressed_pair(impl_sp)
+
+        if not impl_sp or not impl_sp.IsValid():
+            return False
+
+        # Get the head pointer (__next_ of __before_begin_)
+        head_sp = impl_sp.GetChildMemberWithName("__next_")
+        if head_sp and head_sp.IsValid():
+            self.m_head = head_sp
 
         return True
 
@@ -338,5 +309,5 @@ class LibcxxListSyntheticFrontEnd:
         """Check if this object has children."""
         return True
 
-def __lldb_init_module(debugger, dict):
-    debugger.HandleCommand(f'type synthetic add -x "^std::__[[:alnum:]]+::list<.+>$" -l lldb.formatters.cpp.libcxx_list_formatter.LibcxxListSyntheticFrontEnd -w "cplusplus-py"')
+def init_formatter(debugger, dict):
+    debugger.HandleCommand(f'type synthetic add -x "^std::__[[:alnum:]]+::forward_list<.+>$" -l lldb.formatters.cpp.formatter_impls.libcxx_forward_list_formatter.LibcxxForwardListSyntheticFrontEnd -w "cplusplus-py"')

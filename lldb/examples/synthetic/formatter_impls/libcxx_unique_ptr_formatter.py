@@ -165,5 +165,5 @@ class LibcxxUniquePtrSyntheticFrontEnd:
         """Check if this object has children."""
         return True
 
-def __lldb_init_module(debugger, dict):
-    debugger.HandleCommand(f'type synthetic add -x "^std::__[[:alnum:]]+::unique_ptr<.+>$" -l lldb.formatters.cpp.libcxx_unique_ptr_formatter.LibcxxUniquePtrSyntheticFrontEnd -w "cplusplus-py"')
+def init_formatter(debugger, dict):
+    debugger.HandleCommand(f'type synthetic add -x "^std::__[[:alnum:]]+::unique_ptr<.+>$" -l lldb.formatters.cpp.formatter_impls.libcxx_unique_ptr_formatter.LibcxxUniquePtrSyntheticFrontEnd -w "cplusplus-py"')

@@ -1,65 +1,50 @@
 """
-Python LLDB data formatter for libc++ std::slice_array
+Python LLDB data formatter for libc++ std::valarray
 
-Converted from LibCxxSliceArray.cpp
+Converted from LibCxxValarray.cpp
 
 Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 See https://llvm.org/LICENSE.txt for license information.
 SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
-
-Data formatter for libc++'s std::slice_array.
-
-A slice_array is created by using:
-  operator[](std::slice slicearr);
-and std::slice is created by:
-  slice(std::size_t start, std::size_t size, std::size_t stride);
-The std::slice_array has the following members:
-- __vp_ points to std::valarray::__begin_ + @a start
-- __size_ is @a size
-- __stride_ is @a stride
 """
 
 import lldb
 
 
-def libcxx_std_slice_array_summary_provider(valobj, internal_dict):
-    """Summary provider for std::slice_array."""
-    obj = valobj.GetNonSyntheticValue()
-    if not obj or not obj.IsValid():
-        return None
-
-    ptr_sp = obj.GetChildMemberWithName("__size_")
-    if not ptr_sp or not ptr_sp.IsValid():
-        return None
-    size = ptr_sp.GetValueAsUnsigned(0)
-
-    ptr_sp = obj.GetChildMemberWithName("__stride_")
-    if not ptr_sp or not ptr_sp.IsValid():
-        return None
-    stride = ptr_sp.GetValueAsUnsigned(0)
-
-    return "stride=%d size=%d" % (stride, size)
-
-
-class LibcxxStdSliceArraySyntheticFrontEnd:
-    """Synthetic children frontend for libc++ std::slice_array."""
+class LibcxxStdValarraySyntheticFrontEnd:
+    """Synthetic children frontend for libc++ std::valarray."""
 
     def __init__(self, valobj, internal_dict):
         self.valobj = valobj
         self.m_start = None
-        self.m_size = 0
-        self.m_stride = 0
+        self.m_finish = None
         self.m_element_type = None
         self.m_element_size = 0
         self.update()
 
     def num_children(self):
         """Calculate the number of children."""
-        return self.m_size
+        if not self.m_start or not self.m_finish:
+            return 0
+
+        start_val = self.m_start.GetValueAsUnsigned(0)
+        finish_val = self.m_finish.GetValueAsUnsigned(0)
+
+        if start_val == 0 or finish_val == 0:
+            return 0
+
+        if start_val >= finish_val:
+            return 0
+
+        num_children = finish_val - start_val
+        if num_children % self.m_element_size != 0:
+            return 0
+
+        return num_children // self.m_element_size
 
     def get_child_index(self, name):
         """Get the index of a child with the given name."""
-        if not self.m_start:
+        if not self.m_start or not self.m_finish:
             return None
         try:
             if name.startswith("[") and name.endswith("]"):
@@ -70,10 +55,10 @@ class LibcxxStdSliceArraySyntheticFrontEnd:
 
     def get_child_at_index(self, index):
         """Get the child at the given index."""
-        if not self.m_start:
+        if not self.m_start or not self.m_finish:
             return None
 
-        offset = index * self.m_stride * self.m_element_size
+        offset = index * self.m_element_size
         offset = offset + self.m_start.GetValueAsUnsigned(0)
 
         name = "[%d]" % index
@@ -87,6 +72,7 @@ class LibcxxStdSliceArraySyntheticFrontEnd:
     def update(self):
         """Update the cached state."""
         self.m_start = None
+        self.m_finish = None
 
         compiler_type = self.valobj.GetType()
         if compiler_type.GetNumberOfTemplateArguments() == 0:
@@ -103,16 +89,14 @@ class LibcxxStdSliceArraySyntheticFrontEnd:
         if self.m_element_size == 0:
             return False
 
-        start_sp = self.valobj.GetChildMemberWithName("__vp_")
-        size_sp = self.valobj.GetChildMemberWithName("__size_")
-        stride_sp = self.valobj.GetChildMemberWithName("__stride_")
+        start_sp = self.valobj.GetChildMemberWithName("__begin_")
+        finish_sp = self.valobj.GetChildMemberWithName("__end_")
 
-        if not start_sp or not size_sp or not stride_sp:
+        if not start_sp or not finish_sp:
             return False
 
         self.m_start = start_sp
-        self.m_size = size_sp.GetValueAsUnsigned(0)
-        self.m_stride = stride_sp.GetValueAsUnsigned(0)
+        self.m_finish = finish_sp
 
         return True
 
@@ -120,5 +104,5 @@ class LibcxxStdSliceArraySyntheticFrontEnd:
         """Check if this object has children."""
         return True
 
-def __lldb_init_module(debugger, dict):
-    debugger.HandleCommand(f'type synthetic add -x "^std::__[[:alnum:]]+::slice_array<.+>$" -l lldb.formatters.cpp.libcxx_slice_array_formatter.LibcxxStdSliceArraySyntheticFrontEnd -w "cplusplus-py"')
+def init_formatter(debugger, dict):
+    debugger.HandleCommand(f'type synthetic add -x "^std::__[[:alnum:]]+::valarray<.+>$" -l lldb.formatters.cpp.formatter_impls.libcxx_valarray_formatter.LibcxxStdValarraySyntheticFrontEnd -w "cplusplus-py"')

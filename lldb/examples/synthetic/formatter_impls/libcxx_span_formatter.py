@@ -186,5 +186,5 @@ class LibcxxStdSpanSyntheticFrontEnd:
         """Check if this object has children."""
         return self.m_num_elements > 0
 
-def __lldb_init_module(debugger, dict):
-    debugger.HandleCommand(f'type synthetic add -x "^std::__[[:alnum:]]+::span<.+>$" -l lldb.formatters.cpp.libcxx_span_formatter.LibcxxStdSpanSyntheticFrontEnd -w "cplusplus-py"')
+def init_formatter(debugger, dict):
+    debugger.HandleCommand(f'type synthetic add -x "^std::__[[:alnum:]]+::span<.+>$" -l lldb.formatters.cpp.formatter_impls.libcxx_span_formatter.LibcxxStdSpanSyntheticFrontEnd -w "cplusplus-py"')

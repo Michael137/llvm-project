@@ -136,6 +136,10 @@ public:
   ///               signedness is).
   explicit TypeSystemClang(llvm::StringRef name, llvm::Triple triple);
 
+  struct NoCreateASTTag {};
+
+  TypeSystemClang(llvm::StringRef name, llvm::Triple triple, NoCreateASTTag tag);
+
   /// Constructs a TypeSystemClang that uses an existing ASTContext internally.
   /// Useful when having an existing ASTContext created by Clang.
   ///
@@ -332,7 +336,7 @@ public:
                                                bool is_framework = false,
                                                bool is_explicit = false);
 
-  CompilerType
+  virtual CompilerType
   CreateRecordType(clang::DeclContext *decl_ctx,
                    OptionalClangModuleID owning_module,
                    lldb::AccessType access_type, llvm::StringRef name, int kind,
@@ -1388,6 +1392,25 @@ private:
   /// `GetSubAST` (which lazily fills this map).
   llvm::DenseMap<IsolatedASTKey, std::shared_ptr<TypeSystemClang>>
       m_isolated_asts;
+};
+
+struct DType {};
+
+struct DRecordType : public DType {};
+
+class TypeSystemLite : public TypeSystemClang {
+public:
+    explicit TypeSystemLite(llvm::StringRef name, llvm::Triple triple) :
+        TypeSystemClang(name, triple/*, NoCreateASTTag{}*/) {}
+
+  CompilerType
+  CreateRecordType(clang::DeclContext *decl_ctx,
+                   OptionalClangModuleID owning_module,
+                   lldb::AccessType access_type, llvm::StringRef name, int kind,
+                   lldb::LanguageType language,
+                   std::optional<ClangASTMetadata> metadata = std::nullopt,
+                   bool exports_symbols = false) override;
+private:
 };
 
 } // namespace lldb_private

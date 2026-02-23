@@ -495,6 +495,16 @@ TypeSystemClang::TypeSystemClang(llvm::StringRef name,
 }
 
 TypeSystemClang::TypeSystemClang(llvm::StringRef name,
+                                 llvm::Triple target_triple,
+                                 NoCreateASTTag tag) {
+  m_display_name = name.str();
+  if (!target_triple.str().empty())
+    SetTargetTriple(target_triple.str());
+
+  LogCreation();
+}
+
+TypeSystemClang::TypeSystemClang(llvm::StringRef name,
                                  ASTContext &existing_ctxt) {
   m_display_name = name.str();
   SetTargetTriple(existing_ctxt.getTargetInfo().getTriple().str());
@@ -540,7 +550,7 @@ lldb::TypeSystemSP TypeSystemClang::CreateInstance(lldb::LanguageType language,
   if (module) {
     std::string ast_name =
         "ASTContext for '" + module->GetFileSpec().GetPath() + "'";
-    return std::make_shared<TypeSystemClang>(ast_name, triple);
+    return std::make_shared<TypeSystemLite>(ast_name, triple);
   } else if (target && target->IsValid())
     return std::make_shared<ScratchTypeSystemClang>(*target, triple);
   return lldb::TypeSystemSP();
@@ -9921,7 +9931,23 @@ bool TypeSystemClang::SetDeclIsForcefullyCompleted(const clang::TagDecl *td) {
 }
 
 void TypeSystemClang::LogCreation() const {
-  if (auto *log = GetLog(LLDBLog::Expressions))
-    LLDB_LOG(log, "Created new TypeSystem for (ASTContext*){0:x} '{1}'",
-             &getASTContext(), getDisplayName());
+  if (auto *log = GetLog(LLDBLog::Expressions)) {
+    if (m_ast_up) {
+      LLDB_LOG(log, "Created new TypeSystem for (ASTContext*){0:x} '{1}'",
+               &getASTContext(), getDisplayName());
+    } else {
+      LLDB_LOG(log, "Created new TypeSystemLite '{0}'",
+               getDisplayName());
+    }
+  }
+}
+
+CompilerType
+TypeSystemLite::CreateRecordType(clang::DeclContext *decl_ctx,
+                 OptionalClangModuleID owning_module,
+                 lldb::AccessType access_type, llvm::StringRef name, int kind,
+                 lldb::LanguageType language,
+                 std::optional<ClangASTMetadata> metadata,
+                 bool exports_symbols) {
+  return {};
 }

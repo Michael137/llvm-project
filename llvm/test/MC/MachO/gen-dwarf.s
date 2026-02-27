@@ -26,8 +26,7 @@ _x:	.long 1
 // CHECK: 	DW_AT_name	DW_FORM_string
 // CHECK: 	DW_AT_comp_dir	DW_FORM_string
 // CHECK: 	DW_AT_producer	DW_FORM_string
-// DWARF4: 	DW_AT_language	DW_FORM_data2
-// DWARF6: 	DW_AT_language_name	DW_FORM_data2
+// CHECK: 	DW_AT_language	DW_FORM_data2
 
 // CHECK: [2] DW_TAG_label	DW_CHILDREN_no
 // CHECK: 	DW_AT_name	DW_FORM_string
@@ -47,8 +46,7 @@ _x:	.long 1
 // CHECK:    DW_AT_name
 // We don't check the DW_AT_comp_dir which is the current working directory
 // CHECK:    DW_AT_producer ("llvm-mc (based on {{.*}})")
-// DWARF4:   DW_AT_language (DW_LANG_Mips_Assembler)
-// DWARF6:   DW_AT_language_name (DW_LNAME_Assembly)
+// CHECK:    DW_AT_language (DW_LANG_Mips_Assembler)
 
 // CHECK:    DW_TAG_label
 // CHECK:      DW_AT_name ("bar")

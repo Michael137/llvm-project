@@ -1,5 +1,8 @@
-// RUN: mkdir -p %t0 && cd %t0 && llvm-mc -g -triple i386-apple-darwin10 %s -filetype=obj -o %t
-// RUN: llvm-dwarfdump -all %t | FileCheck %s
+// RUN: mkdir -p %t0 && cd %t0 && llvm-mc -g -triple i386-apple-darwin10 %s -filetype=obj -dwarf-version=4 -o %t
+// RUN: llvm-dwarfdump -all %t | FileCheck %s --check-prefixes=CHECK,DWARF4
+
+// RUN: llvm-mc -dwarf-version=6 -g -triple i386-apple-darwin10 %s -filetype=obj -o - \
+// RUN:     | llvm-dwarfdump -all - | FileCheck %s --check-prefixes=CHECK,DWARF6
 
 .globl _bar
 _bar:
@@ -23,7 +26,8 @@ _x:	.long 1
 // CHECK: 	DW_AT_name	DW_FORM_string
 // CHECK: 	DW_AT_comp_dir	DW_FORM_string
 // CHECK: 	DW_AT_producer	DW_FORM_string
-// CHECK: 	DW_AT_language	DW_FORM_data2
+// DWARF4: 	DW_AT_language	DW_FORM_data2
+// DWARF6: 	DW_AT_language_name	DW_FORM_data2
 
 // CHECK: [2] DW_TAG_label	DW_CHILDREN_no
 // CHECK: 	DW_AT_name	DW_FORM_string
@@ -43,24 +47,25 @@ _x:	.long 1
 // CHECK:    DW_AT_name
 // We don't check the DW_AT_comp_dir which is the current working directory
 // CHECK:    DW_AT_producer ("llvm-mc (based on {{.*}})")
-// CHECK:    DW_AT_language (DW_LANG_Mips_Assembler)
+// DWARF4:   DW_AT_language (DW_LANG_Mips_Assembler)
+// DWARF6:   DW_AT_language_name (DW_LNAME_Assembly)
 
 // CHECK:    DW_TAG_label
 // CHECK:      DW_AT_name ("bar")
 // CHECK:      DW_AT_decl_file ([[FILE:".*gen-dwarf.s"]])
-// CHECK:      DW_AT_decl_line (5)
+// CHECK:      DW_AT_decl_line (8)
 // CHECK:      DW_AT_low_pc (0x00000000)
 
 // CHECK:    DW_TAG_label
 // CHECK:      DW_AT_name ("foo")
 // CHECK:      DW_AT_decl_file ([[FILE]])
-// CHECK:      DW_AT_decl_line (9)
+// CHECK:      DW_AT_decl_line (12)
 // CHECK:      DW_AT_low_pc (0x00000007)
 
 // CHECK:    DW_TAG_label
 // CHECK:      DW_AT_name ("baz")
 // CHECK:      DW_AT_decl_file ([[FILE]])
-// CHECK:      DW_AT_decl_line (10)
+// CHECK:      DW_AT_decl_line (13)
 // CHECK:      DW_AT_low_pc (0x00000007)
 
 // CHECK:    NULL
@@ -71,7 +76,8 @@ _x:	.long 1
 // CHECK: .debug_line contents:
 // CHECK: Line table prologue:
 // We don't check the total_length as it includes lengths of temp paths
-// CHECK:         version: 4
+// DWARF4:        version: 4
+// DWARF6:        version: 6
 // We don't check the prologue_length as it too includes lengths of temp paths
 // CHECK: min_inst_length: 1
 // CHECK: default_is_stmt: 1
@@ -90,15 +96,28 @@ _x:	.long 1
 // CHECK: standard_opcode_lengths[DW_LNS_set_prologue_end] = 0
 // CHECK: standard_opcode_lengths[DW_LNS_set_epilogue_begin] = 0
 // CHECK: standard_opcode_lengths[DW_LNS_set_isa] = 1
-// We don't check include_directories as it has a temp path
-// CHECK: file_names[  1]:
-// CHECK-NEXT: name: "gen-dwarf.s"
-// CHECK-NEXT: dir_index: 1
 
-// CHECK: Address            Line   Column File   ISA Discriminator OpIndex Flags
-// CHECK: ------------------ ------ ------ ------ --- ------------- ------- -------------
-// CHECK: 0x0000000000000000      6      0      1   0             0       0  is_stmt
-// CHECK: 0x0000000000000005      7      0      1   0             0       0  is_stmt
-// CHECK: 0x0000000000000006      8      0      1   0             0       0  is_stmt
-// CHECK: 0x0000000000000007     11      0      1   0             0       0  is_stmt
-// CHECK: 0x0000000000000008     11      0      1   0             0       0  is_stmt end_sequence
+// We don't check include_directories as it has a temp path
+// DWARF4: file_names[  1]:
+// DWARF4-NEXT: name: "gen-dwarf.s"
+// DWARF4-NEXT: dir_index: 1
+
+// DWARF6: file_names[  0]:
+// DWARF6-NEXT: name: "{{.*}}gen-dwarf.s"
+// DWARF6-NEXT: dir_index: 0
+// DWARF6-NEXT: md5_checksum: {{.*}}
+
+// CHECK:  Address            Line   Column File   ISA Discriminator OpIndex Flags
+// CHECK:  ------------------ ------ ------ ------ --- ------------- ------- -------------
+
+// DWARF4: 0x0000000000000000      9      0      1   0             0       0  is_stmt
+// DWARF4: 0x0000000000000005     10      0      1   0             0       0  is_stmt
+// DWARF4: 0x0000000000000006     11      0      1   0             0       0  is_stmt
+// DWARF4: 0x0000000000000007     14      0      1   0             0       0  is_stmt
+// DWARF4: 0x0000000000000008     14      0      1   0             0       0  is_stmt end_sequence
+
+// DWARF6: 0x0000000000000000      9      0      0   0             0       0  is_stmt
+// DWARF6: 0x0000000000000005     10      0      0   0             0       0  is_stmt
+// DWARF6: 0x0000000000000006     11      0      0   0             0       0  is_stmt
+// DWARF6: 0x0000000000000007     14      0      0   0             0       0  is_stmt
+// DWARF6: 0x0000000000000008     14      0      0   0             0       0  is_stmt end_sequence

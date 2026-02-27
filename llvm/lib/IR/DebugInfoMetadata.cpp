@@ -2673,7 +2673,7 @@ DIParameterPackType *DIParameterPackType::getImpl(
     bool ShouldCreate) {
   assert(isCanonical(Name) && "Expected canonical MDString");
   DEFINE_GETIMPL_LOOKUP(DIParameterPackType, (Name, File, Line, Scope, Flags, Elements));
-  Metadata *Ops[] = {File,     Scope,      Name,       Elements};
+  Metadata *Ops[] = {File,     Scope,      Name, nullptr, nullptr, Elements};
   DEFINE_GETIMPL_STORE(DIParameterPackType, (Tag, Line, Flags), Ops);
 }
 

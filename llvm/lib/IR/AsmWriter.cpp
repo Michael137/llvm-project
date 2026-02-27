@@ -2707,7 +2707,7 @@ static void writeDIParameterPackType(raw_ostream &Out, const DIParameterPackType
   Printer.printMetadata("file", N->getRawFile());
   Printer.printInt("line", N->getLine());
   Printer.printDIFlags("flags", N->getFlags());
-  Printer.printMetadata("bias", N->getRawElements());
+  Printer.printMetadata("elements", N->getRawElements());
   Out << ")";
 }
 

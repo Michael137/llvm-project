@@ -29,6 +29,7 @@
 #include "clang/AST/LambdaCapture.h"
 #include "clang/AST/RecordLayout.h"
 #include "clang/AST/RecursiveASTVisitor.h"
+#include "clang/AST/TypeBase.h"
 #include "clang/AST/VTableBuilder.h"
 #include "clang/Basic/CodeGenOptions.h"
 #include "clang/Basic/SourceManager.h"
@@ -1858,16 +1859,30 @@ llvm::DIType *CGDebugInfo::CreateType(const FunctionType *Ty,
     EltTys.push_back(DBuilder.createUnspecifiedParameter());
   } else {
     Flags = getRefFlags(FPT);
-    for (const QualType &ParamType : FPT->param_types()) {
-      // TODO: for parameter pack call createTemplateParameterPack and add it as one of the `types` in a DISubroutineType
-      EltTys.push_back(getOrCreateType(ParamType, Unit));
+    // TODO: need to unwrap the type first.....getOrCreateType should handle the parameter differently?
+    for (auto *ParmIt = FPT->param_type_begin();
+         ParmIt != FPT->param_type_end(); ++ParmIt) {
+      ssize_t CurrPackIndex = -1;
+      SmallVector<llvm::Metadata *, 4> CurrentPack;
+      if (auto *Subst = (*ParmIt)->getAs<SubstTemplateTypeParmType>()) {
+        CurrPackIndex = Subst->getPackIndex().toInternalRepresentation();
+        while (CurrPackIndex-- >= 0) {
+          assert (ParmIt != FPT->param_type_end());
+          CurrentPack.push_back(getOrCreateType(*ParmIt, Unit));
+          ParmIt++;
+        }
+
+        assert (CurrPackIndex == -1);
+
+        EltTys.push_back(DBuilder.createParameterPackType(llvm::dwarf::DW_TAG_GNU_formal_parameter_pack, "test pack", Unit, 0, TheCU, {}, DBuilder.getOrCreateTypeArray(CurrentPack)));
+        EltTys.back()->dump();
+      } else {
+        EltTys.push_back(getOrCreateType(*ParmIt, Unit));
+      }
     }
     if (FPT->isVariadic())
       EltTys.push_back(DBuilder.createUnspecifiedParameter());
   }
-
-  auto tmp = DBuilder.createParameterPackType(llvm::dwarf::DW_TAG_GNU_formal_parameter_pack, "test pack", Unit, 0, TheCU, {}, DBuilder.getOrCreateTypeArray(EltTys));
-  tmp->dump();
 
   llvm::DITypeArray EltTypeArray = DBuilder.getOrCreateTypeArray(EltTys);
   llvm::DIType *F = DBuilder.createSubroutineType(
@@ -4852,6 +4867,12 @@ llvm::DISubroutineType *CGDebugInfo::getOrCreateFunctionType(const Decl *D,
                                            getDwarfCC(CC));
     }
 
+  // TODO:
+  // ((clang::FunctionDecl*)D)->getPrimaryTemplate()->getTemplatedDecl()->getType()
+  // This function type contains a PackExpansionType parameter. But it's unexpanded...
+  // Should we pass on the location of the parameter pack in the parameter list?
+  //
+  // Or is there another way to go from QualType->SubstTemplateTypeParm
   return cast<llvm::DISubroutineType>(getOrCreateType(FnType, F));
 }
 

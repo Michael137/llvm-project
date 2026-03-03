@@ -98,6 +98,10 @@ class CGDebugInfo {
   /// Cache of previously constructed Types.
   llvm::DenseMap<const void *, llvm::TrackingMDRef> TypeCache;
 
+  /// Cache of SourceLocation to PresumedLoc mappings to avoid repeated
+  /// expensive getFileLoc() calls.
+  mutable llvm::DenseMap<SourceLocation::UIntTy, PresumedLoc> PresumedLocCache;
+
   /// Cache that maps VLA types to size expressions for that type,
   /// represented by instantiated Metadata nodes.
   llvm::SmallDenseMap<QualType, llvm::Metadata *> SizeExprCache;

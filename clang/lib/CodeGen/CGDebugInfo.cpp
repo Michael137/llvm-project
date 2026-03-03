@@ -246,8 +246,11 @@ ApplyAtomGroup::~ApplyAtomGroup() {
 ApplyDebugLocation::ApplyDebugLocation(CodeGenFunction &CGF,
                                        SourceLocation TemporaryLocation)
     : CGF(&CGF) {
-  SourceManager &SM = CGF.getContext().getSourceManager();
-  init(SM.getPresumedLoc(SM.getFileLoc(TemporaryLocation)));
+  if (auto *DI = CGF.getDebugInfo())
+    init(DI->getPresumedFileLoc(TemporaryLocation));
+  else {
+    this->CGF = nullptr;
+  }
 }
 
 ApplyDebugLocation::ApplyDebugLocation(CodeGenFunction &CGF,
@@ -289,8 +292,11 @@ void ApplyDebugLocation::init(const PresumedLoc &TemporaryPLocation,
 
 ApplyDebugLocation::ApplyDebugLocation(CodeGenFunction &CGF, const Expr *E)
     : CGF(&CGF) {
-  SourceManager &SM = CGF.getContext().getSourceManager();
-  init(SM.getPresumedLoc(SM.getFileLoc(E->getExprLoc())));
+  if (auto *DI = CGF.getDebugInfo())
+    init(DI->getPresumedFileLoc(E->getExprLoc()));
+  else {
+    this->CGF = nullptr;
+  }
 }
 
 ApplyDebugLocation::ApplyDebugLocation(CodeGenFunction &CGF, llvm::DebugLoc Loc)
@@ -5097,8 +5103,36 @@ void CGDebugInfo::CreateLexicalBlock(const PresumedLoc &PLoc) {
 }
 
 PresumedLoc CGDebugInfo::getPresumedFileLoc(SourceLocation Loc) const {
+  static uint64_t TotalCalls = 0;
+  static uint64_t CacheHits = 0;
+  static bool Registered = [] {
+    std::atexit([] {
+      llvm::errs() << "=== getPresumedFileLoc stats ===\n"
+                   << "Total calls: " << TotalCalls << "\n"
+                   << "Cache hits: " << CacheHits << "\n"
+                   << "Hit ratio: "
+                   << (TotalCalls > 0 ? 100.0 * CacheHits / TotalCalls : 0)
+                   << "%\n";
+    });
+    return true;
+  }();
+  (void)Registered;
+  ++TotalCalls;
+
+  if (Loc.isInvalid())
+    return PresumedLoc();
+
+  auto Key = Loc.getRawEncoding();
+  auto It = PresumedLocCache.find(Key);
+  if (It != PresumedLocCache.end()) {
+    ++CacheHits;
+    return It->second;
+  }
+
   const SourceManager &SM = CGM.getContext().getSourceManager();
-  return SM.getPresumedLoc(SM.getFileLoc(Loc));
+  PresumedLoc PLoc = SM.getPresumedLoc(SM.getFileLoc(Loc));
+  PresumedLocCache[Key] = PLoc;
+  return PLoc;
 }
 
 void CGDebugInfo::AppendAddressSpaceXDeref(

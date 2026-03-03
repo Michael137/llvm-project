@@ -340,6 +340,8 @@ void SourceManager::clearIDTables() {
   LastLookupStartOffset = LastLookupEndOffset = 0;
 
   IncludedLocMap.clear();
+  FileLocCache.clear();
+  FileLocFileIDCache.clear();
   if (LineTable)
     LineTable->clear();
 
@@ -651,7 +653,52 @@ SourceLocation SourceManager::createMacroArgExpansionLoc(
     SourceLocation SpellingLoc, SourceLocation ExpansionLoc, unsigned Length) {
   ExpansionInfo Info = ExpansionInfo::createForMacroArg(SpellingLoc,
                                                         ExpansionLoc);
-  return createExpansionLocImpl(Info, Length);
+  SourceLocation Result = createExpansionLocImpl(Info, Length);
+
+  // Eagerly cache the file location mapping for this new expansion.
+  // This avoids expensive traversal in getFileLoc() later.
+  // We compute the FileID directly to avoid expensive getFileID() calls.
+  if (SpellingLoc.isValid()) {
+    // The FileID for Result is the entry we just created
+    FileID NewFID = FileID::get(LocalSLocEntryTable.size() - 1);
+
+    if (SpellingLoc.isFileID()) {
+      // SpellingLoc is already a file location - cache directly
+      // Use the cached FileID lookup if available
+      FileID SpellingFID = LastFileIDLookup;
+      SourceLocation::UIntTy SpellingOffset = SpellingLoc.getOffset();
+      if (SpellingOffset < LastLookupStartOffset || SpellingOffset >= LastLookupEndOffset) {
+        SpellingFID = getFileID(SpellingLoc);
+      }
+      SourceLocation::UIntTy SpellingBase = getSLocEntry(SpellingFID).getOffset();
+      FileLocFileIDCache[NewFID] = {SpellingFID, SpellingBase};
+    } else {
+      // SpellingLoc is a macro - check if we have its FileID cached
+      FileID SpellingFID = LastFileIDLookup;
+      SourceLocation::UIntTy SpellingOffset = SpellingLoc.getOffset();
+      if (SpellingOffset < LastLookupStartOffset || SpellingOffset >= LastLookupEndOffset) {
+        SpellingFID = getFileID(SpellingLoc);
+      }
+      auto It = FileLocFileIDCache.find(SpellingFID);
+      if (It != FileLocFileIDCache.end()) {
+        // Propagate the cached mapping
+        FileLocFileIDCache[NewFID] = It->second;
+      } else {
+        // Cache miss - resolve the file location now and cache it.
+        // This is expensive but avoids repeated traversals later.
+        SourceLocation FileLoc = getFileLoc(SpellingLoc);
+        if (FileLoc.isValid()) {
+          FileID FileFID = getFileID(FileLoc);
+          SourceLocation::UIntTy FileBase = getSLocEntry(FileFID).getOffset();
+          FileLocFileIDCache[NewFID] = {FileFID, FileBase};
+          // Also cache the SpellingFID for future lookups
+          FileLocFileIDCache[SpellingFID] = {FileFID, FileBase};
+        }
+      }
+    }
+  }
+
+  return Result;
 }
 
 SourceLocation SourceManager::createExpansionLoc(
@@ -893,7 +940,23 @@ FileID SourceManager::getFileIDLoaded(SourceLocation::UIntTy SLocOffset) const {
 
 SourceLocation SourceManager::
 getExpansionLocSlowCase(SourceLocation Loc) const {
+  static uint64_t TotalCalls = 0;
+  static uint64_t TotalIterations = 0;
+  static bool Registered = [] {
+    std::atexit([] {
+      llvm::errs() << "=== getExpansionLocSlowCase stats ===\n"
+                   << "Total calls: " << TotalCalls << "\n"
+                   << "Total loop iterations: " << TotalIterations << "\n"
+                   << "Avg iterations per call: "
+                   << (TotalCalls > 0 ? (double)TotalIterations / TotalCalls : 0) << "\n";
+    });
+    return true;
+  }();
+  (void)Registered;
+  ++TotalCalls;
+
   do {
+    ++TotalIterations;
     // Note: If Loc indicates an offset into a token that came from a macro
     // expansion (e.g. the 5th character of the token) we do not want to add
     // this offset when going to the expansion location.  The expansion
@@ -916,16 +979,73 @@ SourceLocation SourceManager::getSpellingLocSlowCase(SourceLocation Loc) const {
 }
 
 SourceLocation SourceManager::getFileLocSlowCase(SourceLocation Loc) const {
+  static uint64_t TotalCalls = 0;
+  static uint64_t TotalIterations = 0;
+  static bool Registered = [] {
+    std::atexit([] {
+      llvm::errs() << "=== getFileLocSlowCase stats ===\n"
+                   << "Total calls: " << TotalCalls << "\n"
+                   << "Total loop iterations: " << TotalIterations << "\n"
+                   << "Avg iterations per call: "
+                   << (TotalCalls > 0 ? (double)TotalIterations / TotalCalls : 0) << "\n";
+    });
+    return true;
+  }();
+  (void)Registered;
+  ++TotalCalls;
+
+  // Track FileIDs we traverse so we can cache at FileID level
+  SmallVector<std::pair<FileID, SourceLocation::UIntTy>, 16> FileIDChain;
+  SourceLocation OriginalLoc = Loc;
+
   do {
-    const SLocEntry &Entry = getSLocEntry(getFileID(Loc));
+    ++TotalIterations;
+
+    FileID FID = getFileID(Loc);
+    const SLocEntry &Entry = getSLocEntry(FID);
+
+    // Check FileID-level cache
+    auto FIDIt = FileLocFileIDCache.find(FID);
+    if (FIDIt != FileLocFileIDCache.end()) {
+      // Compute result from cached FileID mapping
+      unsigned LocalOffset = Loc.getOffset() - Entry.getOffset();
+      SourceLocation Result = SourceLocation::getFromRawEncoding(
+          FIDIt->second.second + LocalOffset);
+
+      // Cache all FileIDs in our chain
+      FileID TargetFID = FIDIt->second.first;
+      SourceLocation::UIntTy TargetBase = FIDIt->second.second;
+      for (auto &[ChainFID, ChainBase] : FileIDChain) {
+        FileLocFileIDCache[ChainFID] = {TargetFID, TargetBase + ChainBase};
+      }
+      return Result;
+    }
+
+    // Record this FileID and relative offset for later caching
+    unsigned LocalOffset = Loc.getOffset() - Entry.getOffset();
+    FileIDChain.push_back({FID, LocalOffset});
+
     const ExpansionInfo &ExpInfo = Entry.getExpansion();
     if (ExpInfo.isMacroArgExpansion()) {
-      Loc = ExpInfo.getSpellingLoc().getLocWithOffset(Loc.getOffset() -
-                                                      Entry.getOffset());
+      Loc = ExpInfo.getSpellingLoc().getLocWithOffset(LocalOffset);
     } else {
       Loc = ExpInfo.getExpansionLocStart();
     }
   } while (!Loc.isFileID());
+
+  // Now Loc is a file location. Cache all FileIDs in the chain.
+  FileID TargetFID = getFileID(Loc);
+  SourceLocation::UIntTy TargetBase = getSLocEntry(TargetFID).getOffset();
+
+  for (auto &[ChainFID, ChainLocalOffset] : FileIDChain) {
+    // Each FileID maps to TargetFID with offset adjustment
+    // The target offset for base of ChainFID is: TargetBase + 0 (relative)
+    // But we need to account for the cumulative offset through the chain
+    // Actually, for macro args the spelling loc already includes the offset
+    // So we just cache: ChainFID -> (TargetFID, TargetBase)
+    FileLocFileIDCache[ChainFID] = {TargetFID, TargetBase};
+  }
+
   return Loc;
 }
 

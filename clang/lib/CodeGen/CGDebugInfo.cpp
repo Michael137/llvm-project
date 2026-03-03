@@ -5103,19 +5103,8 @@ void CGDebugInfo::CreateLexicalBlock(const PresumedLoc &PLoc) {
 }
 
 PresumedLoc CGDebugInfo::getPresumedFileLoc(SourceLocation Loc) const {
-  if (Loc.isInvalid())
-    return PresumedLoc();
-
-  auto Key = Loc.getRawEncoding();
-  auto It = PresumedLocCache.find(Key);
-  if (It != PresumedLocCache.end()) {
-    return It->second;
-  }
-
   const SourceManager &SM = CGM.getContext().getSourceManager();
-  PresumedLoc PLoc = SM.getPresumedLoc(SM.getFileLoc(Loc));
-  PresumedLocCache[Key] = PLoc;
-  return PLoc;
+  return SM.getPresumedLoc(SM.getFileLoc(Loc));
 }
 
 void CGDebugInfo::AppendAddressSpaceXDeref(

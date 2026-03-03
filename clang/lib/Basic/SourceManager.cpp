@@ -340,7 +340,6 @@ void SourceManager::clearIDTables() {
   LastLookupStartOffset = LastLookupEndOffset = 0;
 
   IncludedLocMap.clear();
-  FileLocCache.clear();
   FileLocFileIDCache.clear();
   if (LineTable)
     LineTable->clear();
@@ -940,23 +939,7 @@ FileID SourceManager::getFileIDLoaded(SourceLocation::UIntTy SLocOffset) const {
 
 SourceLocation SourceManager::
 getExpansionLocSlowCase(SourceLocation Loc) const {
-  static uint64_t TotalCalls = 0;
-  static uint64_t TotalIterations = 0;
-  static bool Registered = [] {
-    std::atexit([] {
-      llvm::errs() << "=== getExpansionLocSlowCase stats ===\n"
-                   << "Total calls: " << TotalCalls << "\n"
-                   << "Total loop iterations: " << TotalIterations << "\n"
-                   << "Avg iterations per call: "
-                   << (TotalCalls > 0 ? (double)TotalIterations / TotalCalls : 0) << "\n";
-    });
-    return true;
-  }();
-  (void)Registered;
-  ++TotalCalls;
-
   do {
-    ++TotalIterations;
     // Note: If Loc indicates an offset into a token that came from a macro
     // expansion (e.g. the 5th character of the token) we do not want to add
     // this offset when going to the expansion location.  The expansion
@@ -979,28 +962,10 @@ SourceLocation SourceManager::getSpellingLocSlowCase(SourceLocation Loc) const {
 }
 
 SourceLocation SourceManager::getFileLocSlowCase(SourceLocation Loc) const {
-  static uint64_t TotalCalls = 0;
-  static uint64_t TotalIterations = 0;
-  static bool Registered = [] {
-    std::atexit([] {
-      llvm::errs() << "=== getFileLocSlowCase stats ===\n"
-                   << "Total calls: " << TotalCalls << "\n"
-                   << "Total loop iterations: " << TotalIterations << "\n"
-                   << "Avg iterations per call: "
-                   << (TotalCalls > 0 ? (double)TotalIterations / TotalCalls : 0) << "\n";
-    });
-    return true;
-  }();
-  (void)Registered;
-  ++TotalCalls;
-
   // Track FileIDs we traverse so we can cache at FileID level
   SmallVector<std::pair<FileID, SourceLocation::UIntTy>, 16> FileIDChain;
-  SourceLocation OriginalLoc = Loc;
 
   do {
-    ++TotalIterations;
-
     FileID FID = getFileID(Loc);
     const SLocEntry &Entry = getSLocEntry(FID);
 

@@ -803,9 +803,6 @@ class SourceManager : public RefCountedBase<SourceManager> {
   /// function.
   mutable llvm::DenseMap<FileID, FileIDAndOffset> IncludedLocMap;
 
-  /// Cache for getFileLoc() results to avoid expensive macro unwinding.
-  mutable llvm::DenseMap<SourceLocation::UIntTy, SourceLocation> FileLocCache;
-
   /// Cache for getFileLoc() at FileID level: maps expansion FileID to
   /// (target FileID, target base offset). This allows O(1) resolution for
   /// any location within a cached expansion.
@@ -1227,14 +1224,7 @@ public:
       return SourceLocation::getFromRawEncoding(FIDIt->second.second + LocalOffset);
     }
 
-    // Check individual location cache
-    auto It = FileLocCache.find(Loc.getRawEncoding());
-    if (It != FileLocCache.end())
-      return It->second;
-
-    SourceLocation Result = getFileLocSlowCase(Loc);
-    FileLocCache[Loc.getRawEncoding()] = Result;
-    return Result;
+    return getFileLocSlowCase(Loc);
   }
 
   /// Return the start/end of the expansion information for an

@@ -5103,29 +5103,12 @@ void CGDebugInfo::CreateLexicalBlock(const PresumedLoc &PLoc) {
 }
 
 PresumedLoc CGDebugInfo::getPresumedFileLoc(SourceLocation Loc) const {
-  static uint64_t TotalCalls = 0;
-  static uint64_t CacheHits = 0;
-  static bool Registered = [] {
-    std::atexit([] {
-      llvm::errs() << "=== getPresumedFileLoc stats ===\n"
-                   << "Total calls: " << TotalCalls << "\n"
-                   << "Cache hits: " << CacheHits << "\n"
-                   << "Hit ratio: "
-                   << (TotalCalls > 0 ? 100.0 * CacheHits / TotalCalls : 0)
-                   << "%\n";
-    });
-    return true;
-  }();
-  (void)Registered;
-  ++TotalCalls;
-
   if (Loc.isInvalid())
     return PresumedLoc();
 
   auto Key = Loc.getRawEncoding();
   auto It = PresumedLocCache.find(Key);
   if (It != PresumedLocCache.end()) {
-    ++CacheHits;
     return It->second;
   }
 

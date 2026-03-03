@@ -803,6 +803,11 @@ class SourceManager : public RefCountedBase<SourceManager> {
   /// function.
   mutable llvm::DenseMap<FileID, FileIDAndOffset> IncludedLocMap;
 
+  /// Cache for getFileLoc() at FileID level: maps expansion FileID to
+  /// (target FileID, target base offset). This allows O(1) resolution for
+  /// any location within a cached expansion.
+  mutable llvm::DenseMap<FileID, std::pair<FileID, SourceLocation::UIntTy>> FileLocFileIDCache;
+
   /// The key value into the IsBeforeInTUCache table.
   using IsBeforeInTUCacheKey = std::pair<FileID, FileID>;
 
@@ -1209,6 +1214,16 @@ public:
   /// macro argument or not.
   SourceLocation getFileLoc(SourceLocation Loc) const {
     if (Loc.isFileID()) return Loc;
+
+    // Check FileID-level cache first
+    FileID FID = getFileID(Loc);
+    auto FIDIt = FileLocFileIDCache.find(FID);
+    if (FIDIt != FileLocFileIDCache.end()) {
+      // Compute target directly: target base + local offset
+      unsigned LocalOffset = Loc.getOffset() - getSLocEntry(FID).getOffset();
+      return SourceLocation::getFromRawEncoding(FIDIt->second.second + LocalOffset);
+    }
+
     return getFileLocSlowCase(Loc);
   }
 

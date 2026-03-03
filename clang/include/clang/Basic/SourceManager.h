@@ -793,6 +793,8 @@ class SourceManager : public RefCountedBase<SourceManager> {
   // Statistics for -print-stats.
   mutable unsigned NumLinearScans = 0;
   mutable unsigned NumBinaryProbes = 0;
+  mutable unsigned NumCacheHits = 0;
+  mutable unsigned NumTotalLookups = 0;
 
   /// Associates a FileID with its "included/expanded in" decomposed
   /// location.
@@ -1899,9 +1901,12 @@ private:
   }
 
   FileID getFileID(SourceLocation::UIntTy SLocOffset) const {
+    ++NumTotalLookups;
     // If our one-entry cache covers this offset, just return it.
-    if (SLocOffset >= LastLookupStartOffset && SLocOffset < LastLookupEndOffset)
+    if (SLocOffset >= LastLookupStartOffset && SLocOffset < LastLookupEndOffset) {
+      ++NumCacheHits;
       return LastFileIDLookup;
+    }
     return getFileIDSlow(SLocOffset);
   }
 

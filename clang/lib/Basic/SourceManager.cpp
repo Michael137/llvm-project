@@ -24,6 +24,7 @@
 #include "llvm/ADT/StringRef.h"
 #include "llvm/ADT/StringSwitch.h"
 #include "llvm/Support/Allocator.h"
+#include "llvm/Support/FormatVariadic.h"
 #include "llvm/Support/AutoConvert.h"
 #include "llvm/Support/Capacity.h"
 #include "llvm/Support/Compiler.h"
@@ -2137,8 +2138,8 @@ void SourceManager::PrintStats() const {
   llvm::errs() << NumFileBytesMapped << " bytes of files mapped, "
                << NumLineNumsComputed << " files with line #'s computed, "
                << NumMacroArgsComputed << " files with macro args computed.\n";
-  llvm::errs() << "FileID scans: " << NumLinearScans << " linear, "
-               << NumBinaryProbes << " binary.\n";
+  llvm::errs() << llvm::formatv("FileID scans: {0} linear, {1} binary, {2}/{3} cache hits\n",
+                                NumLinearScans, NumBinaryProbes, NumCacheHits, NumTotalLookups);
 }
 
 LLVM_DUMP_METHOD void SourceManager::dump() const {

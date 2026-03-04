@@ -794,6 +794,9 @@ class SourceManager : public RefCountedBase<SourceManager> {
   mutable unsigned NumLinearScans = 0;
   mutable unsigned NumBinaryProbes = 0;
 
+  /// Iteration count from the last getFileLocSlowCase call (for instrumentation).
+  mutable unsigned LastFileLocIterationCount = 0;
+
   /// Associates a FileID with its "included/expanded in" decomposed
   /// location.
   ///
@@ -1206,8 +1209,17 @@ public:
   /// location or the spelling location, depending on if it comes from a
   /// macro argument or not.
   SourceLocation getFileLoc(SourceLocation Loc) const {
-    if (Loc.isFileID()) return Loc;
+    if (Loc.isFileID()) {
+      LastFileLocIterationCount = 0;
+      return Loc;
+    }
     return getFileLocSlowCase(Loc);
+  }
+
+  /// Returns the iteration count from the last getFileLoc/getFileLocSlowCase call.
+  /// Used for instrumentation/profiling.
+  unsigned getLastFileLocIterationCount() const {
+    return LastFileLocIterationCount;
   }
 
   /// Return the start/end of the expansion information for an

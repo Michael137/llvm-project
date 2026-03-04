@@ -54,6 +54,7 @@
 #include "llvm/Support/SHA1.h"
 #include "llvm/Support/SHA256.h"
 #include "llvm/Support/TimeProfiler.h"
+#include <algorithm>
 #include <cstdint>
 #include <optional>
 using namespace clang;
@@ -61,9 +62,99 @@ using namespace clang::CodeGen;
 
 static SourceLocation getMacroDebugLoc(const CodeGenModule &CGM,
                                        SourceLocation Loc) {
+  // Instrumentation for getFileLoc analysis
+  struct LocInfo {
+    unsigned IterCount;
+    SourceLocation::UIntTy RawLoc;
+    // Output (file) location
+    std::string Filename;
+    unsigned Line;
+    unsigned Column;
+    // Input (macro expansion) location
+    std::string InputFilename;
+    unsigned InputLine;
+    unsigned InputColumn;
+  };
+  static uint64_t TotalCalls = 0;
+  static llvm::DenseSet<SourceLocation::UIntTy> UniqueLocs;
+  static std::vector<LocInfo> IterationCounts;
+  static bool Registered = [] {
+    std::atexit([] {
+      llvm::errs() << "=== CGDebugInfo getFileLoc stats ===\n"
+                   << "Total getFileLoc calls: " << TotalCalls << "\n"
+                   << "Unique locations: " << UniqueLocs.size() << "\n"
+                   << "Duplicate calls: " << (TotalCalls - UniqueLocs.size()) << "\n";
+
+      // Compute histogram of iteration counts
+      unsigned Hist0 = 0, Hist1_10 = 0, Hist11_100 = 0, Hist101_500 = 0;
+      unsigned Hist501_1000 = 0, Hist1001_2000 = 0, Hist2000plus = 0;
+      uint64_t TotalIterations = 0;
+      for (const auto &Info : IterationCounts) {
+        TotalIterations += Info.IterCount;
+        if (Info.IterCount == 0) Hist0++;
+        else if (Info.IterCount <= 10) Hist1_10++;
+        else if (Info.IterCount <= 100) Hist11_100++;
+        else if (Info.IterCount <= 500) Hist101_500++;
+        else if (Info.IterCount <= 1000) Hist501_1000++;
+        else if (Info.IterCount <= 2000) Hist1001_2000++;
+        else Hist2000plus++;
+      }
+      llvm::errs() << "Iteration count histogram (unique locations):\n"
+                   << "  0:          " << Hist0 << "\n"
+                   << "  1-10:       " << Hist1_10 << "\n"
+                   << "  11-100:     " << Hist11_100 << "\n"
+                   << "  101-500:    " << Hist101_500 << "\n"
+                   << "  501-1000:   " << Hist501_1000 << "\n"
+                   << "  1001-2000:  " << Hist1001_2000 << "\n"
+                   << "  2000+:      " << Hist2000plus << "\n"
+                   << "Total iterations across unique locs: " << TotalIterations << "\n";
+
+      // Sort by iteration count descending and print top 5
+      std::sort(IterationCounts.begin(), IterationCounts.end(),
+                [](const auto &A, const auto &B) { return A.IterCount > B.IterCount; });
+      llvm::errs() << "Top 5 longest iteration counts:\n";
+      for (size_t i = 0; i < std::min<size_t>(5, IterationCounts.size()); ++i) {
+        const auto &Info = IterationCounts[i];
+        llvm::errs() << "  " << (i + 1) << ". " << Info.IterCount << " iterations\n"
+                     << "       Input:  " << Info.InputFilename
+                     << ":" << Info.InputLine << ":" << Info.InputColumn << "\n"
+                     << "       Output: " << Info.Filename
+                     << ":" << Info.Line << ":" << Info.Column << "\n";
+      }
+    });
+    return true;
+  }();
+  (void)Registered;
+
   if (CGM.getCodeGenOpts().DebugInfoMacroExpansionLoc)
     return Loc;
-  return CGM.getContext().getSourceManager().getFileLoc(Loc);
+
+  ++TotalCalls;
+  auto Key = Loc.getRawEncoding();
+
+  const SourceManager &SM = CGM.getContext().getSourceManager();
+  SourceLocation Result = SM.getFileLoc(Loc);
+
+  // Record iteration count only for unique locations
+  if (UniqueLocs.insert(Key).second) {
+    unsigned IterCount = SM.getLastFileLocIterationCount();
+    // Get output (file) location info
+    PresumedLoc PLoc = SM.getPresumedLoc(Result);
+    // Get input (macro expansion) location info
+    PresumedLoc InputPLoc = SM.getPresumedLoc(SM.getExpansionLoc(Loc));
+    LocInfo Info;
+    Info.IterCount = IterCount;
+    Info.RawLoc = Key;
+    Info.Filename = PLoc.isValid() ? PLoc.getFilename() : "<invalid>";
+    Info.Line = PLoc.isValid() ? PLoc.getLine() : 0;
+    Info.Column = PLoc.isValid() ? PLoc.getColumn() : 0;
+    Info.InputFilename = InputPLoc.isValid() ? InputPLoc.getFilename() : "<invalid>";
+    Info.InputLine = InputPLoc.isValid() ? InputPLoc.getLine() : 0;
+    Info.InputColumn = InputPLoc.isValid() ? InputPLoc.getColumn() : 0;
+    IterationCounts.push_back(std::move(Info));
+  }
+
+  return Result;
 }
 
 static uint32_t getTypeAlignIfRequired(const Type *Ty, const ASTContext &Ctx) {

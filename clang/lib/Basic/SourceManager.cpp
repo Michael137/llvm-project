@@ -915,16 +915,77 @@ SourceLocation SourceManager::getSpellingLocSlowCase(SourceLocation Loc) const {
 }
 
 SourceLocation SourceManager::getFileLocSlowCase(SourceLocation Loc) const {
+  // Instrumentation for FileID chain analysis
+  static uint64_t TotalCalls = 0;
+  static uint64_t TotalIterations = 0;
+  static uint64_t TotalUniqueFileIDsPerCall = 0;
+  static uint64_t MacroArgExpansions = 0;
+  static uint64_t RegularExpansions = 0;
+  static llvm::DenseSet<int> AllVisitedFileIDs;
+  static std::vector<int> SampleChain;
+  static bool SampleCaptured = false;
+  static bool Registered = [] {
+    std::atexit([] {
+      llvm::errs() << "=== getFileLocSlowCase FileID stats ===\n"
+                   << "Total calls: " << TotalCalls << "\n"
+                   << "Total iterations: " << TotalIterations << "\n"
+                   << "Avg iterations per call: "
+                   << (TotalCalls > 0 ? (double)TotalIterations / TotalCalls : 0) << "\n"
+                   << "Avg unique FileIDs per call: "
+                   << (TotalCalls > 0 ? (double)TotalUniqueFileIDsPerCall / TotalCalls : 0) << "\n"
+                   << "Total unique FileIDs visited (all calls): " << AllVisitedFileIDs.size() << "\n"
+                   << "Macro arg expansions: " << MacroArgExpansions
+                   << " (" << (TotalIterations > 0 ? 100.0 * MacroArgExpansions / TotalIterations : 0) << "%)\n"
+                   << "Regular expansions: " << RegularExpansions
+                   << " (" << (TotalIterations > 0 ? 100.0 * RegularExpansions / TotalIterations : 0) << "%)\n";
+      if (!SampleChain.empty()) {
+        llvm::errs() << "Sample FileID chain (first expensive call, max 20):\n  ";
+        for (size_t i = 0; i < std::min<size_t>(20, SampleChain.size()); ++i) {
+          llvm::errs() << SampleChain[i];
+          if (i + 1 < std::min<size_t>(20, SampleChain.size())) llvm::errs() << " -> ";
+        }
+        if (SampleChain.size() > 20) llvm::errs() << " -> ... (" << SampleChain.size() << " total)";
+        llvm::errs() << "\n";
+      }
+    });
+    return true;
+  }();
+  (void)Registered;
+
+  ++TotalCalls;
+  llvm::DenseSet<int> VisitedFileIDs;
+  std::vector<int> CurrentChain;
+
+  unsigned IterCount = 0;
   do {
-    const SLocEntry &Entry = getSLocEntry(getFileID(Loc));
+    ++IterCount;
+    FileID FID = getFileID(Loc);
+    VisitedFileIDs.insert(FID.ID);
+    AllVisitedFileIDs.insert(FID.ID);
+    CurrentChain.push_back(FID.ID);
+
+    const SLocEntry &Entry = getSLocEntry(FID);
     const ExpansionInfo &ExpInfo = Entry.getExpansion();
     if (ExpInfo.isMacroArgExpansion()) {
+      ++MacroArgExpansions;
       Loc = ExpInfo.getSpellingLoc().getLocWithOffset(Loc.getOffset() -
                                                       Entry.getOffset());
     } else {
+      ++RegularExpansions;
       Loc = ExpInfo.getExpansionLocStart();
     }
   } while (!Loc.isFileID());
+
+  TotalIterations += IterCount;
+  TotalUniqueFileIDsPerCall += VisitedFileIDs.size();
+
+  // Capture first chain with > 1000 iterations as sample
+  if (!SampleCaptured && IterCount > 1000) {
+    SampleChain = std::move(CurrentChain);
+    SampleCaptured = true;
+  }
+
+  LastFileLocIterationCount = IterCount;
   return Loc;
 }
 

@@ -76,6 +76,9 @@ struct TestingProperties : public Properties {
   TestingProperties();
   bool GetInjectVarLocListError() const;
   static TestingProperties &GetGlobalTestingProperties();
+  void SetSafeAutoLoadPaths(FileSpecList paths);
+  void AppendSafeAutoLoadPaths(FileSpec path);
+  FileSpecList GetSafeAutoLoadPaths() const;
 };
 #endif
 
@@ -130,6 +133,8 @@ public:
 
   static void AssertCallback(llvm::StringRef message, llvm::StringRef backtrace,
                              llvm::StringRef prompt);
+
+  static FileSpecList GetSafeAutoLoadPaths();
 
   void Clear();
 

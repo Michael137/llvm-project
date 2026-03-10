@@ -275,9 +275,22 @@ public:
   //
   // Locating the file should happen only on the local computer or using the
   // current computers global settings.
+  FileSpecList LocateExecutableScriptingResources(Target *target,
+                                                  Module &module,
+                                                  Stream &feedback_stream);
+
   virtual FileSpecList
-  LocateExecutableScriptingResources(Target *target, Module &module,
-                                     Stream &feedback_stream);
+  LocateExecutableScriptingResourcesImpl(Target *target, Module &module,
+                                         Stream &feedback_stream);
+
+  /// Helper function for \c LocateExecutableScriptingResources
+  /// which gathers FileSpecs for executable scripts from
+  /// pre-configured "safe" auto-load paths.
+  ///
+  /// Looks for a script at:
+  ///   \c <safe-path>/<module-name>/<module-name>.py
+  static FileSpecList LocateExecutableScriptingResourcesFromSafePaths(
+      Stream &feedback_stream, FileSpec module_spec, const Target &target);
 
   /// \param[in] module_spec
   ///     The ModuleSpec of a binary to find.

@@ -251,7 +251,7 @@ FileSpecList PlatformDarwin::LocateExecutableScriptingResourcesFromDSYM(
   return file_list;
 }
 
-FileSpecList PlatformDarwin::LocateExecutableScriptingResources(
+FileSpecList PlatformDarwin::LocateExecutableScriptingResourcesImpl(
     Target *target, Module &module, Stream &feedback_stream) {
   if (!target)
     return {};
@@ -268,7 +268,6 @@ FileSpecList PlatformDarwin::LocateExecutableScriptingResources(
   // stripped while leaving "this.binary.file" as-is.
 
   const FileSpec &module_spec = module.GetFileSpec();
-
   if (!module_spec)
     return {};
 

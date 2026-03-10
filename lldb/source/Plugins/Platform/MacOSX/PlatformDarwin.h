@@ -68,8 +68,8 @@ public:
                            FileSpec &sym_file) override;
 
   FileSpecList
-  LocateExecutableScriptingResources(Target *target, Module &module,
-                                     Stream &feedback_stream) override;
+  LocateExecutableScriptingResourcesImpl(Target *target, Module &module_spec,
+                                         Stream &feedback_stream) override;
 
   Status GetSharedModule(const ModuleSpec &module_spec, Process *process,
                          lldb::ModuleSP &module_sp,

@@ -1486,7 +1486,12 @@ To run all discovered debug scripts in this session:
           debugger.GetID());
       // clang-format on
 
-      return false;
+      if (!debugger.GetCommandInterpreter().Confirm(
+              llvm::formatv("Do you want to load the script '{0}' right now?",
+                            scripting_fspec.GetPath())
+                  .str(),
+              false))
+        continue;
     }
 
     StreamString scripting_stream;

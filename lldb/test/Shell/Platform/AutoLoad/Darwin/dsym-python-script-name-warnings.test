@@ -31,8 +31,8 @@
 # CHECK-REMOVE:      warning: the symbol file {{.*}} contains reserved characters
 # CHECK-REMOVE-SAME: Consider removing the file with the malformed name to eliminate this warning
 
-## Also confirm that the warning message about loading auto-loading scripts is printed
-## afterwards.
+## Also confirm that the warning message about auto-loading scripts is printed afterwards.
+
 # CHECK-REMOVE: warning: 'Test-Module2' contains a debug script. To run this script in this
 
 #--- main.c

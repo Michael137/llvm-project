@@ -1470,9 +1470,10 @@ bool Module::LoadScriptingResourceInTarget(Target *target, Status &error) {
       continue;
 
     if (should_load == eLoadScriptFromSymFileWarn) {
+      // clang-format off
       debugger.ReportWarning(
           llvm::formatv(
-              R"('{0}' contains a debug script. To run this script in this debug session:
+R"('{0}' contains a debug script. To run this script in this debug session:
 
     command script import "{1}"
 
@@ -1483,6 +1484,7 @@ To run all discovered debug scripts in this session:
               GetFileSpec().GetFileNameStrippingExtension(),
               scripting_fspec.GetPath()),
           debugger.GetID());
+      // clang-format on
 
       return false;
     }

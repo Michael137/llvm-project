@@ -147,18 +147,16 @@ public:
                     : "contains reserved characters";
 
     if (FileSystem::Instance().Exists(fspec))
-       os.Format(
-            "debug script '{0}' cannot be loaded because '{1}' {2}. "
-            "Ignoring '{1}' and loading '{3}' instead.\n",
-            original_fspec.GetPath(), original_fspec.GetFilename(),
-            std::move(reason_for_complaint), fspec.GetFilename());
+      os.Format("debug script '{0}' cannot be loaded because '{1}' {2}. "
+                "Ignoring '{1}' and loading '{3}' instead.\n",
+                original_fspec.GetPath(), original_fspec.GetFilename(),
+                std::move(reason_for_complaint), fspec.GetFilename());
     else
-      os.Format(
-            "debug script '{0}' cannot be loaded because '{1}' {2}. "
-            "If you intend to have this script loaded, please rename it to "
-            "'{3}' and retry.\n",
-            original_fspec.GetPath(), original_fspec.GetFilename(),
-            std::move(reason_for_complaint), fspec.GetFilename());
+      os.Format("debug script '{0}' cannot be loaded because '{1}' {2}. "
+                "If you intend to have this script loaded, please rename it to "
+                "'{3}' and retry.\n",
+                original_fspec.GetPath(), original_fspec.GetFilename(),
+                std::move(reason_for_complaint), fspec.GetFilename());
   }
 
 private:

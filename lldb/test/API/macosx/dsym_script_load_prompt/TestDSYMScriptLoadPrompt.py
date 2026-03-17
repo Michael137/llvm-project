@@ -13,7 +13,6 @@ from lldbsuite.test.lldbpexpect import PExpectTest
 
 @skipUnlessDarwin
 class TestDSYMScriptLoadPrompt(PExpectTest):
-
     def build_with_dsym_script(self):
         self.build(debug_info="dsym")
         exe = self.getBuildArtifact("a.out")

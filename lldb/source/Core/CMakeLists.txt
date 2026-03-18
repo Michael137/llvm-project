@@ -95,7 +95,7 @@ foreach(path IN LISTS LLDB_SAFE_AUTO_LOAD_PATHS)
   string(REPLACE "\\" "\\\\" escaped_path "${path}")
   list(APPEND _entries "\"${escaped_path}\",")
 endforeach()
-string(JOIN "\n" SAFE_PATH_ENTRIES "${_entries}")
+string(JOIN "\n" SAFE_PATH_ENTRIES ${_entries})
 
 configure_file(
   ${CMAKE_CURRENT_SOURCE_DIR}/SafeAutoloadPaths.inc.in

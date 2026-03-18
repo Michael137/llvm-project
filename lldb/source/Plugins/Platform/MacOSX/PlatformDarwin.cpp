@@ -268,6 +268,7 @@ FileSpecList PlatformDarwin::LocateExecutableScriptingResourcesImpl(
   // stripped while leaving "this.binary.file" as-is.
 
   const FileSpec &module_spec = module.GetFileSpec();
+
   if (!module_spec)
     return {};
 

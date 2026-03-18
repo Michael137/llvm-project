@@ -269,7 +269,7 @@ void TestingProperties::AppendSafeAutoLoadPaths(FileSpec path) {
 
 FileSpecList TestingProperties::GetSafeAutoLoadPaths() const {
   const uint32_t idx = ePropertySafeAutoloadPaths;
-  return GetPropertyAtIndexAs<FileSpecList>(idx, GetDefaultSafeAutoLoadPaths());
+  return GetPropertyAtIndexAs<FileSpecList>(idx, {});
 }
 #endif
 
@@ -2592,9 +2592,13 @@ StructuredData::DictionarySP Debugger::GetBuildConfiguration() {
 }
 
 FileSpecList Debugger::GetSafeAutoLoadPaths() {
+  FileSpecList fspecs = GetDefaultSafeAutoLoadPaths();
+
 #ifndef NDEBUG
-  return TestingProperties::GetGlobalTestingProperties().GetSafeAutoLoadPaths();
-#else
-  return GetDefaultSafeAutoLoadPaths();
+  for (const auto &fspec :
+       TestingProperties::GetGlobalTestingProperties().GetSafeAutoLoadPaths())
+    fspecs.Append(fspec);
 #endif
+
+  return fspecs;
 }

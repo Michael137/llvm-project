@@ -69,6 +69,7 @@ class Process;
 class Stream;
 class SymbolContext;
 class Target;
+class Debugger;
 
 #ifndef NDEBUG
 /// Global properties used in the LLDB testsuite.
@@ -78,6 +79,12 @@ struct TestingProperties : public Properties {
   static TestingProperties &GetGlobalTestingProperties();
   void SetSafeAutoLoadPaths(FileSpecList paths);
   void AppendSafeAutoLoadPaths(FileSpec path);
+
+private:
+  friend Debugger;
+
+  /// Callers should use Debugger::GetSafeAutoLoadPaths since it
+  /// accounts for default paths configured via CMake.
   FileSpecList GetSafeAutoLoadPaths() const;
 };
 #endif

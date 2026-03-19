@@ -634,3 +634,36 @@ TEST_F(PlatformLocateSafePathTest,
   EXPECT_EQ(file_specs.GetSize(), 0u);
   EXPECT_TRUE(ss.GetString().empty());
 }
+
+TEST_F(PlatformLocateSafePathTest,
+       LocateScriptingResourcesFromSafePaths_RelativePaths) {
+  // Make sure we locate scripts correctly if the safe path contains a
+  // non-absolute path.
+
+  llvm::SmallString<128> inner_dir(m_tmp_root_dir);
+  llvm::sys::path::append(inner_dir, "Inner", "Dir");
+  ASSERT_FALSE(llvm::sys::fs::create_directories(inner_dir));
+
+  llvm::SmallString<128> relative_dir(inner_dir);
+  llvm::sys::path::append(relative_dir, "..", "..");
+  TestingProperties::GetGlobalTestingProperties().AppendSafeAutoLoadPaths(
+      FileSpec(relative_dir));
+
+  // Create dummy module file at <test-root>/TestModule.o
+  FileSpec module_fspec(CreateFile("TestModule.o", m_tmp_root_dir));
+  ASSERT_TRUE(module_fspec);
+
+  llvm::SmallString<128> module_dir(m_tmp_root_dir);
+  llvm::sys::path::append(module_dir, "TestModule");
+  ASSERT_FALSE(llvm::sys::fs::create_directory(module_dir));
+
+  CreateFile("TestModule.py", module_dir);
+
+  StreamString ss;
+  FileSpecList file_specs =
+      Platform::LocateExecutableScriptingResourcesFromSafePaths(
+          ss, module_fspec, *m_target_sp);
+
+  EXPECT_EQ(file_specs.GetSize(), 1u);
+  EXPECT_TRUE(ss.GetString().empty());
+}

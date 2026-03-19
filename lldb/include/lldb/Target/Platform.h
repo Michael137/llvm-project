@@ -271,14 +271,16 @@ public:
   virtual Status GetFileWithUUID(const FileSpec &platform_file,
                                  const UUID *uuid_ptr, FileSpec &local_file);
 
-  // Locate the scripting resource given a module specification.
-  //
-  // Locating the file should happen only on the local computer or using the
-  // current computers global settings.
+  /// Locate the scripting resource given a module specification.
+  ///
+  /// Locating the file should happen only on the local computer or using the
+  /// current computers global settings.
   FileSpecList LocateExecutableScriptingResources(Target *target,
                                                   Module &module,
                                                   Stream &feedback_stream);
 
+  /// Locate the platform-specific scripting resource given a module
+  /// specification.
   virtual FileSpecList
   LocateExecutableScriptingResourcesImpl(Target *target, Module &module,
                                          Stream &feedback_stream);

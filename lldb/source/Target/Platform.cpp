@@ -179,18 +179,19 @@ FileSpecList Platform::LocateExecutableScriptingResourcesFromSafePaths(
   for (FileSpec path : llvm::reverse(paths)) {
     path.AppendPathComponent(sanitized_name.GetOriginalName());
 
+    // Resolve relative paths and '~'.
+    FileSystem::Instance().Resolve(path);
+
     if (!FileSystem::Instance().Exists(path))
       continue;
 
     FileSpec script_fspec = path;
     script_fspec.AppendPathComponent(
         llvm::formatv("{0}.py", sanitized_name.GetSanitizedName()).str());
-    FileSystem::Instance().Resolve(script_fspec);
 
     FileSpec orig_script_fspec = path;
     orig_script_fspec.AppendPathComponent(
         llvm::formatv("{0}.py", sanitized_name.GetOriginalName()).str());
-    FileSystem::Instance().Resolve(orig_script_fspec);
 
     WarnIfInvalidUnsanitizedScriptExists(feedback_stream, sanitized_name,
                                          orig_script_fspec, script_fspec);

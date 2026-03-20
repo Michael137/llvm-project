@@ -282,7 +282,7 @@ public:
   /// Locate the platform-specific scripting resource given a module
   /// specification.
   virtual FileSpecList
-  LocateExecutableScriptingResourcesImpl(Target *target, Module &module,
+  LocateExecutableScriptingResourcesForPlatform(Target *target, Module &module,
                                          Stream &feedback_stream);
 
   /// Helper function for \c LocateExecutableScriptingResources

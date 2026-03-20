@@ -208,7 +208,7 @@ FileSpecList Platform::LocateExecutableScriptingResourcesFromSafePaths(
 }
 
 FileSpecList
-Platform::LocateExecutableScriptingResourcesImpl(Target *target, Module &module,
+Platform::LocateExecutableScriptingResourcesForPlatform(Target *target, Module &module,
                                                  Stream &feedback_stream) {
   return {};
 }
@@ -220,7 +220,7 @@ Platform::LocateExecutableScriptingResources(Target *target, Module &module,
     return {};
 
   // Give derived platforms a chance to locate scripting resources.
-  if (FileSpecList fspecs = LocateExecutableScriptingResourcesImpl(
+  if (FileSpecList fspecs = LocateExecutableScriptingResourcesForPlatform(
           target, module, feedback_stream);
       !fspecs.IsEmpty())
     return fspecs;

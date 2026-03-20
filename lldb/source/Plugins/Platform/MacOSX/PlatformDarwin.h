@@ -68,7 +68,7 @@ public:
                            FileSpec &sym_file) override;
 
   FileSpecList
-  LocateExecutableScriptingResourcesImpl(Target *target, Module &module_spec,
+  LocateExecutableScriptingResourcesForPlatform(Target *target, Module &module_spec,
                                          Stream &feedback_stream) override;
 
   Status GetSharedModule(const ModuleSpec &module_spec, Process *process,

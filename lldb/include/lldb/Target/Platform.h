@@ -289,7 +289,7 @@ public:
   /// which gathers FileSpecs for executable scripts from
   /// pre-configured "safe" auto-load paths.
   ///
-  /// Looks for a script at:
+  /// E.g., for Python it will look for a script at:
   ///   \c <safe-path>/<module-name>/<module-name>.py
   static FileSpecList LocateExecutableScriptingResourcesFromSafePaths(
       Stream &feedback_stream, FileSpec module_spec, const Target &target);

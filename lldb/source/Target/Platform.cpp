@@ -207,9 +207,8 @@ FileSpecList Platform::LocateExecutableScriptingResourcesFromSafePaths(
   return file_list;
 }
 
-FileSpecList
-Platform::LocateExecutableScriptingResourcesForPlatform(Target *target, Module &module,
-                                                 Stream &feedback_stream) {
+FileSpecList Platform::LocateExecutableScriptingResourcesForPlatform(
+    Target *target, Module &module, Stream &feedback_stream) {
   return {};
 }
 

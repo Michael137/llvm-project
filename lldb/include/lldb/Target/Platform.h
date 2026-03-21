@@ -283,7 +283,7 @@ public:
   /// specification.
   virtual FileSpecList
   LocateExecutableScriptingResourcesForPlatform(Target *target, Module &module,
-                                         Stream &feedback_stream);
+                                                Stream &feedback_stream);
 
   /// Helper function for \c LocateExecutableScriptingResources
   /// which gathers FileSpecs for executable scripts from

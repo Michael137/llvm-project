@@ -281,6 +281,7 @@ class CxxStandardLibraryTest(lit.formats.FileBasedTest):
             "[.]sh[.][^.]+$",
             "[.]gen[.][^.]+$",
             "[.]verify[.]cpp$",
+            "[.]split[.]sh$",
         ]
 
         sourcePath = testSuite.getSourcePath(pathInSuite)
@@ -365,6 +366,8 @@ class CxxStandardLibraryTest(lit.formats.FileBasedTest):
             return self._executeShTest(test, litConfig, steps)
         elif re.search('[.]gen[.][^.]+$', filename): # This only happens when a generator test is not supported
             return self._executeShTest(test, litConfig, [])
+        elif re.search("[.]split[.]sh$", filename):
+            return self._executeSplitTest(test, litConfig)
         else:
             return lit.Test.Result(
                 lit.Test.UNRESOLVED, "Unknown test suffix for '{}'".format(filename)
@@ -418,6 +421,34 @@ class CxxStandardLibraryTest(lit.formats.FileBasedTest):
                 f.write(content)
             yield lit.Test.Test(testSuite, (generatedFile,), localConfig)
 
+    # Split tests have following structure:
+    #
+    #    # RUN: use %{temp}/main.cpp
+    #    # RUN: use %{temp}/inputs.txt
+    #
+    #    #--- main.cpp
+    #    int main() { return 0; }
+    #
+    #    #--- input.txt
+    #    some inputs
+    #
+    # This function takes such test and creates the subfiles in the directory
+    # pointed to by the %{temp} substitution. Then it runs the original test file
+    # just like a regular shell LIT test.
+    def _executeSplitTest(self, test, litConfig):
+        with open(test.getSourcePath(), "r") as f:
+            content_to_split = f.read()
+            for subfile, content in self._splitFile(content_to_split):
+                tempDir, _ = _getTempPaths(test)
+                subfile_path = os.path.join(tempDir, subfile)
+                os.makedirs(os.path.dirname(subfile_path), exist_ok=True)
+                with open(subfile_path, "w") as sf:
+                    sf.write(content)
+
+        # Just as for regular .sh tests, the steps are already in the script.
+        steps = []
+        return self._executeShTest(test, litConfig, steps)
+
     def _splitFile(self, input):
         DELIM = r'^(//|#)---(.+)'
         lines = input.splitlines()
@@ -430,7 +461,15 @@ class CxxStandardLibraryTest(lit.formats.FileBasedTest):
                     yield (currentFile, '\n'.join(thisFileContent))
                 currentFile = match.group(2).strip()
                 thisFileContent = []
-            assert currentFile is not None, f"Some input to split-file doesn't belong to any file, input was:\n{input}"
-            thisFileContent.append(line)
+
+            # Anything before the first match line is disregarded.
+            # E.g., .split. tests put all the RUN lines before any
+            # split delimiters.
+            if currentFile is None:
+                continue
+
+            # Don't put the delimiter itself into the split content.
+            if not match:
+                thisFileContent.append(line)
         if currentFile is not None:
             yield (currentFile, '\n'.join(thisFileContent))

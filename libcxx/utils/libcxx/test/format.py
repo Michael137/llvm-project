@@ -439,8 +439,6 @@ class CxxStandardLibraryTest(lit.formats.FileBasedTest):
         with open(test.getSourcePath(), "r") as f:
             content_to_split = f.read()
             for subfile, content in self._splitFile(content_to_split):
-                # Write split content into respective subfile in the temporary
-                # directory (pointed to by the substitution %t substitution).
                 tempDir, _ = _getTempPaths(test)
                 subfile_path = os.path.join(tempDir, subfile)
                 os.makedirs(os.path.dirname(subfile_path), exist_ok=True)

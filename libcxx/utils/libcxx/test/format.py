@@ -423,13 +423,13 @@ class CxxStandardLibraryTest(lit.formats.FileBasedTest):
 
     # Split tests have following structure:
     #
-    #    // RUN: use %{temp}/main.cpp
-    #    // RUN: use %{temp}/inputs.txt
+    #    # RUN: use %{temp}/main.cpp
+    #    # RUN: use %{temp}/inputs.txt
     #
-    #    //--- main.cpp
+    #    #--- main.cpp
     #    int main() { return 0; }
     #
-    #    //--- input.txt
+    #    #--- input.txt
     #    some inputs
     #
     # This function takes such test and creates the subfiles in the directory

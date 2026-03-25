@@ -281,7 +281,7 @@ class CxxStandardLibraryTest(lit.formats.FileBasedTest):
             "[.]sh[.][^.]+$",
             "[.]gen[.][^.]+$",
             "[.]verify[.]cpp$",
-            "[.]split[.][^.]+$",
+            "[.]split[.]sh$",
         ]
 
         sourcePath = testSuite.getSourcePath(pathInSuite)
@@ -366,7 +366,7 @@ class CxxStandardLibraryTest(lit.formats.FileBasedTest):
             return self._executeShTest(test, litConfig, steps)
         elif re.search('[.]gen[.][^.]+$', filename): # This only happens when a generator test is not supported
             return self._executeShTest(test, litConfig, [])
-        elif re.search('[.]split[.][^.]+$', filename):
+        elif re.search("[.]split[.]sh$", filename):
             return self._executeSplitTest(test, litConfig)
         else:
             return lit.Test.Result(
@@ -436,20 +436,20 @@ class CxxStandardLibraryTest(lit.formats.FileBasedTest):
     # pointed to by the %{temp} substitution. Then it runs the original test file
     # just like a regular shell LIT test.
     def _executeSplitTest(self, test, litConfig):
-            with open(test.getSourcePath(), 'r') as f:
-                content_to_split = f.read()
-                for subfile, content in self._splitFile(content_to_split):
-                    # Write split content into respective subfile in the temporary
-                    # directory (pointed to by the substitution %t substitution).
-                    tempDir, _ = _getTempPaths(test)
-                    subfile_path = os.path.join(tempDir, subfile)
-                    os.makedirs(os.path.dirname(subfile_path), exist_ok=True)
-                    with open(subfile_path, 'w') as sf:
-                        sf.write(content)
+        with open(test.getSourcePath(), "r") as f:
+            content_to_split = f.read()
+            for subfile, content in self._splitFile(content_to_split):
+                # Write split content into respective subfile in the temporary
+                # directory (pointed to by the substitution %t substitution).
+                tempDir, _ = _getTempPaths(test)
+                subfile_path = os.path.join(tempDir, subfile)
+                os.makedirs(os.path.dirname(subfile_path), exist_ok=True)
+                with open(subfile_path, "w") as sf:
+                    sf.write(content)
 
-            # Just as for regular .sh tests, the steps are already in the script.
-            steps = []
-            return self._executeShTest(test, litConfig, steps)
+        # Just as for regular .sh tests, the steps are already in the script.
+        steps = []
+        return self._executeShTest(test, litConfig, steps)
 
     def _splitFile(self, input):
         DELIM = r'^(//|#)---(.+)'

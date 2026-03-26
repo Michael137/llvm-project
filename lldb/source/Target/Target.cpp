@@ -5266,6 +5266,20 @@ void TargetProperties::SetDebugUtilityExpression(bool debug) {
   SetPropertyAtIndex(idx, debug);
 }
 
+OptionValueDictionary *TargetProperties::GetAutoLoadModules() const {
+  return m_collection_sp->GetPropertyAtIndexAsOptionValueDictionary(
+      ePropertyAutoLoadModules);
+}
+
+void TargetProperties::SetAutoLoadModule(llvm::StringRef module_name,
+                                         bool should_load) {
+  OptionValueDictionary *dict = GetAutoLoadModules();
+  if (!dict)
+    return;
+  dict->SetValueForKey(module_name,
+                       std::make_shared<OptionValueBoolean>(should_load));
+}
+
 // Target::TargetEventData
 
 Target::TargetEventData::TargetEventData(const lldb::TargetSP &target_sp)

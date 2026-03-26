@@ -275,9 +275,13 @@ public:
   ///
   /// Locating the file should happen only on the local computer or using the
   /// current computers global settings.
-  FileSpecList LocateExecutableScriptingResources(Target *target,
-                                                  Module &module,
-                                                  Stream &feedback_stream);
+  ///
+  /// Returns a pair of \c FileSpecList. The first element contains
+  /// scripts that are eligible to be auto-loaded. The second element
+  /// contains the non-auto loadable scripts.
+  std::pair<FileSpecList, FileSpecList>
+  LocateExecutableScriptingResources(Target *target, Module &module,
+                                     Stream &feedback_stream);
 
   /// Locate the platform-specific scripting resource given a module
   /// specification.
@@ -289,10 +293,16 @@ public:
   /// which gathers FileSpecs for executable scripts from
   /// pre-configured "safe" auto-load paths.
   ///
+  /// Returns a pair of \c FileSpecList. The first element contains
+  /// scripts that are eligible to be auto-loaded. The second element
+  /// contains the non-auto loadable scripts.
+  ///
   /// E.g., for Python it will look for a script at:
   ///   \c <safe-path>/<module-name>/<module-name>.py
-  static FileSpecList LocateExecutableScriptingResourcesFromSafePaths(
-      Stream &feedback_stream, FileSpec module_spec, const Target &target);
+  static std::pair<FileSpecList, FileSpecList>
+  LocateExecutableScriptingResourcesFromSafePaths(Stream &feedback_stream,
+                                                  FileSpec module_spec,
+                                                  const Target &target);
 
   /// \param[in] module_spec
   ///     The ModuleSpec of a binary to find.

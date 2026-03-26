@@ -24,6 +24,7 @@
 #include "lldb/Host/Host.h"
 #include "lldb/Host/HostInfo.h"
 #include "lldb/Host/OptionParser.h"
+#include "lldb/Interpreter/OptionValueDictionary.h"
 #include "lldb/Interpreter/OptionValueFileSpec.h"
 #include "lldb/Interpreter/OptionValueProperties.h"
 #include "lldb/Interpreter/Property.h"
@@ -157,7 +158,37 @@ Status Platform::GetFileWithUUID(const FileSpec &platform_file,
   return Status();
 }
 
-FileSpecList Platform::LocateExecutableScriptingResourcesFromSafePaths(
+// FIXME: move this into lldb-private-enumerations.h?
+enum class OptionalBool {
+  eYes,
+  eNo,
+  eDontKnow,
+};
+
+/// Returns \c OptionalBool::eYes if scripting resources associated with the
+/// specified module \c FileSpec can be automatically loaded. If a module is
+/// explicitly disallowed from being auto-loaded, returns \c OptionalBool::eNo.
+/// In all other cases, returns \c OptionalBool::eDontKnow.
+static OptionalBool CanAutoLoadModule(const FileSpec &module_fspec,
+                                      const Target &target) {
+  OptionValueDictionary *names = target.GetAutoLoadModules();
+  if (!names)
+    return OptionalBool::eDontKnow;
+
+  OptionValueSP value_sp =
+      names->GetValueForKey(module_fspec.GetFileNameStrippingExtension());
+  if (!value_sp)
+    return OptionalBool::eDontKnow;
+
+  auto maybe_can_load = value_sp->GetValueAs<bool>();
+  if (!maybe_can_load)
+    return OptionalBool::eDontKnow;
+
+  return *maybe_can_load ? OptionalBool::eYes : OptionalBool::eNo;
+}
+
+std::pair<FileSpecList, FileSpecList>
+Platform::LocateExecutableScriptingResourcesFromSafePaths(
     Stream &feedback_stream, FileSpec module_spec, const Target &target) {
   assert(module_spec);
   assert(target.GetDebugger().GetScriptInterpreter());
@@ -172,7 +203,8 @@ FileSpecList Platform::LocateExecutableScriptingResourcesFromSafePaths(
           ->GetSanitizedScriptingModuleName(
               module_spec.GetFileNameStrippingExtension().GetStringRef());
 
-  FileSpecList file_list;
+  FileSpecList non_auto_load_files;
+  FileSpecList auto_load_files;
   FileSpecList paths = Debugger::GetSafeAutoLoadPaths();
 
   // Iterate in reverse so we consider the latest appended path first.
@@ -196,15 +228,20 @@ FileSpecList Platform::LocateExecutableScriptingResourcesFromSafePaths(
     WarnIfInvalidUnsanitizedScriptExists(feedback_stream, sanitized_name,
                                          orig_script_fspec, script_fspec);
 
-    if (FileSystem::Instance().Exists(script_fspec))
-      file_list.Append(script_fspec);
+    if (FileSystem::Instance().Exists(script_fspec)) {
+      OptionalBool can_auto_load = CanAutoLoadModule(module_spec, target);
+      if (can_auto_load == OptionalBool::eYes)
+        auto_load_files.Append(script_fspec);
+      else if (can_auto_load == OptionalBool::eDontKnow)
+        non_auto_load_files.Append(script_fspec);
+    }
 
     // If we successfully found a directory in a safe auto-load path
     // stop looking at any other paths.
     break;
   }
 
-  return file_list;
+  return {auto_load_files, non_auto_load_files};
 }
 
 FileSpecList Platform::LocateExecutableScriptingResourcesForPlatform(
@@ -212,7 +249,7 @@ FileSpecList Platform::LocateExecutableScriptingResourcesForPlatform(
   return {};
 }
 
-FileSpecList
+std::pair<FileSpecList, FileSpecList>
 Platform::LocateExecutableScriptingResources(Target *target, Module &module,
                                              Stream &feedback_stream) {
   if (!target)
@@ -222,7 +259,7 @@ Platform::LocateExecutableScriptingResources(Target *target, Module &module,
   if (FileSpecList fspecs = LocateExecutableScriptingResourcesForPlatform(
           target, module, feedback_stream);
       !fspecs.IsEmpty())
-    return fspecs;
+    return {{}, fspecs};
 
   const FileSpec &module_spec = module.GetFileSpec();
   if (!module_spec)

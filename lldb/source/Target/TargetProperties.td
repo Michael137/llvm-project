@@ -220,6 +220,11 @@ let Definition = "target", Path = "target" in {
   def ParallelModuleLoad: Property<"parallel-module-load", "Boolean">,
     DefaultTrue,
     Desc<"Enable loading of modules in parallel for the dynamic loader.">;
+  def AutoLoadModules
+      : Property<"auto-load-modules", "Dictionary">,
+        ElementType<"Boolean">,
+        Desc<"A list of module names and whether LLDB will auto-load scripting "
+             "resources for it from safe paths.">;
 }
 
 let Definition = "process_experimental", Path = "target.process.experimental" in {

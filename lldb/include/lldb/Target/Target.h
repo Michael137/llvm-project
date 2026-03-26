@@ -278,6 +278,10 @@ public:
 
   bool GetDebugUtilityExpression() const;
 
+  OptionValueDictionary *GetAutoLoadModules() const;
+
+  void SetAutoLoadModule(llvm::StringRef module_name, bool should_load);
+
 private:
   std::optional<bool>
   GetExperimentalPropertyValue(size_t prop_idx,

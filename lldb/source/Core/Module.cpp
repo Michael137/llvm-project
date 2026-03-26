@@ -1442,9 +1442,6 @@ bool Module::LoadScriptingResourceInTarget(Target *target, Status &error) {
   LoadScriptFromSymFile should_load =
       target->TargetProperties::GetLoadScriptFromSymbolFile();
 
-  if (should_load == eLoadScriptFromSymFileFalse)
-    return false;
-
   Debugger &debugger = target->GetDebugger();
   const ScriptLanguage script_language = debugger.GetScriptLanguage();
   if (script_language == eScriptLanguageNone)
@@ -1464,18 +1461,28 @@ bool Module::LoadScriptingResourceInTarget(Target *target, Status &error) {
   }
 
   StreamString feedback_stream;
-  FileSpecList file_specs = platform_sp->LocateExecutableScriptingResources(
-      target, *this, feedback_stream);
+  const auto [auto_load_files, non_auto_load_files] =
+      platform_sp->LocateExecutableScriptingResources(target, *this,
+                                                      feedback_stream);
 
   if (!feedback_stream.Empty())
     debugger.ReportWarning(feedback_stream.GetString().str(), debugger.GetID());
 
-  const uint32_t num_specs = file_specs.GetSize();
-  if (num_specs == 0)
-    return true;
+  for (uint32_t i = 0; i < auto_load_files.GetSize(); ++i) {
+    FileSpec scripting_fspec(auto_load_files.GetFileSpecAtIndex(i));
+    if (!FileSystem::Instance().Exists(scripting_fspec))
+      continue;
 
-  for (uint32_t i = 0; i < num_specs; ++i) {
-    FileSpec scripting_fspec(file_specs.GetFileSpecAtIndex(i));
+    if (!LoadScriptingModule(scripting_fspec, *script_interpreter, *target,
+                             error))
+      return false;
+  }
+
+  if (should_load == eLoadScriptFromSymFileFalse)
+    return !auto_load_files.IsEmpty();
+
+  for (uint32_t i = 0; i < non_auto_load_files.GetSize(); ++i) {
+    FileSpec scripting_fspec(non_auto_load_files.GetFileSpecAtIndex(i));
     if (!FileSystem::Instance().Exists(scripting_fspec))
       continue;
 

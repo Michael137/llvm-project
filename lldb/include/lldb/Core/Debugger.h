@@ -149,7 +149,7 @@ public:
   /// scripting resources from. Currently whether to load scripts
   /// unconditionally is controlled via the
   /// `target.load-script-from-symbol-file` setting.
-  static FileSpecList GetSafeAutoLoadPaths();
+  FileSpecList GetSafeAutoLoadPaths();
 
   void Clear();
 

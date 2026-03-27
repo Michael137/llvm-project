@@ -2596,6 +2596,19 @@ StructuredData::DictionarySP Debugger::GetBuildConfiguration() {
 FileSpecList Debugger::GetSafeAutoLoadPaths() {
   FileSpecList fspecs = GetDefaultSafeAutoLoadPaths();
 
+  // Add platform-specific safe-paths.
+  if (TargetSP target_sp = GetSelectedTarget()) {
+    if (PlatformSP platform_sp = GetPlatformList().GetSelectedPlatform()) {
+      if (auto platform_fspecs_or_err = platform_sp->GetSafeAutoLoadPaths(*target_sp))
+        fspecs.Append(*platform_fspecs_or_err);
+      else
+        LLDB_LOG_ERROR(
+            GetLog(LLDBLog::Modules | LLDBLog::Platform), platform_fspecs_or_err.takeError(),
+            "Skipping safe auto-load path: {0}");
+    }
+  }
+
+  // Properties for testing get added last so they take priority.
 #ifndef NDEBUG
   for (const auto &fspec :
        TestingProperties::GetGlobalTestingProperties().GetSafeAutoLoadPaths())

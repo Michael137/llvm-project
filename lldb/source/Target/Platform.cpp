@@ -41,6 +41,7 @@
 #include "lldb/Utility/Log.h"
 #include "lldb/Utility/Status.h"
 #include "lldb/Utility/StructuredData.h"
+#include "lldb/lldb-private-enumerations.h"
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/FormatVariadic.h"
@@ -158,33 +159,26 @@ Status Platform::GetFileWithUUID(const FileSpec &platform_file,
   return Status();
 }
 
-// FIXME: move this into lldb-private-enumerations.h?
-enum class OptionalBool {
-  eYes,
-  eNo,
-  eDontKnow,
-};
-
-/// Returns \c OptionalBool::eYes if scripting resources associated with the
+/// Returns \c eLazyBoolNo if scripting resources associated with the
 /// specified module \c FileSpec can be automatically loaded. If a module is
-/// explicitly disallowed from being auto-loaded, returns \c OptionalBool::eNo.
-/// In all other cases, returns \c OptionalBool::eDontKnow.
-static OptionalBool CanAutoLoadModule(const FileSpec &module_fspec,
-                                      const Target &target) {
+/// explicitly disallowed from being auto-loaded, returns \c eLazyBoolNo.
+/// In all other cases, returns \c eDontKnow.
+static LazyBool CanAutoLoadModule(const FileSpec &module_fspec,
+                                  const Target &target) {
   OptionValueDictionary *names = target.GetAutoLoadScriptsForModules();
   if (!names)
-    return OptionalBool::eDontKnow;
+    return eLazyBoolCalculate;
 
   OptionValueSP value_sp =
       names->GetValueForKey(module_fspec.GetFileNameStrippingExtension());
   if (!value_sp)
-    return OptionalBool::eDontKnow;
+    return eLazyBoolCalculate;
 
   auto maybe_can_load = value_sp->GetValueAs<bool>();
   if (!maybe_can_load)
-    return OptionalBool::eDontKnow;
+    return eLazyBoolCalculate;
 
-  return *maybe_can_load ? OptionalBool::eYes : OptionalBool::eNo;
+  return *maybe_can_load ? eLazyBoolYes : eLazyBoolNo;
 }
 
 std::pair<FileSpecList, FileSpecList>
@@ -229,10 +223,10 @@ Platform::LocateExecutableScriptingResourcesFromSafePaths(
                                          orig_script_fspec, script_fspec);
 
     if (FileSystem::Instance().Exists(script_fspec)) {
-      OptionalBool can_auto_load = CanAutoLoadModule(module_spec, target);
-      if (can_auto_load == OptionalBool::eYes)
+      LazyBool can_auto_load = CanAutoLoadModule(module_spec, target);
+      if (can_auto_load == eLazyBoolYes)
         auto_load_files.Append(script_fspec);
-      else if (can_auto_load == OptionalBool::eDontKnow)
+      else if (can_auto_load == eLazyBoolCalculate)
         non_auto_load_files.Append(script_fspec);
     }
 

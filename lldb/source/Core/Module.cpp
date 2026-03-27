@@ -1473,6 +1473,9 @@ bool Module::LoadScriptingResourceInTarget(Target *target, Status &error) {
     if (!FileSystem::Instance().Exists(scripting_fspec))
       continue;
 
+    LLDB_LOG(GetLog(LLDBLog::Modules), "Auto-loading {0}",
+             scripting_fspec.GetPath());
+
     if (!LoadScriptingModule(scripting_fspec, *script_interpreter, *target,
                              error))
       return false;

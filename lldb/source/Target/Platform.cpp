@@ -171,7 +171,7 @@ enum class OptionalBool {
 /// In all other cases, returns \c OptionalBool::eDontKnow.
 static OptionalBool CanAutoLoadModule(const FileSpec &module_fspec,
                                       const Target &target) {
-  OptionValueDictionary *names = target.GetAutoLoadModules();
+  OptionValueDictionary *names = target.GetAutoLoadScriptsForModules();
   if (!names)
     return OptionalBool::eDontKnow;
 

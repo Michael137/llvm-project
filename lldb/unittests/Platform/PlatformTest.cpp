@@ -703,7 +703,7 @@ TEST_F(PlatformLocateSafePathTest,
 
   CreateFile("TestModule.py", module_dir);
 
-  m_target_sp->SetAutoLoadModule("TestModule", true);
+  m_target_sp->SetAutoLoadScriptsForModules("TestModule", true);
 
   StreamString ss;
   auto [auto_load_files, non_auto_load_files] =
@@ -733,7 +733,7 @@ TEST_F(PlatformLocateSafePathTest,
 
   CreateFile("TestModule.py", module_dir);
 
-  m_target_sp->SetAutoLoadModule("TestModule", false);
+  m_target_sp->SetAutoLoadScriptsForModules("TestModule", false);
 
   StreamString ss;
   auto [auto_load_files, non_auto_load_files] =
@@ -762,7 +762,7 @@ TEST_F(PlatformLocateSafePathTest,
   CreateFile("TestModule.py", module_dir);
 
   // Set a different module in the dictionary; TestModule is not present.
-  m_target_sp->SetAutoLoadModule("SomeOtherModule", true);
+  m_target_sp->SetAutoLoadScriptsForModules("SomeOtherModule", true);
 
   StreamString ss;
   auto [auto_load_files, non_auto_load_files] =
@@ -802,8 +802,8 @@ TEST_F(PlatformLocateSafePathTest,
   ASSERT_FALSE(llvm::sys::fs::create_directory(module_b_dir));
   CreateFile("ModuleB.py", module_b_dir);
 
-  m_target_sp->SetAutoLoadModule("ModuleA", true);
-  m_target_sp->SetAutoLoadModule("ModuleB", true);
+  m_target_sp->SetAutoLoadScriptsForModules("ModuleA", true);
+  m_target_sp->SetAutoLoadScriptsForModules("ModuleB", true);
 
   {
     StreamString ss;

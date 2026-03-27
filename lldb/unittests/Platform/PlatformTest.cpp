@@ -688,7 +688,7 @@ TEST_F(PlatformLocateSafePathTest,
 
 TEST_F(PlatformLocateSafePathTest,
        LocateScriptingResourcesFromSafePaths_AutoLoadModule_True) {
-  // When a module is in target.auto-load-modules with value 'true',
+  // When a module is in target.auto-load-scripts-for-modules with value 'true',
   // its script should be returned in the auto-load list.
 
   TestingProperties::GetGlobalTestingProperties().AppendSafeAutoLoadPaths(
@@ -718,8 +718,8 @@ TEST_F(PlatformLocateSafePathTest,
 
 TEST_F(PlatformLocateSafePathTest,
        LocateScriptingResourcesFromSafePaths_AutoLoadModule_False) {
-  // When a module is in target.auto-load-modules with value 'false',
-  // its script should not appear in either list.
+  // When a module is in target.auto-load-scripts-for-modules with value
+  // 'false', its script should not appear in either list.
 
   TestingProperties::GetGlobalTestingProperties().AppendSafeAutoLoadPaths(
       FileSpec(m_tmp_root_dir));
@@ -777,8 +777,9 @@ TEST_F(PlatformLocateSafePathTest,
 
 TEST_F(PlatformLocateSafePathTest,
        LocateScriptingResourcesFromSafePaths_AutoLoadModule_Multiple) {
-  // When multiple modules are in target.auto-load-modules with value 'true',
-  // each module's script should be returned in its respective auto-load list.
+  // When multiple modules are in target.auto-load-scripts-for-modules with
+  // value 'true', each module's script should be returned in its respective
+  // auto-load list.
 
   TestingProperties::GetGlobalTestingProperties().AppendSafeAutoLoadPaths(
       FileSpec(m_tmp_root_dir));

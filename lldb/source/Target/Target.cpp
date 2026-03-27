@@ -5266,14 +5266,14 @@ void TargetProperties::SetDebugUtilityExpression(bool debug) {
   SetPropertyAtIndex(idx, debug);
 }
 
-OptionValueDictionary *TargetProperties::GetAutoLoadModules() const {
+OptionValueDictionary *TargetProperties::GetAutoLoadScriptsForModules() const {
   return m_collection_sp->GetPropertyAtIndexAsOptionValueDictionary(
-      ePropertyAutoLoadModules);
+      ePropertyAutoLoadScriptsForModules);
 }
 
-void TargetProperties::SetAutoLoadModule(llvm::StringRef module_name,
-                                         bool should_load) {
-  OptionValueDictionary *dict = GetAutoLoadModules();
+void TargetProperties::SetAutoLoadScriptsForModules(llvm::StringRef module_name,
+                                                    bool should_load) {
+  OptionValueDictionary *dict = GetAutoLoadScriptsForModules();
   if (!dict)
     return;
   dict->SetValueForKey(module_name,

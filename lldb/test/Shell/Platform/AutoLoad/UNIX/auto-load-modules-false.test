@@ -1,6 +1,6 @@
 # REQUIRES: python, asserts, !system-windows
 
-# Test that when a module is listed in target.auto-load-modules with 'false',
+# Test that when a module is listed in target.auto-load-scripts-for-modules with 'false',
 # its scripting resources are NOT loaded even when target.load-script-from-symbol-file
 # is true.
 
@@ -12,7 +12,7 @@
 # RUN: %lldb -b \
 # RUN:   -o 'settings set target.load-script-from-symbol-file true' \
 # RUN:   -o 'settings append testing.safe-auto-load-paths %t/safe-path' \
-# RUN:   -o 'settings set target.auto-load-modules TestModule=false' \
+# RUN:   -o 'settings set target.auto-load-scripts-for-modules TestModule=false' \
 # RUN:   -o 'target create %t/TestModule.out' 2>&1 \
 # RUN:   | FileCheck %s --implicit-check-not=AUTOLOAD_SUCCESS --implicit-check-not=warning
 

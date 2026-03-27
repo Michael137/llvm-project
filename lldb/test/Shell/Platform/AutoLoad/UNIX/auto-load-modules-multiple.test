@@ -1,6 +1,6 @@
 # REQUIRES: python, asserts, !system-windows
 
-# Test that multiple modules listed in target.auto-load-modules are all
+# Test that multiple modules listed in target.auto-load-scripts-for-modules are all
 # auto-loaded.
 
 # RUN: split-file %s %t
@@ -14,7 +14,7 @@
 # RUN: %lldb -b \
 # RUN:   -o 'settings set target.load-script-from-symbol-file false' \
 # RUN:   -o 'settings append testing.safe-auto-load-paths %t/safe-path' \
-# RUN:   -o 'settings set target.auto-load-modules TestModule=true libFoo=true' \
+# RUN:   -o 'settings set target.auto-load-scripts-for-modules TestModule=true libFoo=true' \
 # RUN:   -o 'target create %t/TestModule.out' 2>&1 | FileCheck %s
 
 # CHECK-DAG: MAIN_AUTOLOAD_SUCCESS

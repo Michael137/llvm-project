@@ -278,9 +278,10 @@ public:
 
   bool GetDebugUtilityExpression() const;
 
-  OptionValueDictionary *GetAutoLoadModules() const;
+  OptionValueDictionary *GetAutoLoadScriptsForModules() const;
 
-  void SetAutoLoadModule(llvm::StringRef module_name, bool should_load);
+  void SetAutoLoadScriptsForModules(llvm::StringRef module_name,
+                                    bool should_load);
 
 private:
   std::optional<bool>

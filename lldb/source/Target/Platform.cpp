@@ -41,6 +41,7 @@
 #include "lldb/Utility/Log.h"
 #include "lldb/Utility/Status.h"
 #include "lldb/Utility/StructuredData.h"
+#include "lldb/Utility/XcodeSDK.h"
 #include "lldb/lldb-private-enumerations.h"
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/Support/FileSystem.h"
@@ -181,6 +182,46 @@ static LazyBool CanAutoLoadModule(const FileSpec &module_fspec,
   return *maybe_can_load ? eLazyBoolYes : eLazyBoolNo;
 }
 
+/// Resolve a safe auto-load path that may contain a leading $SDK_ROOT marker.
+/// Uses the target's triple to determine the appropriate SDK, falling back
+/// to any macOS SDK if the triple-specific SDK cannot be found.
+/// Returns an invalid FileSpec if $SDK_ROOT cannot be resolved.
+static FileSpec ResolveSafeAutoLoadPath(FileSpec path, const Target &target) {
+  std::string path_str = path.GetPath();
+  llvm::StringRef path_ref(path_str);
+  if (!path_ref.consume_front("$SDK_ROOT"))
+    return path;
+
+  Log *log = GetLog(LLDBLog::Modules | LLDBLog::Platform);
+
+  XcodeSDK::Type sdk_type =
+      XcodeSDK::GetSDKTypeForTriple(target.GetArchitecture().GetTriple());
+  XcodeSDK sdk(XcodeSDK::Info{sdk_type, {}});
+
+  auto sdk_root_or_err = HostInfo::GetSDKRoot(HostInfo::SDKOptions{sdk});
+  if (!sdk_root_or_err) {
+    LLDB_LOG_ERROR(log, sdk_root_or_err.takeError(),
+                   "Failed to resolve SDK root for triple '{0}': {1}",
+                   target.GetArchitecture().GetTriple().str());
+
+    // Fall back to any macOS SDK.
+    sdk = XcodeSDK::GetAnyMacOS();
+    LLDB_LOG(log, "Falling back to SDK '{0}'", sdk.GetString());
+    sdk_root_or_err = HostInfo::GetSDKRoot(HostInfo::SDKOptions{sdk});
+  }
+  if (!sdk_root_or_err) {
+    LLDB_LOG_ERROR(log, sdk_root_or_err.takeError(),
+                   "Skipping safe auto-load path '$SDK_ROOT{0}': "
+                   "could not resolve SDK root: {1}",
+                   path_ref);
+    return FileSpec();
+  }
+
+  llvm::SmallString<256> resolved(*sdk_root_or_err);
+  llvm::sys::path::append(resolved, path_ref);
+  return FileSpec(resolved);
+}
+
 std::pair<FileSpecList, FileSpecList>
 Platform::LocateExecutableScriptingResourcesFromSafePaths(
     Stream &feedback_stream, FileSpec module_spec, const Target &target) {
@@ -203,6 +244,11 @@ Platform::LocateExecutableScriptingResourcesFromSafePaths(
 
   // Iterate in reverse so we consider the latest appended path first.
   for (FileSpec path : llvm::reverse(paths)) {
+    // Resolve $SDK_ROOT marker if present.
+    path = ResolveSafeAutoLoadPath(path, target);
+    if (!path)
+      continue;
+
     path.AppendPathComponent(sanitized_name.GetOriginalName());
 
     // Resolve relative paths and '~'.

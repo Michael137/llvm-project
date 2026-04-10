@@ -1564,7 +1564,8 @@ PlatformDarwin::ResolveSDKPathFromDebugInfo(CompileUnit &unit) {
   return path_or_err->str();
 }
 
-llvm::Expected<FileSpecList> PlatformDarwin::GetSafeAutoLoadPaths(const Target &target) {
+llvm::Expected<FileSpecList>
+PlatformDarwin::GetSafeAutoLoadPaths(const Target &target) {
   Log *log = GetLog(LLDBLog::Modules | LLDBLog::Platform);
 
   XcodeSDK::Type sdk_type =

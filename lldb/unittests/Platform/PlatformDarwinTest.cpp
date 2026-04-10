@@ -721,9 +721,11 @@ INSTANTIATE_TEST_SUITE_P(PlatformDarwinLocateWithSpecialCharsTest,
                              {' ', '_'}, {'.', '_'}, {'-', '_'}, {'+', 'x'}}));
 
 TEST_F(PlatformDarwinLocateTest, GetSafeAutoLoadPaths) {
-  // Tests PlatformDarwin::GetSafeAutoLoadPaths returns a path into the SDK on Darwin platforms.
+  // Tests PlatformDarwin::GetSafeAutoLoadPaths returns a path into the SDK on
+  // Darwin platforms.
 
-  auto paths_or_err = std::static_pointer_cast<PlatformDarwin>(m_platform_sp)->GetSafeAutoLoadPaths(*m_target_sp);
+  auto paths_or_err = std::static_pointer_cast<PlatformDarwin>(m_platform_sp)
+                          ->GetSafeAutoLoadPaths(*m_target_sp);
 
   ASSERT_THAT_EXPECTED(paths_or_err, llvm::Succeeded());
 

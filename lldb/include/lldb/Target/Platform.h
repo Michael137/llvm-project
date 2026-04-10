@@ -1011,7 +1011,10 @@ public:
 
   /// Returns a \c FileSpecList of safe paths to auto-load scripting resources
   /// from for a particular platform.
-  virtual llvm::Expected<FileSpecList> GetSafeAutoLoadPaths(const Target &target) { return FileSpecList(); }
+  virtual llvm::Expected<FileSpecList>
+  GetSafeAutoLoadPaths(const Target &target) {
+    return FileSpecList();
+  }
 
 protected:
   /// Create a list of ArchSpecs with the given OS and a architectures. The

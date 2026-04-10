@@ -132,6 +132,10 @@ public:
   ///     A new file to append to this file list.
   void Append(const FileSpec &file);
 
+  void Append(const FileSpecList &other) {
+    m_files.insert(end(), std::begin(other), std::end(other));
+  }
+
   /// Append a FileSpec object if unique.
   ///
   /// Appends \a file to the end of the file list if it doesn't already exist

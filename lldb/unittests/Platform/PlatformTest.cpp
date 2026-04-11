@@ -674,6 +674,18 @@ TEST_F(PlatformLocateSafePathTest,
 }
 
 TEST_F(PlatformLocateSafePathTest,
+       AutoLoadScriptsForModules_HasDefaultEntries) {
+  // Test that the auto-load-scripts-for-modules dictionary has the
+  // libc++.1=trusted default entry from the TableGen definition.
+  auto value = m_target_sp->GetAutoLoadScriptsForModule("libc++.1");
+  ASSERT_TRUE(value.has_value());
+  EXPECT_EQ(*value, eLoadScriptFromSymFileTrusted);
+
+  // Modules not in the dictionary should return nullopt.
+  EXPECT_FALSE(m_target_sp->GetAutoLoadScriptsForModule("unknown").has_value());
+}
+
+TEST_F(PlatformLocateSafePathTest,
        LocateScriptingResourcesFromSafePaths_AutoLoadScriptsForModule) {
   // Test that the LocateScriptingResourcesFromSafePaths API respects the
   // target.auto-load-scripts-for-modules setting.

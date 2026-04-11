@@ -72,6 +72,8 @@ Property::Property(const PropertyDefinition &definition)
         OptionValue::ConvertTypeToMask(
             (OptionValue::Type)definition.default_uint_value),
         definition.enum_values);
+    if (definition.default_cstr_value)
+      m_value_sp->SetValueFromString(definition.default_cstr_value);
     break;
 
   case OptionValue::eTypeEnum:

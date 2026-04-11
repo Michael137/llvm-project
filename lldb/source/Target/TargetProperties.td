@@ -226,7 +226,9 @@ let Definition = "target", Path = "target" in {
       : Property<"auto-load-scripts-for-modules", "Dictionary">,
         ElementType<"Enum">,
         EnumValues<"OptionEnumValues(g_load_script_from_sym_file_values)">,
-        Desc<"A list of module/image names and whether LLDB should auto-load scripting "
+        DefaultDictionaryEntries<["libc++.1=trusted"]>,
+        Desc<"A list of module/image names and whether LLDB should auto-load "
+             "scripting "
              "resources for it from safe paths.">;
 }
 

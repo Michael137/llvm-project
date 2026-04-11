@@ -49,10 +49,12 @@ static void emitProperty(const Record *Property, raw_ostream &OS) {
   bool hasDefaultEnumValue = Property->getValue("HasDefaultEnumValue");
   bool hasDefaultStringValue = Property->getValue("HasDefaultStringValue");
   bool hasElementType = Property->getValue("HasElementType");
+  bool hasDefaultDictEntries =
+      Property->getValue("HasDefaultDictionaryEntries");
 
   // Guarantee that every property has a default value.
   assert((hasDefaultUnsignedValue || hasDefaultEnumValue ||
-          hasDefaultStringValue || hasElementType) &&
+          hasDefaultStringValue || hasElementType || hasDefaultDictEntries) &&
          "Property must have a default value or an element type");
 
   // Guarantee that no property has both a default unsigned value and a default
@@ -101,6 +103,16 @@ static void emitProperty(const Record *Property, raw_ostream &OS) {
     } else {
       OS << "\"\"";
     }
+  } else if (hasDefaultDictEntries) {
+    auto Entries =
+        Property->getValueAsListOfStrings("DefaultDictionaryEntries");
+    OS << "\"";
+    for (size_t i = 0; i < Entries.size(); ++i) {
+      if (i > 0)
+        OS << " ";
+      OS << Entries[i];
+    }
+    OS << "\"";
   } else {
     OS << "nullptr";
   }

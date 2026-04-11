@@ -7,6 +7,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "lldb/Interpreter/OptionValues.h"
+#include "lldb/Interpreter/Property.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 
@@ -171,4 +172,41 @@ TEST(TestProperties, DeepCopy) {
   // Trigger the callback second time.
   file_list_copy_ptr->SetValueFromString("0 another/path",
                                          eVarSetOperationReplace);
+}
+
+// Test that a Property with eTypeDictionary and a default_cstr_value
+// initializes the dictionary with the provided key=value entries.
+TEST(OptionValueDictionary, DefaultValuesFromPropertyDefinition) {
+  // Set up enum values for the dictionary elements.
+  static constexpr OptionEnumValueElement g_test_enum_values[] = {
+      {0, "off", "Disabled"},
+      {1, "on", "Enabled"},
+      {2, "warn", "Warn only"},
+  };
+
+  // Create a PropertyDefinition with a default dictionary value.
+  PropertyDefinition def{
+      "test-dict",
+      OptionValue::eTypeDictionary,
+      /*global=*/false,
+      /*default_uint_value=*/OptionValue::eTypeEnum,
+      /*default_cstr_value=*/"foo=on bar=warn",
+      /*enum_values=*/OptionEnumValues(g_test_enum_values),
+      /*description=*/"test dictionary",
+  };
+
+  Property prop(def);
+  auto *dict = prop.GetValue()->GetAsDictionary();
+  ASSERT_TRUE(dict);
+  ASSERT_EQ(dict->GetNumValues(), 2u);
+
+  auto foo = dict->GetValueForKey("foo");
+  ASSERT_TRUE(foo);
+  ASSERT_TRUE(foo->GetAsEnumeration());
+  EXPECT_EQ(foo->GetAsEnumeration()->GetCurrentValue(), 1);
+
+  auto bar = dict->GetValueForKey("bar");
+  ASSERT_TRUE(bar);
+  ASSERT_TRUE(bar->GetAsEnumeration());
+  EXPECT_EQ(bar->GetAsEnumeration()->GetCurrentValue(), 2);
 }

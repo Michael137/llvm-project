@@ -56,3 +56,9 @@ class ElementType<string value> {
   string ElementType = value;
   bit HasElementType = 1;
 }
+
+// Gives a dictionary property default entries in "key=value" format.
+class DefaultDictionaryEntries<list<string> entries> {
+  list<string> DefaultDictionaryEntries = entries;
+  bit HasDefaultDictionaryEntries = 1;
+}

@@ -1675,6 +1675,23 @@ Error MetadataLoader::MetadataLoaderImpl::parseOneMetadata(
     NextMetadataNo++;
     break;
   }
+  case bitc::METADATA_PARAMETER_PACK_TYPE: {
+    if (Record.size() != 8)
+      return error("Invalid record");
+
+    IsDistinct = Record[0];
+    DINode::DIFlags Flags = static_cast<DINode::DIFlags>(Record[6]);
+
+    MetadataList.assignValue(
+        GET_OR_DISTINCT(DIParameterPackType,
+                        (Context, Record[1], getMDString(Record[2]),
+                         getMDOrNull(Record[3]), Record[4],
+                         getMDOrNull(Record[5]), Flags,
+                         getMDOrNull(Record[7]))),
+        NextMetadataNo);
+    NextMetadataNo++;
+    break;
+  }
   case bitc::METADATA_COMPOSITE_TYPE: {
     if (Record.size() < 16 || Record.size() > 26)
       return error("Invalid record");

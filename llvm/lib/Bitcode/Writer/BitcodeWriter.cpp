@@ -2449,8 +2449,8 @@ void ModuleBitcodeWriter::writeDIImportedEntity(
 void ModuleBitcodeWriter::writeDIParameterPackType(
     const DIParameterPackType *N, SmallVectorImpl<uint64_t> &Record,
     unsigned Abbrev) {
-  const unsigned SizeIsMetadata = 0x2;
-  Record.push_back(SizeIsMetadata | (unsigned)N->isDistinct());
+  Record.push_back((unsigned)N->isDistinct());
+  Record.push_back(N->getTag());
   Record.push_back(VE.getMetadataOrNullID(N->getRawName()));
   Record.push_back(VE.getMetadataOrNullID(N->getFile()));
   Record.push_back(N->getLine());
@@ -2458,7 +2458,7 @@ void ModuleBitcodeWriter::writeDIParameterPackType(
   Record.push_back(N->getFlags());
   Record.push_back(VE.getMetadataOrNullID(N->getRawElements()));
 
-  Stream.EmitRecord(bitc::METADATA_SUBRANGE_TYPE, Record, Abbrev);
+  Stream.EmitRecord(bitc::METADATA_PARAMETER_PACK_TYPE, Record, Abbrev);
   Record.clear();
 }
 

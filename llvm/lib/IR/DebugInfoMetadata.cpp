@@ -1454,7 +1454,7 @@ static ScopeT getRawRetainedNodeScopeInternal(NodeT *N) {
   auto getScopeLambda = [](auto *N) { return getScope(N); };
   return DISubprogram::visitRetainedNode<ScopeT>(
       N, getScopeLambda, getScopeLambda, getScopeLambda, getScopeLambda,
-      getScopeLambda, [](auto *N) { return nullptr; });
+      getScopeLambda, getScopeLambda, [](auto *N) { return nullptr; });
 }
 
 const DIScope *DISubprogram::getRawRetainedNodeScope(const MDNode *N) {
@@ -1598,6 +1598,22 @@ DITemplateValueParameter *DITemplateValueParameter::getImpl(
                         (Tag, Name, Type, isDefault, Value));
   Metadata *Ops[] = {Name, Type, Value};
   DEFINE_GETIMPL_STORE(DITemplateValueParameter, (Tag, isDefault), Ops);
+}
+
+DIPackNode::DIPackNode(LLVMContext &Context, StorageType Storage,
+                       unsigned ElementTag, ArrayRef<Metadata *> Ops)
+    : DINode(Context, DIPackNodeKind, Storage, dwarf::DW_TAG_pack, Ops) {
+  SubclassData32 = ElementTag;
+}
+
+DIPackNode *DIPackNode::getImpl(LLVMContext &Context, unsigned ElementTag,
+                                Metadata *Scope, MDString *Name,
+                                Metadata *Elements, StorageType Storage,
+                                bool ShouldCreate) {
+  assert(isCanonical(Name) && "Expected canonical MDString");
+  DEFINE_GETIMPL_LOOKUP(DIPackNode, (ElementTag, Scope, Name, Elements));
+  Metadata *Ops[] = {Scope, Name, Elements};
+  DEFINE_GETIMPL_STORE(DIPackNode, (ElementTag), Ops);
 }
 
 DIGlobalVariable *

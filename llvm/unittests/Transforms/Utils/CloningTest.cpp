@@ -913,6 +913,8 @@ TEST(CloneFunction, CloneFunctionWithRetainedNodes) {
       CheckRetainedNode, CheckRetainedNode, CheckRetainedNode,
       CheckRetainedNode, [](MDNode *_) {
         FAIL() << "DIGlobalVariableExpression should not be cloned.";
+      }, [](DIPackNode *){
+        FAIL() << "DIPackNode should not be cloned.";
       });
 
   auto ToDerived = [](const DIType *Ty) { return cast<DIDerivedType>(Ty); };

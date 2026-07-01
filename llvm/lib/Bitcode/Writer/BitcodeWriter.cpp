@@ -396,6 +396,8 @@ private:
   void writeDITemplateValueParameter(const DITemplateValueParameter *N,
                                      SmallVectorImpl<uint64_t> &Record,
                                      unsigned Abbrev);
+  void writeDIPackNode(const DIPackNode *N, SmallVectorImpl<uint64_t> &Record,
+                       unsigned Abbrev);
   void writeDIGlobalVariable(const DIGlobalVariable *N,
                              SmallVectorImpl<uint64_t> &Record,
                              unsigned Abbrev);
@@ -2400,6 +2402,19 @@ void ModuleBitcodeWriter::writeDITemplateValueParameter(
   Record.push_back(VE.getMetadataOrNullID(N->getValue()));
 
   Stream.EmitRecord(bitc::METADATA_TEMPLATE_VALUE, Record, Abbrev);
+  Record.clear();
+}
+
+void ModuleBitcodeWriter::writeDIPackNode(const DIPackNode *N,
+                                          SmallVectorImpl<uint64_t> &Record,
+                                          unsigned Abbrev) {
+  Record.push_back(N->isDistinct());
+  Record.push_back(N->getElementTag());
+  Record.push_back(VE.getMetadataOrNullID(N->getRawScope()));
+  Record.push_back(VE.getMetadataOrNullID(N->getRawName()));
+  Record.push_back(VE.getMetadataOrNullID(N->getRawElements()));
+
+  Stream.EmitRecord(bitc::METADATA_PACK, Record, Abbrev);
   Record.clear();
 }
 

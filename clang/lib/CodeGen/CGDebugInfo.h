@@ -707,6 +707,21 @@ public:
   /// Add call target information.
   void addCallTargetIfVirtual(const FunctionDecl *FD, llvm::CallBase *CI);
 
+  /// Create DIPackNodes for any function parameter packs in \p Args and attach
+  /// them to their subprogram's retained nodes. Called after all parameters
+  /// have been declared so that all DILocalVariable pointers are available.
+  void emitFuncParamPacks(ArrayRef<const VarDecl *> Args);
+
+private:
+  /// Create DIPackNodes for declaration subprograms. For each pack member in
+  /// \p Params, creates an unnamed parameter variable (no location) and groups
+  /// them into a DIPackNode attached to \p SP.
+  void emitDeclFuncParamPacks(llvm::DISubprogram *SP,
+                              ArrayRef<const ParmVarDecl *> Params,
+                              llvm::DIFile *Unit, unsigned Line,
+                              unsigned StartArgNo = 1);
+
+public:
 private:
   /// Amend \p I's DebugLoc with \p Group (its source atom group) and \p
   /// Rank (lower nonzero rank is higher precedence). Does nothing if \p I

@@ -3938,6 +3938,9 @@ void CodeGenFunction::EmitFunctionProlog(const CGFunctionInfo &FI,
     for (unsigned I = 0, E = Args.size(); I != E; ++I)
       EmitParmDecl(*Args[I], ArgVals[I], I + 1);
   }
+
+  if (CGDebugInfo *DI = getDebugInfo())
+    DI->emitFuncParamPacks(Args);
 }
 
 static void eraseUnusedBitCasts(llvm::Instruction *insn) {

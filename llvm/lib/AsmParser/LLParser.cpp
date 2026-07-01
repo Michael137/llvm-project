@@ -6500,6 +6500,23 @@ bool LLParser::parseDITemplateValueParameter(MDNode *&Result, bool IsDistinct) {
   return false;
 }
 
+/// parseDIPackNode:
+///   ::= !DIPackNode(elementTag: DW_TAG_template_type_parameter,
+///                  scope: !0, name: "Ts", elements: !{...})
+bool LLParser::parseDIPackNode(MDNode *&Result, bool IsDistinct) {
+#define VISIT_MD_FIELDS(OPTIONAL, REQUIRED)                                    \
+  REQUIRED(elementTag, DwarfTagField, );                                       \
+  OPTIONAL(scope, MDField, );                                                  \
+  OPTIONAL(name, MDStringField, );                                             \
+  REQUIRED(elements, MDField, );
+  PARSE_MD_FIELDS();
+#undef VISIT_MD_FIELDS
+
+  Result = GET_OR_DISTINCT(
+      DIPackNode, (Context, elementTag.Val, scope.Val, name.Val, elements.Val));
+  return false;
+}
+
 /// parseDIGlobalVariable:
 ///   ::= !DIGlobalVariable(scope: !0, name: "foo", linkageName: "foo",
 ///                         file: !1, line: 7, type: !2, isLocal: false,

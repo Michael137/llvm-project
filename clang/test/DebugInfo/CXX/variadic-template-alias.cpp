@@ -20,6 +20,6 @@ A<5, int> a;
 // CHECK: ![[int:[0-9]+]] = !DIBasicType(name: "int", size: 32, encoding: DW_ATE_signed)
 // CHECK: ![[extraData]] = !{![[I:[0-9]+]], ![[Ts:[0-9]+]]}
 // CHECK: ![[I]] = !DITemplateValueParameter(name: "I", type: ![[int]], value: i32 5)
-// CHECK: ![[Ts]] = !DITemplateValueParameter(tag: DW_TAG_GNU_template_parameter_pack, name: "Ts", value: ![[types:[0-9]+]])
+// CHECK: ![[Ts]] = !DIPackNode(elementTag: DW_TAG_template_type_parameter, name: "Ts", elements: ![[types:[0-9]+]])
 // CHECK: ![[types]] = !{![[int_template_param:[0-9]+]]}
 // CHECK: ![[int_template_param]] = !DITemplateTypeParameter(type: ![[int]])

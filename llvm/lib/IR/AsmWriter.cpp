@@ -2585,6 +2585,19 @@ static void writeDITemplateValueParameter(raw_ostream &Out,
   Out << ")";
 }
 
+static void writeDIPackNode(raw_ostream &Out, const DIPackNode *N,
+                            AsmWriterContext &WriterCtx) {
+  Out << "!DIPackNode(";
+  MDFieldPrinter Printer(Out, WriterCtx);
+  Printer.printDwarfEnum("elementTag", N->getElementTag(), dwarf::TagString,
+                         /* ShouldSkipZero */ false);
+  Printer.printMetadata("scope", N->getRawScope());
+  Printer.printString("name", N->getName());
+  Printer.printMetadata("elements", N->getRawElements(),
+                        /* ShouldSkipNull */ false);
+  Out << ")";
+}
+
 static void writeDIGlobalVariable(raw_ostream &Out, const DIGlobalVariable *N,
                                   AsmWriterContext &WriterCtx) {
   Out << "!DIGlobalVariable(";

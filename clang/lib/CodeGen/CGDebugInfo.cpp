@@ -2430,6 +2430,60 @@ bool CGDebugInfo::shouldGenerateVirtualCallSite() const {
           (CGM.getCodeGenOpts().DwarfVersion >= 5));
 }
 
+/// Returns the name of the function parameter pack that \p PVD belongs to,
+/// or an empty StringRef if it is not a pack member.
+static StringRef getFuncParamPackName(const ParmVarDecl *PVD) {
+  auto *FD = dyn_cast<FunctionDecl>(PVD->getDeclContext());
+  if (!FD)
+    return {};
+  auto *FTSI = FD->getTemplateSpecializationInfo();
+  if (!FTSI)
+    return {};
+  unsigned SpecIdx = PVD->getFunctionScopeIndex();
+  unsigned NonPackCount = 0;
+  for (const ParmVarDecl *PP :
+       FTSI->getTemplate()->getTemplatedDecl()->parameters()) {
+    if (PP->isParameterPack())
+      return SpecIdx >= NonPackCount ? PP->getName() : StringRef{};
+    ++NonPackCount;
+  }
+  return {};
+}
+
+void CGDebugInfo::emitDeclFuncParamPacks(llvm::DISubprogram *SP,
+                                         ArrayRef<const ParmVarDecl *> Params,
+                                         llvm::DIFile *Unit, unsigned Line,
+                                         unsigned StartArgNo) {
+  struct PackGroup {
+    StringRef Name;
+    SmallVector<llvm::Metadata *, 4> Elements;
+  };
+  SmallVector<PackGroup, 2> PackGroups;
+  unsigned ArgNo = StartArgNo;
+  for (const ParmVarDecl *PD : Params) {
+    StringRef PackName = getFuncParamPackName(PD);
+    if (!PackName.empty()) {
+      auto *Type = getOrCreateType(PD->getType(), Unit);
+      auto *Var = DBuilder.createParameterVariable(
+          SP, StringRef(), ArgNo, Unit, Line, Type,
+          /*AlwaysPreserve=*/false, llvm::DINode::FlagZero);
+      auto *PackIt = llvm::find_if(
+          PackGroups, [&](const PackGroup &G) { return G.Name == PackName; });
+      if (PackIt == PackGroups.end()) {
+        PackGroups.push_back({PackName, {}});
+        PackIt = std::prev(PackGroups.end());
+      }
+      PackIt->Elements.push_back(Var);
+    }
+    ++ArgNo;
+  }
+  for (auto &Pack : PackGroups) {
+    auto Elements = DBuilder.getOrCreateArray(Pack.Elements);
+    DBuilder.createPack(Pack.Name, llvm::dwarf::DW_TAG_formal_parameter,
+                        Elements, SP);
+  }
+}
+
 llvm::DISubprogram *CGDebugInfo::CreateCXXMemberFunction(
     const CXXMethodDecl *Method, llvm::DIFile *Unit, llvm::DIType *RecordTy) {
   assert(Method);
@@ -2548,6 +2602,11 @@ llvm::DISubprogram *CGDebugInfo::CreateCXXMemberFunction(
       CGM.getCodeGenOpts().DebugKeyInstructions);
 
   SPCache[Method->getCanonicalDecl()].reset(SP);
+
+  // 'this' is arg 1 for member functions, so explicit params start at arg 2.
+  emitDeclFuncParamPacks(SP, Method->parameters(),
+                         MethodDefUnit ? MethodDefUnit : Unit, MethodLine,
+                         /*StartArgNo=*/2);
 
   return SP;
 }
@@ -2763,11 +2822,23 @@ CGDebugInfo::CollectTemplateParams(std::optional<TemplateArgs> OArgs,
           TheCU, Name, nullptr, QualName, defaultParameter));
       break;
     }
-    case TemplateArgument::Pack:
-      TemplateParams.push_back(DBuilder.createTemplateParameterPack(
-          TheCU, Name, nullptr,
-          CollectTemplateParams({{nullptr, TA.getPackAsArray()}}, Unit)));
+    case TemplateArgument::Pack: {
+      llvm::DINodeArray Elems =
+          CollectTemplateParams({{nullptr, TA.getPackAsArray()}}, Unit);
+      // Determine the element tag from the first collected element, or from the
+      // template parameter declaration when the pack is empty.
+      unsigned ElemTag = llvm::dwarf::DW_TAG_template_type_parameter;
+      if (Elems.get() && Elems.get()->getNumOperands() > 0) {
+        if (auto *N = dyn_cast<llvm::DINode>(Elems.get()->getOperand(0).get()))
+          ElemTag = N->getTag();
+      } else if (Args.TList) {
+        // Empty pack: infer tag from the template parameter kind.
+        if (!isa<TemplateTypeParmDecl>(Args.TList->getParam(i)))
+          ElemTag = llvm::dwarf::DW_TAG_template_value_parameter;
+      }
+      TemplateParams.push_back(DBuilder.createPack(Name, ElemTag, Elems));
       break;
+    }
     case TemplateArgument::Expression: {
       const Expr *E = TA.getAsExpr();
       QualType T = E->getType();
@@ -4597,6 +4668,50 @@ void CGDebugInfo::collectFunctionDeclProps(GlobalDecl GD, llvm::DIFile *Unit,
   }
 }
 
+/// Returns the name of the function parameter pack that \p PVD belongs to,
+/// or an empty StringRef if it is not a pack member.
+void CGDebugInfo::emitFuncParamPacks(ArrayRef<const VarDecl *> Args) {
+  // Group pack-member DILocalVariables by (subprogram, pack name), then create
+  // one DIPackNode per group and attach it to the subprogram's retained nodes.
+  struct PackGroup {
+    StringRef Name;
+    SmallVector<llvm::Metadata *, 4> Elements;
+  };
+  llvm::MapVector<llvm::DISubprogram *, SmallVector<PackGroup, 2>> Groups;
+
+  for (const VarDecl *VD : Args) {
+    const auto *PVD = dyn_cast<ParmVarDecl>(VD);
+    if (!PVD)
+      continue;
+    StringRef PackName = getFuncParamPackName(PVD);
+    if (PackName.empty())
+      continue;
+    auto It = ParamDbgMappings.find(PVD);
+    if (It == ParamDbgMappings.end())
+      continue;
+    llvm::DILocalVariable *DIVar = It->second;
+    auto *SP = cast<llvm::DISubprogram>(DIVar->getScope());
+    auto &Packs = Groups[SP];
+    auto *PackIt = llvm::find_if(
+        Packs, [&](const PackGroup &P) { return P.Name == PackName; });
+    if (PackIt == Packs.end()) {
+      Packs.push_back({PackName, {}});
+      PackIt = std::prev(Packs.end());
+    }
+    PackIt->Elements.push_back(DIVar);
+  }
+
+  for (auto &[SP, Packs] : Groups) {
+    for (auto &Pack : Packs) {
+      if (Pack.Elements.empty())
+        continue;
+      auto Elements = DBuilder.getOrCreateArray(Pack.Elements);
+      DBuilder.createPack(Pack.Name, llvm::dwarf::DW_TAG_formal_parameter,
+                          Elements, SP);
+    }
+  }
+}
+
 void CGDebugInfo::collectVarDeclProps(const VarDecl *VD, llvm::DIFile *&Unit,
                                       unsigned &LineNo, QualType &T,
                                       StringRef &Name, StringRef &LinkageName,
@@ -5114,14 +5229,15 @@ void CGDebugInfo::EmitFunctionDecl(GlobalDecl GD, SourceLocation Loc,
       SPFlags, TParamsArray.get(), nullptr, nullptr, Annotations,
       /*TargetFunctionName*/ "", /*UseKeyInstructions*/ false);
 
-  // Preserve btf_decl_tag attributes for parameters of extern functions
-  // for BPF target. The parameters created in this loop are attached as
-  // DISubprogram's retainedNodes in the DIBuilder::finalize() call.
-  if (IsDeclForCallSite && CGM.getTarget().getTriple().isBPF()) {
-    if (auto *FD = dyn_cast<FunctionDecl>(D)) {
-      llvm::DITypeArray ParamTypes = STy->getTypeArray();
+  if (auto *FD = dyn_cast<FunctionDecl>(D)) {
+    llvm::DITypeArray ParamTypes = STy->getTypeArray();
+
+    // Preserve btf_decl_tag attributes for parameters of extern functions
+    // for BPF target. The parameters created in this loop are attached as
+    // DISubprogram's retainedNodes in the DIBuilder::finalize() call.
+    if (IsDeclForCallSite && CGM.getTarget().getTriple().isBPF()) {
       unsigned ArgNo = 1;
-      for (ParmVarDecl *PD : FD->parameters()) {
+      for (const ParmVarDecl *PD : FD->parameters()) {
         llvm::DINodeArray ParamAnnotations = CollectBTFDeclTagAnnotations(PD);
         DBuilder.createParameterVariable(
             SP, PD->getName(), ArgNo, Unit, LineNo, ParamTypes[ArgNo], true,
@@ -5129,6 +5245,12 @@ void CGDebugInfo::EmitFunctionDecl(GlobalDecl GD, SourceLocation Loc,
         ++ArgNo;
       }
     }
+
+    // Non-static member functions have 'this' as arg 1; explicit params start
+    // at arg 2. Free functions and static members start at arg 1.
+    const auto *MD = dyn_cast<CXXMethodDecl>(FD);
+    unsigned StartArgNo = (MD && !MD->isStatic()) ? 2 : 1;
+    emitDeclFuncParamPacks(SP, FD->parameters(), Unit, LineNo, StartArgNo);
   }
 
   if (IsDeclForCallSite)
@@ -5493,8 +5615,13 @@ llvm::DILocalVariable *CGDebugInfo::EmitDeclare(const VarDecl *VD,
   llvm::DILocalVariable *D = nullptr;
   if (ArgNo) {
     llvm::DINodeArray Annotations = CollectBTFDeclTagAnnotations(VD);
+    // Pack members are emitted without a name; the DIPackNode carries it.
+    StringRef VarName = Name;
+    if (const auto *PVD = dyn_cast<ParmVarDecl>(VD))
+      if (!getFuncParamPackName(PVD).empty())
+        VarName = StringRef();
     D = DBuilder.createParameterVariable(
-        Scope, Name, *ArgNo, Unit, Line, Ty,
+        Scope, VarName, *ArgNo, Unit, Line, Ty,
         CGM.getCodeGenOpts().OptimizationLevel != 0, Flags, Annotations);
   } else {
     // For normal local variable, we will try to find out whether 'VD' is the

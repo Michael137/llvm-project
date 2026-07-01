@@ -75,7 +75,7 @@ TC
 // CHECK: [[TCARG6]] = !DITemplateValueParameter(name: "f", type: [[FUNPTR:![0-9]*]], value: ptr @_ZN3foo1gEv)
 // CHECK: [[FUNPTR]] = !DIDerivedType(tag: DW_TAG_pointer_type, baseType: [[FUNTYPE]]
   &foo::g,
-// CHECK: [[TCARG7]] = !DITemplateValueParameter(tag: DW_TAG_GNU_template_parameter_pack, name: "Is", value: [[TCARG7_VALS:![0-9]*]])
+// CHECK: [[TCARG7]] = !DIPackNode(elementTag: DW_TAG_template_value_parameter, name: "Is", elements: [[TCARG7_VALS:![0-9]*]])
 // CHECK: [[TCARG7_VALS]] = !{[[TCARG7_1:![0-9]*]], [[TCARG7_2:![0-9]*]], [[TCARG7_3:![0-9]*]]}
 // CHECK: [[TCARG7_1]] = !DITemplateValueParameter(type: [[INT]], value: i32 1)
   1,
@@ -114,7 +114,7 @@ TC
   nullptr,
 // CHECK: [[TCNARG6]] = !DITemplateValueParameter(name: "f", type: [[FUNPTR]], value: i8 0)
   nullptr
-// CHECK: [[TCNARG7]] = !DITemplateValueParameter(tag: DW_TAG_GNU_template_parameter_pack, name: "Is", value: [[EMPTY]])
+// CHECK: [[TCNARG7]] = !DIPackNode(elementTag: DW_TAG_template_value_parameter, name: "Is", elements: [[EMPTY]])
   > tcn;
 
 template<typename>

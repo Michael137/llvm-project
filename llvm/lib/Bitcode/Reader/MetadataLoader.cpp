@@ -2212,6 +2212,19 @@ Error MetadataLoader::MetadataLoaderImpl::parseOneMetadata(
     NextMetadataNo++;
     break;
   }
+  case bitc::METADATA_PACK: {
+    if (Record.size() != 5)
+      return error("Invalid record");
+
+    IsDistinct = Record[0];
+    MetadataList.assignValue(
+        GET_OR_DISTINCT(DIPackNode,
+                        (Context, Record[1], getMDOrNull(Record[2]),
+                         getMDString(Record[3]), getMDOrNull(Record[4]))),
+        NextMetadataNo);
+    NextMetadataNo++;
+    break;
+  }
   case bitc::METADATA_GLOBAL_VAR: {
     if (Record.size() < 11 || Record.size() > 13)
       return error("Invalid record");

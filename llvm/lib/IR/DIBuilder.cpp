@@ -610,12 +610,12 @@ DIBuilder::createTemplateTemplateParameter(DIScope *Context, StringRef Name,
       IsDefault, MDString::get(VMContext, Val));
 }
 
-DITemplateValueParameter *
-DIBuilder::createTemplateParameterPack(DIScope *Context, StringRef Name,
-                                       DIType *Ty, DINodeArray Val) {
-  return createTemplateValueParameterHelper(
-      VMContext, dwarf::DW_TAG_GNU_template_parameter_pack, Context, Name, Ty,
-      false, Val.get());
+DIPackNode *DIBuilder::createPack(StringRef Name, unsigned ElementTag,
+                                  DINodeArray Elements, DILocalScope *Scope) {
+  auto *Pack = DIPackNode::get(VMContext, ElementTag, Scope, Name, Elements);
+  if (Scope)
+    getSubprogramNodesTrackingVector(Scope).emplace_back(Pack);
+  return Pack;
 }
 
 DICompositeType *DIBuilder::createClassType(

@@ -1197,6 +1197,29 @@ template <> struct MDNodeKeyImpl<DITemplateValueParameter> {
   }
 };
 
+template <> struct MDNodeKeyImpl<DIPackNode> {
+  unsigned ElementTag;
+  Metadata *Scope;
+  MDString *Name;
+  Metadata *Elements;
+
+  MDNodeKeyImpl(unsigned ElementTag, Metadata *Scope, MDString *Name,
+                Metadata *Elements)
+      : ElementTag(ElementTag), Scope(Scope), Name(Name), Elements(Elements) {}
+  MDNodeKeyImpl(const DIPackNode *N)
+      : ElementTag(N->getElementTag()), Scope(N->getRawScope()),
+        Name(N->getRawName()), Elements(N->getRawElements()) {}
+
+  bool isKeyOf(const DIPackNode *RHS) const {
+    return ElementTag == RHS->getElementTag() && Scope == RHS->getRawScope() &&
+           Name == RHS->getRawName() && Elements == RHS->getRawElements();
+  }
+
+  unsigned getHashValue() const {
+    return hash_combine(ElementTag, Scope, Name, Elements);
+  }
+};
+
 template <> struct MDNodeKeyImpl<DIGlobalVariable> {
   Metadata *Scope;
   MDString *Name;

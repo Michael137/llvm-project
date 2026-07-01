@@ -1230,10 +1230,60 @@ DIE *DwarfCompileUnit::createAndAddScopeChildren(LexicalScope *Scope,
                                                  DIE &ScopeDIE) {
   DIE *ObjectPointer = nullptr;
 
-  // Emit function arguments (order is significant).
+  // Collect function parameter packs and their member variables so we can
+  // skip standalone emission for pack members and group them under DW_TAG_pack.
+  DenseSet<const DILocalVariable *> PackMembers;
+  SmallVector<const DIPackNode *, 2> FuncParamPacks;
+  if (auto *SP = dyn_cast<DISubprogram>(Scope->getScopeNode())) {
+    for (const MDNode *N : SP->getRetainedNodes()) {
+      auto *Pack = dyn_cast<DIPackNode>(N);
+      if (!Pack || Pack->getElementTag() != dwarf::DW_TAG_formal_parameter)
+        continue;
+      FuncParamPacks.push_back(Pack);
+      for (const Metadata *Elem : Pack->getElements()->operands())
+        if (auto *Var = dyn_cast<DILocalVariable>(Elem))
+          PackMembers.insert(Var);
+    }
+  }
+
+  // Emit function arguments (order is significant), skipping pack members
+  // which are emitted inside DW_TAG_pack below.
   auto Vars = DU->getScopeVariables().lookup(Scope);
   for (auto &DV : Vars.Args)
-    ScopeDIE.addChild(constructVariableDIE(*DV.second, *Scope, ObjectPointer));
+    if (!PackMembers.count(DV.second->getVariable()))
+      ScopeDIE.addChild(
+          constructVariableDIE(*DV.second, *Scope, ObjectPointer));
+
+  // Emit DW_TAG_pack for each function parameter pack with full location info.
+  if (!FuncParamPacks.empty()) {
+    // Build a map from DILocalVariable to DbgVariable for pack member lookup.
+    DenseMap<const DILocalVariable *, DbgVariable *> ArgByVar;
+    for (auto &[ArgNo, DV] : Vars.Args)
+      ArgByVar[DV->getVariable()] = DV;
+
+    for (const DIPackNode *Pack : FuncParamPacks) {
+      dwarf::Tag ContainerTag = isCompatibleWithVersion(6)
+                                    ? dwarf::DW_TAG_pack
+                                    : dwarf::DW_TAG_GNU_formal_parameter_pack;
+      DIE &PackDIE = createAndAddDIE(ContainerTag, ScopeDIE);
+      if (!Pack->getName().empty())
+        addString(PackDIE, dwarf::DW_AT_name, Pack->getName());
+      if (isCompatibleWithVersion(6))
+        addUInt(PackDIE, dwarf::DW_AT_tag, dwarf::DW_FORM_data2,
+                Pack->getElementTag());
+
+      for (const Metadata *Elem : Pack->getElements()->operands()) {
+        auto *Var = dyn_cast<DILocalVariable>(Elem);
+        if (!Var)
+          continue;
+        auto It = ArgByVar.find(Var);
+        if (It == ArgByVar.end())
+          continue;
+        DIE *ElemDIE = constructVariableDIE(*It->second, *Scope, ObjectPointer);
+        PackDIE.addChild(ElemDIE);
+      }
+    }
+  }
 
   // Emit local variables.
   auto Locals = sortLocalVars(Vars.Locals);
@@ -1247,9 +1297,14 @@ DIE *DwarfCompileUnit::createAndAddScopeChildren(LexicalScope *Scope,
   // Track other local entities (skipped in gmlt-like data).
   // This creates mapping between CU and a set of local declarations that
   // should be emitted for subprograms in this CU.
+  // Function parameter packs are already emitted above; skip them here.
   if (!includeMinimalInlineScopes() && !Scope->getInlinedAt()) {
-    auto &LocalDecls = DD->getLocalDeclsForScope(Scope->getScopeNode());
-    DeferredLocalDecls.insert_range(LocalDecls);
+    for (const MDNode *D : DD->getLocalDeclsForScope(Scope->getScopeNode())) {
+      if (auto *Pack = dyn_cast<DIPackNode>(D))
+        if (Pack->getElementTag() == dwarf::DW_TAG_formal_parameter)
+          continue;
+      DeferredLocalDecls.insert(D);
+    }
   }
 
   // Emit inner lexical scopes.
@@ -1344,6 +1399,20 @@ void DwarfCompileUnit::constructAbstractSubprogramScopeDIE(
   if (DIE *ObjectPointer = ContextCU->createAndAddScopeChildren(Scope, *AbsDef))
     ContextCU->addDIEEntry(*AbsDef, dwarf::DW_AT_object_pointer,
                            *ObjectPointer);
+}
+
+void DwarfCompileUnit::constructRetainedPackNodeDIE(const DIPackNode *Pack) {
+  const DISubprogram *SP = Pack->getScope()->getSubprogram();
+  // Declaration packs are emitted inline during constructSubprogramArguments;
+  // only emit here for definitions (where params have debug locations).
+  if (Pack->getElementTag() == dwarf::DW_TAG_formal_parameter &&
+      !SP->isDefinition())
+    return;
+  DIE *SPDie = getAbstractScopeDIEs().lookup(SP);
+  if (!SPDie)
+    SPDie = getDIE(SP);
+  if (SPDie)
+    constructPackNodeDIE(*SPDie, Pack);
 }
 
 bool DwarfCompileUnit::useGNUAnalogForDwarf5Feature() const {

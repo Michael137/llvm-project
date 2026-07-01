@@ -316,6 +316,9 @@ public:
   DIE &getOrCreateAbstractSubprogramDIE(const DISubprogram *SP);
   void constructAbstractSubprogramScopeDIE(LexicalScope *Scope);
 
+  /// Construct a DW_TAG_pack DIE for a DIPackNode retained in a subprogram.
+  void constructRetainedPackNodeDIE(const DIPackNode *Pack);
+
   /// Whether to use the GNU analog for a DWARF5 tag, attribute, or location
   /// atom. Only applicable when emitting otherwise DWARF4-compliant debug info.
   bool useGNUAnalogForDwarf5Feature() const;

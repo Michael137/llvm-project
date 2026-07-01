@@ -935,6 +935,8 @@ StringRef llvm::dwarf::AttributeValueString(uint16_t Attr, unsigned Val) {
     return EnumKindString(Val);
   case DW_AT_language_name:
     return SourceLanguageNameString(static_cast<SourceLanguageName>(Val));
+  case DW_AT_tag:
+    return TagString(Val);
   }
 
   return StringRef();

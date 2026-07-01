@@ -414,7 +414,8 @@ void DebugInfoFinder::processSubprogram(DISubprogram *SP) {
       [this](DILocalVariable *LV) { processVariable(LV); }, [](DILabel *L) {},
       [this](DIImportedEntity *IE) { processImportedEntity(IE); },
       [this](DIType *T) { processType(T); },
-      [this](auto *GVE) { return processGlobalVariableExpression(GVE); });
+      [this](auto *GVE) { return processGlobalVariableExpression(GVE); },
+      [](DIPackNode *) {});
 }
 
 void DebugInfoFinder::processVariable(const DILocalVariable *DV) {

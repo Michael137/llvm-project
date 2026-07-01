@@ -288,7 +288,8 @@ public:
   /// \returns The index of the object parameter in \c Args if one exists.
   /// Returns std::nullopt otherwise.
   std::optional<unsigned> constructSubprogramArguments(DIE &Buffer,
-                                                       DITypeArray Args);
+                                                       DITypeArray Args,
+                                                       const DISubprogram *SP);
 
   /// Create a DIE with the given Tag, add the DIE to its parent, and
   /// call insertDIE if MD is not null.
@@ -396,6 +397,15 @@ private:
   void constructTemplateValueParameterDIE(DIE &Buffer,
                                           const DITemplateValueParameter *TVP);
 
+public:
+  /// Returns 'true' if the current DwarfVersion is compatible
+  /// with the specified \p Version.
+  bool isCompatibleWithVersion(uint16_t Version) const;
+
+protected:
+  void constructPackNodeDIE(DIE &Buffer, const DIPackNode *Pack);
+
+private:
   /// Return the default lower bound for an array.
   ///
   /// If the DWARF version doesn't handle the language, return -1.
@@ -411,10 +421,6 @@ private:
 
   virtual bool isDwoUnit() const = 0;
   const MCSymbol *getCrossSectionRelativeBaseAddress() const override;
-
-  /// Returns 'true' if the current DwarfVersion is compatible
-  /// with the specified \p Version.
-  bool isCompatibleWithVersion(uint16_t Version) const;
 
   /// addSectionDelta - Add a label delta attribute data and value.
   void addSectionDelta(DIE &Die, dwarf::Attribute Attribute, const MCSymbol *Hi,

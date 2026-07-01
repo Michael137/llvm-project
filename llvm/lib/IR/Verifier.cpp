@@ -1334,8 +1334,8 @@ void Verifier::visitTemplateParams(const MDNode &N, const Metadata &RawParams) {
   auto *Params = dyn_cast<MDTuple>(&RawParams);
   CheckDI(Params, "invalid template params", &N, &RawParams);
   for (Metadata *Op : Params->operands()) {
-    CheckDI(Op && isa<DITemplateParameter>(Op), "invalid template parameter",
-            &N, Params, Op);
+    CheckDI(Op && (isa<DITemplateParameter>(Op) || isa<DIPackNode>(Op)),
+            "invalid template parameter", &N, Params, Op);
   }
 }
 
@@ -1546,10 +1546,10 @@ void Verifier::visitDISubprogram(const DISubprogram &N) {
       auto True = [](const Metadata *) { return true; };
       auto False = [](const Metadata *) { return false; };
       bool IsTypeCorrect = DISubprogram::visitRetainedNode<bool>(
-          Op, True, True, True, True, True, False);
+          Op, True, True, True, True, True, True, False);
       CheckDI(IsTypeCorrect,
               "invalid retained nodes, expected DILocalVariable, DILabel, "
-              "DIImportedEntity, DIType or DIGlobalVariableExpression",
+              "DIImportedEntity, DIType, DIGlobalVariableExpression or DIPackNode",
               &N, Node, Op);
 
       auto *RetainedNode = cast<MDNode>(Op);
@@ -1699,6 +1699,14 @@ void Verifier::visitDITemplateValueParameter(
               N.getTag() == dwarf::DW_TAG_GNU_template_template_param ||
               N.getTag() == dwarf::DW_TAG_GNU_template_parameter_pack,
           "invalid tag", &N);
+}
+
+void Verifier::visitDIPackNode(const DIPackNode &N) {
+  CheckDI(N.getTag() == dwarf::DW_TAG_pack, "invalid tag", &N);
+  if (auto *S = N.getRawScope())
+    CheckDI(isa<DILocalScope>(S), "invalid scope", &N, S);
+  CheckDI(N.getRawElements() && isa<MDTuple>(N.getRawElements()),
+          "invalid elements", &N, N.getRawElements());
 }
 
 void Verifier::visitDIVariable(const DIVariable &N) {

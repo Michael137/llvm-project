@@ -567,6 +567,8 @@ void DwarfUnit::addTemplateParams(DIE &Buffer, DINodeArray TParams) {
       constructTemplateTypeParameterDIE(Buffer, TTP);
     else if (auto *TVP = dyn_cast<DITemplateValueParameter>(Element))
       constructTemplateValueParameterDIE(Buffer, TVP);
+    else if (auto *Pack = dyn_cast<DIPackNode>(Element))
+      constructPackNodeDIE(Buffer, Pack);
   }
 }
 
@@ -936,14 +938,36 @@ void DwarfUnit::constructTypeDIE(DIE &Buffer, const DIDerivedType *DTy) {
 }
 
 std::optional<unsigned>
-DwarfUnit::constructSubprogramArguments(DIE &Buffer, DITypeArray Args) {
+DwarfUnit::constructSubprogramArguments(DIE &Buffer, DITypeArray Args,
+                                        const DISubprogram *SP) {
+  // For declaration subprograms, build a map from type-array index to the
+  // DIPackNode that owns that parameter so we can emit DW_TAG_pack in-place
+  // instead of bare DW_TAG_formal_parameter entries.
+  DenseMap<unsigned, const DIPackNode *> IndexToPackMap;
+  if (SP && !SP->isDefinition()) {
+    for (const auto *N : SP->getRetainedNodes()) {
+      auto *Pack = dyn_cast<DIPackNode>(N);
+      if (!Pack || Pack->getElementTag() != dwarf::DW_TAG_formal_parameter)
+        continue;
+      for (const auto *Elem : Pack->getElements())
+        if (auto *LV = dyn_cast<DILocalVariable>(Elem))
+          IndexToPackMap[LV->getArg()] = Pack;
+    }
+  }
+
   // Args[0] is the return type.
   std::optional<unsigned> ObjectPointerIndex;
+  SmallPtrSet<const DIPackNode *, 4> EmittedPacks;
   for (unsigned i = 1, N = Args.size(); i < N; ++i) {
     const DIType *Ty = Args[i];
     if (!Ty) {
       assert(i == N-1 && "Unspecified parameter must be the last argument");
       createAndAddDIE(dwarf::DW_TAG_unspecified_parameters, Buffer);
+    } else if (auto It = IndexToPackMap.find(i); It != IndexToPackMap.end()) {
+      // This parameter belongs to a function parameter pack. Emit the entire
+      // DW_TAG_pack at the position of the first member; skip subsequent ones.
+      if (EmittedPacks.insert(It->second).second)
+        constructPackNodeDIE(Buffer, It->second);
     } else {
       DIE &Arg = createAndAddDIE(dwarf::DW_TAG_formal_parameter, Buffer);
       addType(Arg, Ty);
@@ -972,7 +996,7 @@ void DwarfUnit::constructTypeDIE(DIE &Buffer, const DISubroutineType *CTy) {
   if (Elements.size() == 2 && !Elements[1])
     isPrototyped = false;
 
-  constructSubprogramArguments(Buffer, Elements);
+  constructSubprogramArguments(Buffer, Elements, /*SP=*/nullptr);
 
   // Add prototype flag if we're dealing with a C language and the function has
   // been prototyped.
@@ -1320,6 +1344,44 @@ void DwarfUnit::constructTemplateValueParameterDIE(
   }
 }
 
+void DwarfUnit::constructPackNodeDIE(DIE &Buffer, const DIPackNode *Pack) {
+  // For DWARFv6+, emit DW_TAG_pack with DW_AT_tag identifying the child kind.
+  // For older DWARF, fall back to the GNU extension tags.
+  unsigned ElementTag = Pack->getElementTag();
+  dwarf::Tag ContainerTag;
+  if (isCompatibleWithVersion(6)) {
+    ContainerTag = dwarf::DW_TAG_pack;
+  } else {
+    // Choose the GNU extension tag based on the child element kind.
+    ContainerTag = (ElementTag == dwarf::DW_TAG_formal_parameter)
+                       ? dwarf::DW_TAG_GNU_formal_parameter_pack
+                       : dwarf::DW_TAG_GNU_template_parameter_pack;
+  }
+
+  DIE &PackDIE = createAndAddDIE(ContainerTag, Buffer);
+  if (!Pack->getName().empty())
+    addString(PackDIE, dwarf::DW_AT_name, Pack->getName());
+  if (isCompatibleWithVersion(6))
+    addUInt(PackDIE, dwarf::DW_AT_tag, dwarf::DW_FORM_data2, ElementTag);
+
+  // Emit children. Template parameter elements use the template param path;
+  // function parameter elements (DILocalVariable) emit as formal parameters
+  // with type info only (location is handled by the standard variable path).
+  for (const auto *Elem : Pack->getElements()) {
+    if (auto *TTP = dyn_cast<DITemplateTypeParameter>(Elem))
+      constructTemplateTypeParameterDIE(PackDIE, TTP);
+    else if (auto *TVP = dyn_cast<DITemplateValueParameter>(Elem))
+      constructTemplateValueParameterDIE(PackDIE, TVP);
+    else if (auto *LV = dyn_cast<DILocalVariable>(Elem)) {
+      DIE &FormalDIE = createAndAddDIE(dwarf::DW_TAG_formal_parameter, PackDIE);
+      if (!LV->getName().empty())
+        addString(FormalDIE, dwarf::DW_AT_name, LV->getName());
+      if (LV->getType())
+        addType(FormalDIE, LV->getType());
+    }
+  }
+}
+
 DIE *DwarfUnit::getOrCreateNameSpace(const DINamespace *NS) {
   // Construct the context before querying for the existence of the DIE in case
   // such construction creates the DIE.
@@ -1530,7 +1592,7 @@ void DwarfUnit::applySubprogramAttributes(const DISubprogram *SP, DIE &SPDie,
     // Encode the object pointer as an index instead of a DIE reference in order
     // to minimize the affect on the .debug_info size.
     if (std::optional<unsigned> ObjectPointerIndex =
-            constructSubprogramArguments(SPDie, Args)) {
+            constructSubprogramArguments(SPDie, Args, SP)) {
       if (getDwarfDebug().tuneForLLDB() &&
           getDwarfDebug().getDwarfVersion() >= 5) {
         // 0th index in Args is the return type, hence adjust by 1. In DWARF

@@ -229,6 +229,7 @@ public:
     case DIModuleKind:
     case DIGenericSubrangeKind:
     case DIAssignIDKind:
+    case DIPackNodeKind:
       return true;
     }
   }
@@ -2563,11 +2564,13 @@ public:
   /// given functions depending on the type of the node.
   template <typename T, typename MetadataT, typename FuncLVT,
             typename FuncLabelT, typename FuncImportedEntityT,
-            typename FuncTypeT, typename FuncGVET, typename FuncUnknownT>
+            typename FuncTypeT,
+            typename FuncGVET, typename FuncPackNodeT, typename FuncUnknownT>
   static T visitRetainedNode(MetadataT *N, FuncLVT &&FuncLV,
                              FuncLabelT &&FuncLabel,
                              FuncImportedEntityT &&FuncIE, FuncTypeT &&FuncType,
-                             FuncGVET &&FuncGVE, FuncUnknownT &&FuncUnknown) {
+                             FuncGVET &&FuncGVE, FuncPackNodeT &&FuncPackNode,
+                             FuncUnknownT &&FuncUnknown) {
     static_assert(std::is_base_of_v<Metadata, MetadataT>,
                   "N must point to Metadata or const Metadata");
 
@@ -2581,6 +2584,8 @@ public:
       return FuncType(Ty);
     if (auto *GVE = dyn_cast<DIGlobalVariableExpression>(N))
       return FuncGVE(GVE);
+    if (auto *Pack = dyn_cast<DIPackNode>(N))
+      return FuncPackNode(Pack);
     return FuncUnknown(N);
   }
 
@@ -2594,13 +2599,13 @@ public:
   /// For each retained node, applies one of the given functions depending
   /// on the type of a node.
   template <typename FuncLVT, typename FuncLabelT, typename FuncImportedEntityT,
-            typename FuncTypeT, typename FuncGVET>
+            typename FuncTypeT, typename FuncGVET, typename FuncPackNodeT>
   void forEachRetainedNode(FuncLVT &&FuncLV, FuncLabelT &&FuncLabel,
                            FuncImportedEntityT &&FuncIE, FuncTypeT &&FuncType,
-                           FuncGVET &&FuncGVE) {
+                           FuncGVET &&FuncGVE, FuncPackNodeT &&FuncPackNode) {
     for (MDNode *N : getRetainedNodes())
       visitRetainedNode<void>(
-          N, FuncLV, FuncLabel, FuncIE, FuncType, FuncGVE,
+          N, FuncLV, FuncLabel, FuncIE, FuncType, FuncGVE, FuncPackNode,
           [](auto *N) { llvm_unreachable("Unexpected retained node!"); });
   }
 
@@ -3399,6 +3404,80 @@ public:
 
   static bool classof(const Metadata *MD) {
     return MD->getMetadataID() == DITemplateValueParameterKind;
+  }
+};
+
+/// A pack of debug info nodes, used to represent template parameter packs,
+/// function parameter packs, and other C++ pack constructs.
+///
+/// Emitted as DW_TAG_pack (DWARFv6+) or DW_TAG_GNU_template_parameter_pack /
+/// DW_TAG_GNU_formal_parameter_pack (GNU extension, older DWARF versions).
+/// The DW_AT_tag attribute (stored as \a getElementTag()) identifies the DWARF
+/// tag carried by each child element.
+///
+/// Uses the SubclassData32 Metadata slot for the element tag.
+/// A pack of debug info nodes representing a C++ parameter pack expansion.
+///
+/// Operand layout:
+///   0: Scope (optional DILocalScope* — set for function parameter packs in
+///      RetainedNodes; null for template parameter packs in TParamsArray)
+///   1: Name (optional MDString*)
+///   2: Elements (MDTuple*)
+class DIPackNode : public DINode {
+  friend class LLVMContextImpl;
+  friend class MDNode;
+
+  DIPackNode(LLVMContext &Context, StorageType Storage, unsigned ElementTag,
+             ArrayRef<Metadata *> Ops);
+  ~DIPackNode() = default;
+
+  static DIPackNode *getImpl(LLVMContext &Context, unsigned ElementTag,
+                             DILocalScope *Scope, StringRef Name,
+                             DINodeArray Elements, StorageType Storage,
+                             bool ShouldCreate = true) {
+    return getImpl(Context, ElementTag, static_cast<Metadata *>(Scope),
+                   getCanonicalMDString(Context, Name), Elements.get(), Storage,
+                   ShouldCreate);
+  }
+  LLVM_ABI static DIPackNode *getImpl(LLVMContext &Context, unsigned ElementTag,
+                                      Metadata *Scope, MDString *Name,
+                                      Metadata *Elements, StorageType Storage,
+                                      bool ShouldCreate = true);
+
+  TempDIPackNode cloneImpl() const {
+    return getTemporary(getContext(), getElementTag(), getScope(), getName(),
+                        getElements());
+  }
+
+public:
+  DEFINE_MDNODE_GET(DIPackNode,
+                    (unsigned ElementTag, DILocalScope *Scope, StringRef Name,
+                     DINodeArray Elements),
+                    (ElementTag, Scope, Name, Elements))
+  DEFINE_MDNODE_GET(DIPackNode,
+                    (unsigned ElementTag, Metadata *Scope, MDString *Name,
+                     Metadata *Elements),
+                    (ElementTag, Scope, Name, Elements))
+
+  TempDIPackNode clone() const { return cloneImpl(); }
+
+  /// The DWARF tag that each child element carries (DW_AT_tag).
+  unsigned getElementTag() const { return SubclassData32; }
+  /// Scope for function parameter packs (null for template parameter packs).
+  DILocalScope *getScope() const {
+    return cast_or_null<DILocalScope>(getRawScope());
+  }
+  StringRef getName() const { return getStringOperand(1); }
+  DINodeArray getElements() const {
+    return cast_or_null<MDTuple>(getOperand(2));
+  }
+
+  Metadata *getRawScope() const { return getOperand(0); }
+  MDString *getRawName() const { return getOperandAs<MDString>(1); }
+  Metadata *getRawElements() const { return getOperand(2); }
+
+  static bool classof(const Metadata *MD) {
+    return MD->getMetadataID() == DIPackNodeKind;
   }
 };
 

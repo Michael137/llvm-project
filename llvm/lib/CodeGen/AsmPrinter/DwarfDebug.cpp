@@ -1578,6 +1578,9 @@ void DwarfDebug::endModule() {
             if (Processed.insert(GV).second)
               CU->getOrCreateGlobalVariableDIE(GV, sortGlobalExprs(GVMap[GV]));
           },
+          [&](const auto *Pack) {
+            CU->constructRetainedPackNodeDIE(Pack);
+          },
           Unexpected);
 
     // Emit base types.

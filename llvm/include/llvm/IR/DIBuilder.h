@@ -710,14 +710,20 @@ namespace llvm {
     createTemplateTemplateParameter(DIScope *Scope, StringRef Name, DIType *Ty,
                                     StringRef Val, bool IsDefault = false);
 
-    /// Create debugging information for a template parameter pack.
-    /// \param Scope        Scope in which this type is defined.
-    /// \param Name         Value parameter name.
-    /// \param Ty           Parameter type.
-    /// \param Val          An array of types in the pack.
-    LLVM_ABI DITemplateValueParameter *
-    createTemplateParameterPack(DIScope *Scope, StringRef Name, DIType *Ty,
-                                DINodeArray Val);
+    /// Create a pack node representing a C++ parameter pack of any kind
+    /// (template parameter pack, function parameter pack, etc.).
+    ///
+    /// Emitted as DW_TAG_pack (DWARFv6+) or the appropriate GNU extension tag
+    /// for older DWARF versions. \p ElementTag specifies the DWARF tag that
+    /// each child element carries (e.g. DW_TAG_template_type_parameter for
+    /// template type packs, DW_TAG_formal_parameter for function packs).
+    ///
+    /// \param Name         Name of the pack parameter.
+    /// \param ElementTag   The DW_TAG_* value that each child element has.
+    /// \param Elements     Array of child DI nodes (one per pack element).
+    LLVM_ABI DIPackNode *createPack(StringRef Name, unsigned ElementTag,
+                                    DINodeArray Elements,
+                                    DILocalScope *Scope = nullptr);
 
     /// Create debugging information entry for an array.
     /// \param Size         Array size.
